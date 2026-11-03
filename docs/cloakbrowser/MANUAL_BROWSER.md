@@ -8,7 +8,12 @@ Current implementation paths:
 
 - `changedetectionio/blueprint/manual_browser/__init__.py`: authenticated HTTP endpoints and page template.
 - `changedetectionio/blueprint/manual_browser/templates/manual-browser.html`: layout; screenshot area is intended to fill remaining changedetection.io viewport height.
-- `changedetectionio/blueprint/manual_browser/static/manual-browser.js`: screenshot polling, coordinate mapping, navigation and input events.
+- `changedetectionio/blueprint/manual_browser/static/manual-browser.js`: lightweight UI entrypoint and event wiring.
+- `manual-core.js`: authenticated same-origin transport, per-login session token ownership, one ordered action queue, inspect/resume/switch/close lifecycle.
+- `manual-stream.js`: JPEG frame polling, status polling, retry/backoff and stale-frame cancellation.
+- `manual-input.js`: keyboard, pointer, drag, scroll, address navigation and screenshot-coordinate mapping.
+- `manual-layout.js`: full-height viewport and isolated manual Page viewport resize.
+- `manual-browser.css`: compact responsive layout, extracted from inline template styles.
 - `integrations/cloakbrowser-shared/changedetection_cloak_shared/manual_session.py`: manual Page, session lifetime and input execution on BrowserManager loop.
 
 ## Using the UI
@@ -24,7 +29,10 @@ A browser tab/window closing does not immediately destroy the server-side manual
 ## Session and input constraints
 
 - Human session idle timeout: 15 minutes. One expiry task belongs to each Page session and survives login-token rotation; resuming an old tab does not create another expiry task. Polling screenshots or querying status does **not** count as human activity; interacting refreshes last-active time. Browser generation changes invalidate a session.
-- Browser screenshots are JPEG frames over authenticated HTTP requests; transient HTTP 500 during navigation should be retried without assuming the remote Page has died. Terminal session/auth errors require reconnection.
+- Browser screenshots are JPEG frames over authenticated HTTP requests; transient HTTP 500 during navigation is retried without assuming the remote Page has died. Terminal session/auth errors (401/403/404/409, certain 400 failures) require reconnection.
+- The frontend records an in-memory session epoch and matches async callbacks to the current token. Late status/frame/inspection responses from a previous session are ignored, even when a prior browser tab still has in-flight requests. The token is never kept in localStorage or URL parameters.
+- Only one screenshot request runs per polling chain. The screenshot URL is revoked when replaced/closed and a hidden tab suspends polling; an abandoned server-side Page still expires under the 15-minute manager supervisor.
+- Actions run through one ordered request queue (mouse down/move/up, key, resize and navigation); non-terminal input failures are reported without permanently blocking later commands. Drag capture loss sends a matching mouse-up when the session is still active.
 - Actions are limited and validated: click, pointer move/down/up, wheel, selected keys, text (up to 512 chars), navigation, back/forward, refresh and viewport resize. URL and navigation requests go through the app's URL safety checks; popups are closed rather than being allowed to evade Page quotas.
 - The UI tracks the displayed screenshot dimensions for accurate click coordinates; the manual Page viewport can be resized independently from other watch Pages.
 - Authentication, CSRF, origin checks, per-login ownership tokens and restrictions on remote URL navigation protect the control API; keep server or Cloudflare Access controls as an additional layer. Do not expose Playwright/CDP, VNC or similar raw control ports publicly.
@@ -41,3 +49,15 @@ The container may write Profile files as UID 0. A host non-root user seeing `Per
 - Popup-based sign-in flows may not work because untracked popups are closed.
 - Human verification remains subject to target-site policies and may be requested again; no automatic CAPTCHA-solving guarantee.
 - Xvfb + noVNC and CDP screencast/WebSocket are **research options only**. They are not part of the current image or deployed remote-control code. Preserve the current working HTTP method until any alternative is explicitly implemented/tested.
+
+## Frontend verification after round 2 refactor
+
+The browser interface is still **plain JavaScript**, without build tools or framework packages. `manual-browser.html` loads five local `defer` scripts in dependency order and a local CSS file. Update all five together when changing the shared module API; versions are cache-busted in the template. Do not import JavaScript directly from a CDN.
+
+Run the frontend tests (Node 20+ recommended):
+
+```bash
+node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs
+```
+
+These tests use a simulated DOM and mocked same-origin HTTP API; they cannot substitute for real CloakBrowser tests. On the Docker host, validate initial connection, navigation/refresh, frame recovery after a temporary error, manual Page resizing, mouse drag release, URL synchronization, recovery/switch from a second tab, login ownership and authentication checks, and the watch-bound **完成并重新检查** action.

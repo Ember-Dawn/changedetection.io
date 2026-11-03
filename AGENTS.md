@@ -32,7 +32,7 @@ This repository is a modified changedetection.io deployment. **Read this file fi
 | Shared backend | `integrations/cloakbrowser-shared/changedetection_cloak_shared/` |
 | Watch processing and alerts | `changedetectionio/worker.py`, `changedetectionio/verification_alerts.py`, `changedetectionio/notification_service.py` |
 | Visual preview and browser steps | `changedetectionio/blueprint/add_watch_ui/`, `changedetectionio/blueprint/browser_steps/` |
-| Manual browser | `changedetectionio/blueprint/manual_browser/` and `changedetection_cloak_shared/manual_session.py` |
+| Manual browser | `changedetectionio/blueprint/manual_browser/` (`manual-browser.js`, `manual-core.js`, `manual-stream.js`, `manual-input.js`, `manual-layout.js`, CSS) and `changedetection_cloak_shared/manual_session.py` |
 | Tests | `tests/cloakbrowser_shared/` |
 
 ## Safe edit and verification workflow
@@ -48,3 +48,7 @@ This repository is a modified changedetection.io deployment. **Read this file fi
 ## Current vs planned
 
 Current human control is a real Chromium/Playwright Page, displayed through periodic JPEG HTTP screenshots and controlled by HTTP mouse/keyboard actions. **It is not a native streamed desktop.** CDP screencast or Xvfb/noVNC are options under discussion, **not installed or enabled**. Do not describe them as present functionality.
+
+## Manual frontend development
+
+The manual browser uses plain JS scripts in dependency order: `manual-core.js` -> `manual-stream.js` -> `manual-layout.js` -> `manual-input.js` -> `manual-browser.js`. Do not introduce an unrelated frontend bundler, a second browser process, or unauthenticated control endpoints for simple UI work. Preserve request-order guarantees and the session token/epoch checks when adding new UI features. Validate with `node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs` plus actual Playwright/CloakBrowser acceptance tests on the user's Docker host.

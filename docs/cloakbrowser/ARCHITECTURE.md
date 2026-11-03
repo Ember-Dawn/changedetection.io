@@ -54,3 +54,7 @@ There is no requirement to add another Docker container, another Chrome profile,
 ## Backend maintenance round 1 (2026-11-03)
 
 The manager retains ownership of its asyncio loop, generation, Profile lock, and all Page leases. `session_alive()` and `profile_lock_held()` are narrow read-only methods used by manual-session state; they do not expose Playwright objects to Flask threads. The upstream CloakBrowser 0.1.1 extraction wait hook remains the only automatic early-verification seam, isolated in `_check_verification_after_upstream_wait()` and covered by fake-Page tests. No remote-desktop streaming or second browser is introduced.
+
+## Manual UI modules (2026-11-03 round 2)
+
+The HTTP manual-browser API and BrowserManager continue to own sessions and Page leases. The browser UI is now split into five plain JavaScript modules: `manual-core.js` (transport and token/epoch), `manual-stream.js` (frame/status polling), `manual-input.js` (Playwright input and URL navigation), `manual-layout.js` (responsive viewport), and `manual-browser.js` (entrypoint and controls), with `manual-browser.css`. The template loads local scripts in order using `defer` (no bundler, WebSocket or new browser process). Session transitions invalidate stale async responses by token and monotonic epoch, and queued actions do not target a newer session after token rotation. All manual input still uses the authenticated `/manual-browser/api/` endpoints; it cannot close the persistent Context.

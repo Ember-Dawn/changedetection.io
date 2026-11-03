@@ -15,6 +15,8 @@ This is a **feature and patch history**, reconstructed from the maintained sourc
 | 9. Documentation consolidation | New root `AGENTS.md`, topic-centered authoritative docs, archived incident notes | **Documentation-only**; no browser/runtime behavior changes in this round |
 | 10. 2026-11-03 backend reliability/refactor round 1 | `manual_session.py`, `manager.py`, `page_readiness.py`, `verification_alerts.py`, notification queue consumer and Worker, targeted tests and docs | Single expiry supervisor survives token rotation; notification delivery acknowledgements with cooldown and pending expiry, stale-event rejection, recovery after final history persistence; retired unused preview wait helper. No UI or Docker changes. Synthetic tests only; real Chromium/Telegram acceptance required. |
 
+| 11. 2026-11-03 frontend refactor round 2 | Manual `manual-core.js`, `manual-stream.js`, `manual-input.js`, `manual-layout.js`, simplified `manual-browser.js`, extracted `manual-browser.css`, template loader, mock-based Node tests and current docs | Reuses the same backend HTTP endpoints and BrowserManager, improves stale response and pointer-capture recovery, keeps screenshot polling. Node simulated tests only; real Chromium/Docker and existing watch behavior require local acceptance. |
+
 ## Updating this log
 
 For future source changes, append a new entry with date (if known), specific paths, user-visible behavior, compatibility risks and *actual* validation performed. For uncertain claims, say “not verified” rather than marking a test passed. Only authoritative current documents should describe the desired production behavior; incident reports under history are snapshots in time.

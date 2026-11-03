@@ -48,3 +48,7 @@ Do not overwrite an existing `.env` or remove an existing Profile. Read [OPERATI
 ## Important limits
 
 One shared Context deliberately shares site state; per-watch incompatible proxy/User-Agent settings cannot be isolated. One persistent Profile must never have multiple simultaneous writers. The free CloakBrowser license was observed to permit one concurrent browser *session*, not only one Page; separate `html_cloakbrowser` launches may contend with that limit. CAPTCHA challenges still require the website to accept a human interaction; manual control is not a guarantee of passage.
+
+### Round 2: frontend consolidation (2026-11-03)
+
+Manual browser frontend was split into focused local JS modules and CSS. This is a maintainability / connection-state change only: underlying CloakBrowser, manual HTTP API, JPEG polling transport, watch scheduling, shared Profile and notification logic are unchanged. See [MANUAL_BROWSER.md](MANUAL_BROWSER.md) for file ownership and `node --test` checks. Real browser and Docker verification are still required on the deployment host.
