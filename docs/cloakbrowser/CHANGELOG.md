@@ -20,3 +20,9 @@ This is a **feature and patch history**, reconstructed from the maintained sourc
 ## Updating this log
 
 For future source changes, append a new entry with date (if known), specific paths, user-visible behavior, compatibility risks and *actual* validation performed. For uncertain claims, say “not verified” rather than marking a test passed. Only authoritative current documents should describe the desired production behavior; incident reports under history are snapshots in time.
+
+## 2026-11-03: published host port binding
+
+- `docker-compose.yml`: publish `${CHANGEDETECTION_PORT:-9901}:5000` instead of binding only to `127.0.0.1`. This permits LAN/network access subject to firewall and routing.
+- `docs/cloakbrowser/README.md` and `OPERATIONS.md`: update host exposure and security guidance.
+- No browser/session logic changed. Docker runtime and firewall behavior were not tested in this authoring environment.

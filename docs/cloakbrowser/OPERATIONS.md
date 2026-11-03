@@ -21,7 +21,7 @@ On Python/code changes rebuilt into the image: `docker compose build && docker c
 
 | Setting | Source / current behavior |
 | --- | --- |
-| Host UI port | `CHANGEDETECTION_PORT` default **9901**, mapped `127.0.0.1:9901:5000` |
+| Host UI port | `CHANGEDETECTION_PORT` default **9901**, mapped `9901:5000` (all host network interfaces) |
 | Service workers | Compose `FETCH_WORKERS=3` |
 | Shared Page permits | `CLOAKBROWSER_MAX_PAGES` default **3**; watch/preview/manual Pages count |
 | Profile directory | `CLOAKBROWSER_PROFILE_DIR=/browser-profile` in Compose |
@@ -30,7 +30,7 @@ On Python/code changes rebuilt into the image: `docker compose build && docker c
 | Original extraction delay | `WEBDRIVER_DELAY_BEFORE_CONTENT_READY` in upstream CloakBrowser fetcher and watch-specific delay; not removed |
 | Retired waits | `CLOAKBROWSER_PAGE_SETTLE_SECONDS`, `CLOAKBROWSER_CHALLENGE_WAIT_SECONDS` no longer used by active shared-preview/fetch flow |
 
-Compose mounts `./datastore:/datastore` (watches), `./cloakbrowser-home:/root/.cloakbrowser` (binary/cache) and `./browser-profile:/browser-profile` (site sessions). Protect all these and `./backups`. Host binding is loopback by default; another device cannot directly reach it without SSH forwarding or a secured reverse proxy. Application password authentication is **required** for manual browser controls; Cloudflare Tunnel routing alone does not remove this requirement.
+Compose mounts `./datastore:/datastore` (watches), `./cloakbrowser-home:/root/.cloakbrowser` (binary/cache) and `./browser-profile:/browser-profile` (site sessions). Protect all these and `./backups`. The published port now listens on all host network interfaces. LAN clients may connect via the server IP if network rules permit; Cloudflare Tunnel access depends on the cloudflared container network mode. Secure the endpoint with changedetection.io authentication and restrict ingress at the firewall/network edge. Docker port publishing may bypass simple UFW rules; verify the effective Docker/firewall policy rather than assuming the port is private. Application password authentication is **required** for manual browser controls; Cloudflare Tunnel routing alone does not remove this requirement.
 
 ## Diagnostics (no Profile changes)
 

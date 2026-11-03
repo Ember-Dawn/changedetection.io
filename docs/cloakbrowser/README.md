@@ -20,7 +20,7 @@ The repository root [`AGENTS.md`](../../AGENTS.md) is the recommended starting p
 
 ## Current at a glance
 
-- `docker-compose.yml` builds `Dockerfile.cloakbrowser`; host HTTP port defaults to `127.0.0.1:9901` and container port `5000`.
+- `docker-compose.yml` builds `Dockerfile.cloakbrowser`; host HTTP port defaults to `9901` on all host network interfaces (`0.0.0.0:9901`), mapped to container port `5000`. Restrict network access using a host firewall and require application authentication; do not assume Docker-published ports are private.
 - Python package versions are **pinned** (`cloakbrowser==0.7.0`, `changedetection.io-cloak-browser==0.1.1`). The CloakBrowser-managed Chromium binary is version-resolved/downloaded separately; check the running version using `python -m cloakbrowser info`.
 - Shared context Profile is bind-mounted at `./browser-profile:/browser-profile`. Binary/cache data is separate: `./cloakbrowser-home:/root/.cloakbrowser`. Watch settings and history are under `./datastore:/datastore`.
 - `FETCH_WORKERS=3` and default `CLOAKBROWSER_MAX_PAGES=3`. Each concurrent shared fetch leases **its own** Page, up to the available Page limit; queued checks wait. Pages close after checks, while the Profile/Context survives. A manual browser Page also consumes one permit.

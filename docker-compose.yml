@@ -11,7 +11,7 @@ services:
     shm_size: "1gb"
     stop_grace_period: 70s
     ports:
-      - "127.0.0.1:${CHANGEDETECTION_PORT:-9901}:5000"
+      - "${CHANGEDETECTION_PORT:-9901}:5000"
     environment:
       CLOAKBROWSER_LICENSE_KEY: ${CLOAKBROWSER_LICENSE_KEY:?Set a valid key in .env}
       CLOAKBROWSER_HUMANIZE: "true"
