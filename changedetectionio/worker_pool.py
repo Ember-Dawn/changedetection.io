@@ -258,6 +258,16 @@ def cancel_running_uuid(uuid, update_q=None, notification_q=None, app=None, data
     if worker_id is None:
         return {'cancelled': False, 'worker_id': None, 'replaced': False}
 
+    # Stop the shared BrowserManager task *before* brutally stopping the
+    # worker loop. Otherwise its Page could outlive a cancelled watch.
+    try:
+        from changedetection_cloak_shared.manager import manager
+        manager.cancel_watch(uuid)
+    except ImportError:
+        pass  # Optional shared integration is not installed.
+    except Exception as e:
+        logger.error(f"Error cancelling shared CloakBrowser watch {uuid}: {e}")
+
     # Find the corresponding WorkerThread and stop it.
     target = next((w for w in worker_threads if w.worker_id == worker_id), None)
     if target is not None:

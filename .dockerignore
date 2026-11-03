@@ -60,3 +60,7 @@ profile_output.prof
 # Large binary files that shouldn't be in container
 *.pdf
 chrome.json
+# Runtime data must never enter Docker build context
+datastore/
+cloakbrowser-home/
+browser-profile/

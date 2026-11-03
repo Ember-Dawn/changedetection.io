@@ -93,8 +93,15 @@ def _ensure_browser_steps_loop():
 
             logger.debug("Browser steps event loop thread started and ready")
 
-def run_async_in_browser_loop(coro):
-    """Run async coroutine using the dedicated browser steps event loop"""
+def run_async_in_browser_loop(coro, shared=False):
+    """Run a browser-steps action on the event loop owning its Playwright objects.
+
+    Shared CloakBrowser sessions are owned by BrowserManager. All other sessions
+    retain the original dedicated BrowserStepsEventLoop implementation.
+    """
+    if shared:
+        from changedetection_cloak_shared.manager import manager
+        return manager.call_sync(coro)
     _ensure_browser_steps_loop()
 
     if _browser_steps_loop and not _browser_steps_loop.is_closed():
@@ -103,6 +110,21 @@ def run_async_in_browser_loop(coro):
         return future.result()
     else:
         raise RuntimeError("Browser steps event loop is not available")
+
+def _shared_watch_backend(datastore, watch_uuid):
+    """Mirror start_browsersteps_session()'s per-watch backend resolution."""
+    watch = datastore.data['watching'].get(watch_uuid)
+    if not watch:
+        return False
+    backend = watch.get_fetch_backend or 'system'
+    if backend == 'system':
+        backend = datastore.data['settings']['application'].get('fetch_backend', 'html_requests')
+    return backend == 'html_cloakbrowser_shared'
+
+
+async def _current_step_url(browserstepper):
+    return browserstepper.page.url if browserstepper.page else None
+
 
 async def _close_session_resources(session_data, label=''):
     """Close all browser resources for a session in the correct order.
@@ -192,7 +214,7 @@ def cleanup_expired_sessions():
         session_data = browsersteps_sessions[session_id]
 
         try:
-            run_async_in_browser_loop(_close_session_resources(session_data, label=f" for session {session_id}"))
+            run_async_in_browser_loop(_close_session_resources(session_data, label=f" for session {session_id}"), shared=session_data.get('shared', False))
         except Exception as e:
             logger.error(f"Error cleaning up session {session_id}: {e}")
 
@@ -222,7 +244,7 @@ def cleanup_session_for_watch(watch_uuid):
     session_data = browsersteps_sessions.get(session_id)
     if session_data:
         try:
-            run_async_in_browser_loop(_close_session_resources(session_data, label=f" for watch {watch_uuid}"))
+            run_async_in_browser_loop(_close_session_resources(session_data, label=f" for watch {watch_uuid}"), shared=session_data.get('shared', False))
         except Exception as e:
             logger.error(f"Error cleaning up session {session_id} for watch {watch_uuid}: {e}")
 
@@ -292,6 +314,7 @@ def construct_blueprint(datastore: ChangeDetectionStore):
         )
         await browserstepper.connect(proxy=proxy)
         browsersteps_start_session['browserstepper'] = browserstepper
+        browsersteps_start_session['shared'] = fetcher_name == 'html_cloakbrowser_shared'
 
         return browsersteps_start_session
 
@@ -316,7 +339,8 @@ def construct_blueprint(datastore: ChangeDetectionStore):
         try:
             # Run the async function in the dedicated browser steps event loop
             browsersteps_sessions[browsersteps_session_id] = run_async_in_browser_loop(
-                start_browsersteps_session(watch_uuid)
+                start_browsersteps_session(watch_uuid),
+                shared=_shared_watch_backend(datastore, watch_uuid),
             )
 
             # Store the mapping of watch_uuid -> browsersteps_session_id
@@ -396,7 +420,8 @@ def construct_blueprint(datastore: ChangeDetectionStore):
                     action_name=step_operation,
                     selector=step_selector,
                     optional_value=step_optional_value
-                )
+                ),
+                shared=browsersteps_sessions[browsersteps_session_id].get('shared', False),
             )
 
         except Exception as e:
@@ -410,12 +435,16 @@ def construct_blueprint(datastore: ChangeDetectionStore):
         try:
             # Run the async get_current_state method in the dedicated browser steps event loop
             (screenshot, xpath_data) = run_async_in_browser_loop(
-                browsersteps_sessions[browsersteps_session_id]['browserstepper'].get_current_state()
+                browsersteps_sessions[browsersteps_session_id]['browserstepper'].get_current_state(),
+                shared=browsersteps_sessions[browsersteps_session_id].get('shared', False),
             )
 
             if is_last_step:
                 watch = datastore.data['watching'].get(uuid)
-                u = browsersteps_sessions[browsersteps_session_id]['browserstepper'].page.url
+                u = run_async_in_browser_loop(
+                    _current_step_url(browsersteps_sessions[browsersteps_session_id]['browserstepper']),
+                    shared=browsersteps_sessions[browsersteps_session_id].get('shared', False),
+                )
                 if watch and u:
                     watch.save_screenshot(screenshot=screenshot)
                     watch.save_xpath_data(data=xpath_data)

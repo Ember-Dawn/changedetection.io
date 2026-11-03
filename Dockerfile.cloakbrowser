@@ -81,6 +81,13 @@ RUN --mount=type=cache,id=uv,sharing=locked,target=/tmp/uv-cache \
 RUN test -f /dependencies/playwright/__init__.py || \
     (echo "ERROR: Playwright is required for CloakBrowser" >&2; exit 1)
 
+# Additional pluggy backend. Keep original dgtlmoon CloakBrowser plugin installed
+# as the isolated fallback; local backend registers as html_cloakbrowser_shared.
+COPY integrations/cloakbrowser-shared /tmp/cloakbrowser-shared
+RUN --mount=type=cache,id=uv,sharing=locked,target=/tmp/uv-cache \
+    uv pip install --target=/dependencies --no-deps /tmp/cloakbrowser-shared
+
+
 # OpenCV is optional for fast image comparison (pixelmatch is the fallback)
 # Skip on arm/v7 and arm/v8 where builds take weeks - excluded from requirements.txt
 RUN --mount=type=cache,id=uv,sharing=locked,target=/tmp/uv-cache \

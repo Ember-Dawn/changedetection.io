@@ -16,7 +16,11 @@ services:
       CLOAKBROWSER_LICENSE_KEY: ${CLOAKBROWSER_LICENSE_KEY:?Set a valid key in .env}
       CLOAKBROWSER_HUMANIZE: "true"
       FETCH_WORKERS: "3"
+      CLOAKBROWSER_PROFILE_DIR: /browser-profile
+      CLOAKBROWSER_MAX_PAGES: ${CLOAKBROWSER_MAX_PAGES:-3}
     volumes:
       - ./datastore:/datastore
       # Downloaded Chromium cache, NOT the future persistent Chrome profile
       - ./cloakbrowser-home:/root/.cloakbrowser
+      # Persistent cookies, localStorage, IndexedDB, history and fingerprint seed.
+      - ./browser-profile:/browser-profile

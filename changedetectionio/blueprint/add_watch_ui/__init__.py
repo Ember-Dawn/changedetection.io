@@ -128,7 +128,9 @@ def construct_blueprint(datastore: ChangeDetectionStore):
                 await _close_session_resources(session, label=' for add-watch snapshot')
 
         try:
-            (screenshot, xpath_data, html) = run_async_in_browser_loop(_fetch_snapshot())
+            (screenshot, xpath_data, html) = run_async_in_browser_loop(
+                _fetch_snapshot(), shared=resolved_fetcher == 'html_cloakbrowser_shared'
+            )
         except Exception as e:
             logger.error(f"Add-watch snapshot fetch failed for {url}: {e}")
             if 'ECONNREFUSED' in str(e):

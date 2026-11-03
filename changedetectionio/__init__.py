@@ -132,6 +132,16 @@ def sigshutdown_handler(_signo, _stack_frame):
     except Exception as e:
         logger.warning(f"Could not retrieve memory stats: {str(e)}")
 
+    # Close the optional shared browser before the process shuts down; this
+    # gives its persistent Chromium profile a chance to flush to disk.
+    try:
+        from changedetection_cloak_shared.manager import manager as cloak_manager
+        cloak_manager.stop()
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.error(f"Shared CloakBrowser shutdown error: {e}")
+
     # Shutdown workers and queues immediately
     try:
         from changedetectionio import worker_pool
