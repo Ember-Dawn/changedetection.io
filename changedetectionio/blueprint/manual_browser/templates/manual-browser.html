@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="box" id="manual-browser-root" style="max-width:1120px;margin:auto">
+  <h3>人工浏览器 · 共享 CloakBrowser</h3>
+  <p>这里操作的是服务器上同一个 Persistent Context 中的 Tab；关闭人工窗口不会删除 Cookie。</p>
+  <input type="hidden" id="manual-csrf" value="{{ csrf_token() }}">
+  <input type="hidden" id="manual-watch-uuid" value="{{ watch_uuid }}">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <input id="manual-url" value="{{ initial_url }}" class="pure-input-1" style="flex:1;min-width:240px" aria-label="Website URL">
+    <button id="manual-open" type="button" class="pure-button pure-button-primary">打开浏览器</button>
+    <button id="manual-refresh" type="button" class="pure-button" disabled>刷新网页</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <button id="manual-finish" type="button" class="pure-button pure-button-primary" disabled>完成并重新检查</button>
+    <button id="manual-close" type="button" class="pure-button" disabled>关闭窗口</button>
+    <span id="manual-state" role="status" aria-live="polite">未连接</span>
+  </div>
+  <div id="manual-frame-wrap" tabindex="0" aria-label="Remote browser controls"
+       style="background:#1b1b1b;display:inline-block;position:relative;max-width:100%;outline:1px solid #888;touch-action:none">
+    <img id="manual-frame" alt="实时浏览器画面" draggable="false"
+         style="display:block;max-width:100%;height:auto;min-height:160px;min-width:min(100%,600px);user-select:none;cursor:crosshair">
+  </div>
+  <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
+    <label for="manual-text">输入文字：</label>
+    <input id="manual-text" type="text" maxlength="512" placeholder="先点击画面中的输入框" style="flex:1;min-width:160px">
+    <button type="button" id="manual-type" class="pure-button" disabled>发送文字</button>
+    <button type="button" id="manual-enter" class="pure-button" disabled>Enter</button>
+    <button type="button" id="manual-backspace" class="pure-button" disabled>Backspace</button>
+  </div>
+  <p id="manual-detail" style="overflow-wrap:anywhere" aria-live="polite"></p>
+  <p style="opacity:.75">点击画面进行鼠标操作；在画面上滚轮滚动；画面获得焦点后支持普通键盘按键。空闲 15 分钟会自动关闭。不要在公网开放未认证的浏览器控制。</p>
+</div>
+<script>
+window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token()} | tojson }};
+</script>
+<script src="{{ url_for('manual_browser.static', filename='manual-browser.js') }}"></script>
+{% endblock %}

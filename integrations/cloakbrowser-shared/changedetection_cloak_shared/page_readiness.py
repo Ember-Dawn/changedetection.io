@@ -56,6 +56,15 @@ def challenge_kind(text, *, url='', title=''):
         return 'Google verification'
     if 'google.com/sorry' in url and ('captcha' in combined or 'recaptcha' in combined):
         return 'Google verification'
+    # Google Scholar localized CAPTCHA pages often say only 人机身份验证,
+    # without 'unusual traffic', while embedding a reCAPTCHA checkbox.
+    scholar_url = 'scholar.google.' in url or 'google.com.hk/' in url
+    localized_gate = any(s in combined for s in (
+        '请进行人机身份验证', '进行人机身份验证', '请进行人机验证',
+        'confirm you are human', 'verify that you are human',
+    ))
+    if scholar_url and localized_gate and any(s in combined for s in ('recaptcha', '人机', '机器人')):
+        return 'Google verification'
     return None
 
 

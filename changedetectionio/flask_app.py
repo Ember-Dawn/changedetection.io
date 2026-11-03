@@ -1335,6 +1335,14 @@ def changedetection_app(config=None, datastore_o=None):
 
     app.register_blueprint(construct_add_watch_ui_blueprint(datastore), url_prefix='/add-watch-ui')
 
+    # Authenticated human control of the existing persistent CloakBrowser.
+    # The controller refuses to operate unless password authentication is on.
+    from changedetectionio.blueprint.manual_browser import construct_blueprint as manual_browser_blueprint
+    app.register_blueprint(
+        manual_browser_blueprint(datastore, update_q, queuedWatchMetaData),
+        url_prefix='/manual-browser'
+    )
+
     import changedetectionio.blueprint.price_data_follower as price_data_follower
 
     app.register_blueprint(

@@ -84,6 +84,13 @@ $(document).ready(() => {
     }
 
     $go.on('click', fetchSnapshot);
+    $('#add-watch-manual').on('click', () => {
+        const url = ($url.val() || '').trim();
+        if (!url) { $url.focus(); return; }
+        // Reuses the same authenticated manual controller as existing watches.
+        window.open(add_watch_manual_url + '?url=' + encodeURIComponent(url),
+                    '_blank', 'noopener');
+    });
 
     // Enter in the URL box should fetch a preview, not submit the whole form
     $url.on('keydown', (e) => {

@@ -308,6 +308,14 @@ def claim_uuid_for_processing(uuid, worker_id):
         False if already being processed by another worker
     """
     with _uuid_processing_lock:
+        # The reservation check is protected by the same processing lock as
+        # the claim, so a manual session cannot coexist with a *new* claim.
+        try:
+            from changedetection_cloak_shared.manual_session import manual_sessions
+            if manual_sessions.is_reserved(uuid):
+                return False
+        except ImportError:
+            pass
         if uuid in currently_processing_uuids:
             # Already being processed by another worker
             return False

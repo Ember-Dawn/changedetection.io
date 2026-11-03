@@ -88,10 +88,24 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
             # Single timeout (no double-timeout wrapper) = no race condition
             queued_item_data = await q.async_get(executor=executor, timeout=1.0)
 
+            # A manual browser session temporarily reserves its own watch.
+            # Consume queued checks while reserved; when the operator finishes,
+            # the existing check-now queue will receive one clean fresh check.
+            uuid = queued_item_data.item.get('uuid')
+            try:
+                from changedetection_cloak_shared.manual_session import manual_sessions
+            except ImportError:
+                manual_sessions = None  # Shared-browser integration is optional.
+            if manual_sessions is not None and manual_sessions.is_reserved(uuid):
+                logger.debug('Skipping scheduled check for manual browser watch {}', uuid)
+                continue
             # CRITICAL: Claim UUID immediately after getting from queue to prevent race condition
             # in wait_for_all_checks() which checks qsize() and running_uuids separately
-            uuid = queued_item_data.item.get('uuid')
             if not worker_pool.claim_uuid_for_processing(uuid, worker_id):
+                # A manual reservation might have won the race with our claim.
+                # Do not endlessly requeue such a check.
+                if manual_sessions is not None and manual_sessions.is_reserved(uuid):
+                    continue
                 # Already being processed - re-queue and continue
                 logger.trace(f"Worker {worker_id} detected UUID {uuid} already processing during claim - deferring")
                 await asyncio.sleep(DEFER_SLEEP_TIME_ALREADY_QUEUED)
