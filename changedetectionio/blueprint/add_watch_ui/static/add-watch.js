@@ -76,6 +76,14 @@ $(document).ready(() => {
             showState('ready');
             $temporaryUuid.val(data.temporary_uuid || '');
             vs.load({screenshotSrc: data.screenshot, xpathData: data.xpath_data});
+            if (data.challenge) {
+                $error.text('检测到 ' + data.challenge + '：这是网站验证页面，不能用作正常监控基准。可点击「人工操作」完成验证后重新「前往」。').show();
+                $xpathRow.hide();
+                $clear.hide();
+                vs.setSelectionEnabled(false);
+            } else {
+                vs.setSelectionEnabled(selectionEnabled());
+            }
         }).fail((xhr) => {
             const msg = (xhr && xhr.responseText) ? xhr.responseText : 'Could not fetch a preview for that URL.';
             $error.text(msg);

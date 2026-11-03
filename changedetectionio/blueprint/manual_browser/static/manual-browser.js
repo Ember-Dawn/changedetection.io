@@ -12,6 +12,7 @@
   let viewportWidth = 1366, viewportHeight = 768;
   let inputTail = Promise.resolve(), addressDirty = false, navigating = false;
   let currentUrl = null, currentSession = null, pointerPending = null, pointerSending = false;
+  let frameFailures = 0, statusFailures = 0;
   const requestedUrl = $('manual-url').value.trim();
   const requestedWatch = $('manual-watch-uuid').value.trim();
   function cover(text) {
@@ -59,6 +60,7 @@
     $('manual-connection').textContent = '○ 未连接';
     $('manual-site-data').textContent = '';
     $('manual-remaining').textContent = '';
+    frameFailures = 0; statusFailures = 0;
     cover('会话已结束，可重新连接。');
   }
   function planFrame() {
@@ -70,6 +72,7 @@
     try {
       const response = await request('frame?session=' + encodeURIComponent(token));
       const blob = await response.blob();
+      frameFailures = 0;
       if (token !== sid || navigating) return;
       const url = URL.createObjectURL(blob);
       const oldUrl = captureUrl;
@@ -80,7 +83,17 @@
       $('manual-cover').hidden = true;
       if (!$frame.onload && oldUrl) URL.revokeObjectURL(oldUrl);
     } catch (e) {
-      if (token === sid) { disconnect('画面已断开：' + e.message); }
+      if (token !== sid) return;
+      // A navigation may cause HTTP 500 or a screenshot timeout.
+      // Do not confuse one failed frame with a closed browser session.
+      if (/HTTP (400|401|403|404|409)\b/.test(e.message)) {
+        disconnect('会话权限或状态已失效：' + e.message);
+        inspectSession();
+        return;
+      }
+      frameFailures++;
+      message(`画面暂时不可用，正在重试 (${frameFailures})：${e.message}`);
+      frameTimer = setTimeout(frame, Math.min(5000, frameFailures * 800));
       return;
     }
     planFrame();
@@ -92,6 +105,7 @@
       const data = await api('status?session=' + encodeURIComponent(token));
       if (sid !== token) return;
       if (data.generation !== generation) throw new Error('浏览器实例已切换');
+      statusFailures = 0;
       viewportWidth = data.width || viewportWidth;
       viewportHeight = data.height || viewportHeight;
       lastUrl = data.url;
@@ -103,19 +117,33 @@
       $detail.textContent = `实际网址：${data.url} | Profile 锁：${data.profile_lock_held ? '持有' : '未持有'} | 浏览器代次：${data.generation}`;
       message(data.challenge ? '页面仍要求验证，可继续人工操作' : '浏览器已连接');
     } catch (e) {
-      if (sid === token) disconnect('浏览器状态失效：' + e.message);
+      if (sid !== token) return;
+      if (/HTTP (400|401|403|404|409)\b|浏览器实例已切换/.test(e.message)) {
+        disconnect('会话已失效：' + e.message);
+        inspectSession();
+        return;
+      }
+      statusFailures++;
+      message(`状态暂时不可用，正在重试 (${statusFailures})：${e.message}`);
+      statusTimer = setTimeout(status, Math.min(7000, statusFailures * 1500));
       return;
     }
     statusTimer = setTimeout(status, 2500);
   }
   $('manual-open').addEventListener('click', async () => {
     if (sid || busy) return;
+    const destination = $('manual-url').value.trim();
+    if (!destination && !$('manual-watch-uuid').value.trim()) {
+      message('请先在地址栏输入网址，再连接共享浏览器。');
+      $('manual-url').focus();
+      return;
+    }
     busy = true;
     message('正在打开浏览器…');
     $('manual-open').disabled = true;
     try {
       const data = await api('open', {
-        url: $('manual-url').value.trim(), watch_uuid: $('manual-watch-uuid').value.trim()
+        url: destination, watch_uuid: $('manual-watch-uuid').value.trim()
       });
       sid = data.session;
       generation = data.generation;

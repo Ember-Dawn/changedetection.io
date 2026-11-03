@@ -430,6 +430,34 @@ class NotificationService:
             logger.debug("Not queued, no queue defined. Just returning processed data")
             return n_object
 
+    def send_verification_state_notification(self, watch_uuid, kind, recovered=False):
+        """Alert through existing Apprise channels only when verification state changes."""
+        watch = self.datastore.data['watching'].get(watch_uuid)
+        if not watch or watch.get('notification_muted') or not self.notification_q:
+            return False
+        urls = _check_cascading_vars(self.datastore, 'notification_urls', watch)
+        if not urls:
+            return False
+        title = ('changedetection.io - Browser verification resolved' if recovered else
+                 'changedetection.io - Manual browser verification needed')
+        body = ('The page is reachable again. Normal monitoring has resumed.' if recovered else
+                f'{kind} was detected. The last successful monitor content was preserved. '
+                'Open this watch and use Manual control to check the website.')
+        body += '\\nWatch: {{watch_url}}\\nManual control: {{base_url}}/manual-browser/?watch_uuid={{watch_uuid}}'
+        message = NotificationContextData({
+            'notification_urls': urls,
+            'notification_title': title,
+            'notification_body': body,
+            'notification_format': _check_cascading_vars(self.datastore, 'notification_format', watch),
+            'uuid': watch_uuid,
+            'watch_uuid': watch_uuid,
+            'watch_url': watch.get('url'),
+            'watch_open_url': watch.open_link_override or watch.get('url'),
+            'screenshot': None,
+        })
+        self.notification_q.put(message)
+        return True
+
     def send_content_changed_notification(self, watch_uuid):
         """
         Send notification when content changes are detected

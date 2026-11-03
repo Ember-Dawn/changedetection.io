@@ -404,6 +404,22 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                     process_changedetection_results = False
                     
                 except content_fetchers_exceptions.PageUnloadable as e:
+                    challenge_kind = None
+                    if watch and (watch.get_fetch_backend == 'html_cloakbrowser_shared' or
+                                  (watch.get_fetch_backend == 'system' and
+                                   datastore.data['settings']['application'].get('fetch_backend') == 'html_cloakbrowser_shared')):
+                        description = str(getattr(e, 'message', '') or '')
+                        if 'Cloudflare verification' in description:
+                            challenge_kind = 'Cloudflare verification'
+                        elif 'Google verification' in description:
+                            challenge_kind = 'Google verification'
+                    if challenge_kind and watch.get('manual_attention_reason') != challenge_kind:
+                        datastore.update_watch(uuid=uuid, update_obj={'manual_attention_reason': challenge_kind})
+                        try:
+                            from changedetectionio.notification_service import create_notification_service
+                            create_notification_service(datastore, notification_q).send_verification_state_notification(uuid, challenge_kind)
+                        except Exception as notify_error:
+                            logger.warning('Verification notification could not be queued for {}: {}', uuid, notify_error)
                     err_text = "Page request from server didnt respond correctly"
                     if e.message:
                         err_text = "{} - {}".format(err_text, e.message)
@@ -440,6 +456,14 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                         update_obj['consecutive_filter_failures'] = 0
 
                     update_obj['last_error'] = False
+                    if watch.get('manual_attention_reason'):
+                        previous_challenge = watch.get('manual_attention_reason')
+                        update_obj['manual_attention_reason'] = None
+                        try:
+                            from changedetectionio.notification_service import create_notification_service
+                            create_notification_service(datastore, notification_q).send_verification_state_notification(uuid, previous_challenge, recovered=True)
+                        except Exception as notify_error:
+                            logger.warning('Recovery notification could not be queued for {}: {}', uuid, notify_error)
                     cleanup_error_artifacts(uuid, datastore)
 
                 if not datastore.data['watching'].get(uuid):

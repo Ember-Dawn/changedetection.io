@@ -24,9 +24,10 @@ def _seconds(name, default, maximum):
 
 def challenge_kind(text, *, url='', title=''):
     """Recognize specific interstitials; None means not confidently recognized."""
-    if not isinstance(text, str) or len(text) > 24000:
+    if not isinstance(text, str):
         return None
-    combined = html.unescape(text).lower()
+    # Check a bounded prefix without ignoring large pages altogether.
+    combined = html.unescape(text[:24000]).lower()
     combined = re.sub(r'<[^>]{0,300}>', ' ', combined)
     combined = re.sub(r'\s+', ' ', combined)
     title = (title or '').lower()
@@ -53,6 +54,11 @@ def challenge_kind(text, *, url='', title=''):
         'recaptcha', 'not a robot', '不是机器人', 'google',
     )) or ('google.com/sorry' in url)
     if google_traffic and google_context:
+        return 'Google verification'
+    if ('scholar.google.' in url or 'google.com/sorry' in url) and any(marker in combined for marker in (
+        '请进行人机身份验证', '进行人机身份验证', '请进行人机验证',
+        '进行人机验证', 'confirm you are human', 'verify that you are human',
+    )) and any(marker in combined for marker in ('recaptcha', '人机', '机器人')):
         return 'Google verification'
     if 'google.com/sorry' in url and ('captcha' in combined or 'recaptcha' in combined):
         return 'Google verification'

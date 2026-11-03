@@ -224,11 +224,27 @@ class ManualSessionManager:
         url = page.url
         session.address = url
         # Never return cookies/LocalStorage values to the client.
-        info = await page.evaluate('''() => ({
-            width: window.innerWidth, height: window.innerHeight,
-            localStorageKeys: (() => { try { return localStorage.length; } catch (_) { return null; } })()
-        })''')
-        cookies = await page.context.cookies([url])
+        # Navigation can temporarily destroy the JavaScript execution context.
+        # A transient status read must not close the still-running browser session.
+        try:
+            info = await page.evaluate('''() => ({
+                width: window.innerWidth, height: window.innerHeight,
+                localStorageKeys: (() => { try { return localStorage.length; } catch (_) { return null; } })()
+            })''')
+            if not isinstance(info, dict):
+                info = {}
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.debug('Manual browser viewport unavailable during navigation: {}', exc)
+            info = {}
+        try:
+            cookies = await page.context.cookies([url]) if url.startswith(('http://', 'https://')) else []
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.debug('Manual browser cookies unavailable during navigation: {}', exc)
+            cookies = []
         return {
             'url': url,
             'width': max(1, int(info.get('width') or 1366)),

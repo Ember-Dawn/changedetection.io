@@ -86,6 +86,12 @@
                             {%- for watch_tag_uuid, watch_tag in datastore.get_all_tags_for_watch(watch['uuid']).items() -%}
                               <a href="{{url_for('watchlist.index', tag=watch_tag_uuid) }}" class="watch-tag-list tag-{{ watch_tag.title|sanitize_tag_class }}">{{ watch_tag.title }}</a>
                             {%- endfor -%}
+                            {% if watch.get('manual_attention_reason') %}
+                            <div class="manual-attention-indicator" style="font-size:.85em;margin:3px 0">
+                              <span>需要人工处理：{{ watch.get('manual_attention_reason') }}</span>
+                              <a href="{{ url_for('manual_browser.index', watch_uuid=watch.uuid) }}" target="_blank" rel="noopener">人工操作</a>
+                            </div>
+                            {% endif %}
                             <div class="error-text" style="display:none;">{{ error_texts|safe }}</div>
                             {%- if watch['processor'] == 'text_json_diff'  -%}
                                 {%- if watch['has_ldjson_price_data'] and not watch['track_ldjson_price_data']  -%}

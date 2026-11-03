@@ -72,14 +72,11 @@
         </a>
     </li>
     <li class="action-sidebar-li">
-        <a href="#"
-           class="action-sidebar-item is-disabled"
-           title="{{ _('Browsers (coming soon)') }}"
-           aria-disabled="true"
-           tabindex="-1">
+        <a href="{{ url_for('manual_browser.index') }}"
+           class="action-sidebar-item {% if ep.startswith('manual_browser.') %}active{% endif %}"
+           title="{{ _('Open shared CloakBrowser manual control') }}">
             <i data-feather="globe" class="action-icon"></i>
             <span class="action-label">{{ _('Browsers') }}</span>
-            <span class="action-badge">{{ _('soon') }}</span>
         </a>
     </li>
     {% if not current_diff_url %}

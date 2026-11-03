@@ -115,11 +115,11 @@ def construct_blueprint(datastore: ChangeDetectionStore):
             try:
                 await stepper.connect(proxy=None)
                 await stepper.call_action(action_name="Goto site", selector=None, optional_value=None)
+                kind = None
                 if resolved_fetcher == 'html_cloakbrowser_shared':
                     from changedetection_cloak_shared.page_readiness import wait_for_page_ready
                     kind = await wait_for_page_ready(stepper.page)
-                    if kind:
-                        raise VerificationPageNotReady(kind)
+                # Always show the screenshot, even when verification remains.
                 (screenshot, xpath_data) = await stepper.get_current_state()
                 # Also grab the rendered HTML so the processor can run on submit without
                 # re-fetching - this is the input the html->text conversion runs against.
@@ -130,26 +130,14 @@ def construct_blueprint(datastore: ChangeDetectionStore):
                     logger.warning(f"Add-watch snapshot: could not capture page HTML for {url}: {e}")
                 if resolved_fetcher == 'html_cloakbrowser_shared':
                     from changedetection_cloak_shared.page_readiness import challenge_kind
-                    kind = challenge_kind(html or '', url=stepper.page.url)
-                    if kind:
-                        raise VerificationPageNotReady(kind)
-                return (screenshot, xpath_data, html)
+                    kind = kind or challenge_kind(html or '', url=stepper.page.url)
+                return (screenshot, xpath_data, html, kind)
             finally:
                 await _close_session_resources(session, label=' for add-watch snapshot')
 
-        class VerificationPageNotReady(RuntimeError):
-            pass
-
         try:
-            (screenshot, xpath_data, html) = run_async_in_browser_loop(
+            (screenshot, xpath_data, html, challenge) = run_async_in_browser_loop(
                 _fetch_snapshot(), shared=resolved_fetcher == 'html_cloakbrowser_shared'
-            )
-        except VerificationPageNotReady as e:
-            logger.info('Add-watch snapshot: verification still required for {}: {}', url, e)
-            return make_response(
-                f'{e}: website verification is still displayed; no watch snapshot was saved. '
-                'Complete any required verification in an authorized interactive browser and retry.',
-                409,
             )
         except Exception as e:
             logger.error(f"Add-watch snapshot fetch failed for {url}: {e}")
@@ -160,6 +148,15 @@ def construct_blueprint(datastore: ChangeDetectionStore):
 
         if not screenshot:
             return make_response('Could not capture a screenshot for that URL', 502)
+
+        if challenge:
+            # Do not promote challenge HTML/XPath into a baseline watch.
+            return jsonify({
+                'temporary_uuid': None,
+                'challenge': challenge,
+                'screenshot': f"data:image/jpeg;base64,{base64.b64encode(screenshot).decode('ascii')}",
+                'xpath_data': [],
+            })
 
         # Park the freshly-fetched data in final watch on-disk format so that, if the user
         # clicks Watch / Edit & Watch, we can promote it into a real watch with a single
