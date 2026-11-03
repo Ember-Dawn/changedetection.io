@@ -430,7 +430,7 @@ class NotificationService:
             logger.debug("Not queued, no queue defined. Just returning processed data")
             return n_object
 
-    def send_verification_state_notification(self, watch_uuid, kind, recovered=False):
+    def send_verification_state_notification(self, watch_uuid, kind, recovered=False, token=None):
         """Alert through existing Apprise channels only when verification state changes."""
         watch = self.datastore.data['watching'].get(watch_uuid)
         if not watch or watch.get('notification_muted') or not self.notification_q:
@@ -456,6 +456,9 @@ class NotificationService:
             'watch_url': watch.get('url'),
             'watch_open_url': watch.open_link_override or watch.get('url'),
             'screenshot': None,
+            'verification_event_type': 'recovery' if recovered else 'attention',
+            'verification_event_reason': kind,
+            'verification_event_token': token,
         })
         self.notification_q.put(message)
         logger.info('Queued shared browser verification {} for watch {}',

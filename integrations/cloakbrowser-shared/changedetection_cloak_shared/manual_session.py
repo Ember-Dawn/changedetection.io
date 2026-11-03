@@ -56,7 +56,7 @@ class ManualSessionManager:
         session = self._session
         if session is None or session.closed or session.token != token or session.owner != owner:
             raise ManualSessionError('Manual session has ended or belongs to another login')
-        if session.browser_generation != manager._generation or manager._stopping:
+        if not manager.session_alive(session.browser_generation):
             raise ManualSessionError('Shared browser restarted; reopen the manual session')
         if time.monotonic() - session.last_active > _SESSION_SECONDS:
             raise ManualSessionError('Manual session expired after 15 minutes of inactivity')
@@ -69,7 +69,7 @@ class ManualSessionManager:
             if entry is None or entry.closed:
                 return {'active': False, 'opening': self._opening}
             age = time.monotonic() - entry.last_active
-            if entry.browser_generation != manager._generation or manager._stopping or age > _SESSION_SECONDS:
+            if not manager.session_alive(entry.browser_generation) or age > _SESSION_SECONDS:
                 return {'active': False, 'opening': True}
             yours = entry.owner == owner
             result = {'active': True, 'owned': yours,
@@ -82,11 +82,11 @@ class ManualSessionManager:
 
     async def _resume_owned(self, token, owner):
         """Transfer control: a previous tab's token stops working."""
-        entry = self._get(token, owner)
-        entry.token = secrets.token_urlsafe(32)
-        task = asyncio.create_task(self._expiry_watch(entry.token), name='manual-session-expiry')
-        self._expiry_tasks.add(task)
-        task.add_done_callback(self._expiry_tasks.discard)
+        with self._guard:
+            entry = self._get(token, owner)
+            entry.token = secrets.token_urlsafe(32)
+        # Retain the existing expiry supervisor; token rotation transfers control,
+        # it must not create a new lifetime supervisor or reset idle timeout.
         return {'session': entry.token, 'generation': entry.browser_generation}
 
     def resume(self, token, owner):
@@ -140,20 +140,21 @@ class ManualSessionManager:
                            lease, page, time.monotonic(), url)
         # An independent timer, not driven by screenshot polling, frees tabs if
         # the browser window is abandoned. Its generation is checked on cleanup.
-        task = asyncio.create_task(self._expiry_watch(token), name='manual-session-expiry')
+        task = asyncio.create_task(self._expiry_watch(session), name='manual-session-expiry')
         self._expiry_tasks.add(task)
         task.add_done_callback(self._expiry_tasks.discard)
         return session
 
-    async def _expiry_watch(self, token):
+    async def _expiry_watch(self, session):
+        # Bound to the immutable session object, not the rotatable bearer token.
         while True:
             await asyncio.sleep(10)
             with self._guard:
-                session = self._session
-                if not session or session.token != token:
+                if self._session is not session or session.closed:
                     return
                 expired = time.monotonic() - session.last_active > _SESSION_SECONDS
-                dead = session.browser_generation != manager._generation or manager._stopping
+                dead = not manager.session_alive(session.browser_generation)
+                token = session.token
             if expired or dead:
                 logger.info('Manual browser session ended (expired or browser generation changed)')
                 try:
@@ -251,7 +252,7 @@ class ManualSessionManager:
             'height': max(1, int(info.get('height') or 768)),
             'cookie_count': len(cookies),
             'local_storage_keys': info.get('localStorageKeys'),
-            'profile_lock_held': manager._profile_lock is not None,
+            'profile_lock_held': manager.profile_lock_held(),
             'generation': session.browser_generation,
             'challenge': await page_challenge(page),
             'seconds_remaining': max(0, int(_SESSION_SECONDS - (time.monotonic() - session.last_active))),

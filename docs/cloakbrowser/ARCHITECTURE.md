@@ -50,3 +50,7 @@ For shared scheduled fetches, `manager.py` uses a Page wrapper to inspect a load
 - `changedetectionio/content_fetchers/playwright.py` for the persistent-context `viewport_size=None` screenshot fix.
 
 There is no requirement to add another Docker container, another Chrome profile, or a separate browser service merely to provide a Page-level manual control UI.
+
+## Backend maintenance round 1 (2026-11-03)
+
+The manager retains ownership of its asyncio loop, generation, Profile lock, and all Page leases. `session_alive()` and `profile_lock_held()` are narrow read-only methods used by manual-session state; they do not expose Playwright objects to Flask threads. The upstream CloakBrowser 0.1.1 extraction wait hook remains the only automatic early-verification seam, isolated in `_check_verification_after_upstream_wait()` and covered by fake-Page tests. No remote-desktop streaming or second browser is introduced.

@@ -60,20 +60,23 @@ class _ManagedPage:
         return getattr(self._page, name)
 
     async def wait_for_timeout(self, milliseconds):
-        """Check verification during shared scheduled fetch, before extraction.
+        """Upstream-fetcher compatibility seam: wait, then inspect challenge.
 
-        The upstream CloakBrowser fetcher waits after navigation and before
-        reading XPath / HTML. This interception is scoped to its manager task;
-        manual sessions and visual previews keep their normal behavior.
+        Version 0.1.1 of the upstream fetcher calls this hook after navigation
+        and before extracting XPath/HTML. Only shared scheduled fetches inspect.
+        Other callers retain ordinary Playwright wait_for_timeout behavior.
         """
         await self._page.wait_for_timeout(milliseconds)
         if _SHARED_FETCH.get():
-            from .page_readiness import page_challenge
-            kind = await page_challenge(self._page)
-            if kind:
-                from changedetectionio.content_fetchers.exceptions import PageUnloadable
-                raise PageUnloadable(url=self._page.url,
-                                     message=f'{kind} still displayed; monitoring result was not saved')
+            await self._check_verification_after_upstream_wait()
+
+    async def _check_verification_after_upstream_wait(self):
+        from .page_readiness import page_challenge
+        kind = await page_challenge(self._page)
+        if kind:
+            from changedetectionio.content_fetchers.exceptions import PageUnloadable
+            raise PageUnloadable(url=self._page.url,
+                                 message=f'{kind} still displayed; monitoring result was not saved')
 
     def _confirmed_closed(self):
         try:
@@ -466,6 +469,15 @@ class BrowserManager:
 
     async def _run_registered(self, func, args, kwargs):
         return await self._execute(func, *args, **kwargs)
+
+    def session_alive(self, generation):
+        """Stable lifetime check for controllers; no Playwright objects leak."""
+        return (not self._stopping and not self._unhealthy
+                and self._generation == generation
+                and self._state is BrowserState.RUNNING)
+
+    def profile_lock_held(self):
+        return self._profile_lock is not None
 
     def status(self):
         with self._lock:

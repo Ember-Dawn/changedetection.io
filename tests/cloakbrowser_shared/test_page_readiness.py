@@ -1,9 +1,7 @@
 """Regression checks for known verification pages and passive readiness."""
-import os
 import unittest
-from unittest.mock import patch
 
-from changedetection_cloak_shared.page_readiness import challenge_kind, wait_for_page_ready
+from changedetection_cloak_shared.page_readiness import challenge_kind, page_challenge
 
 
 class ChallengeClassifierTests(unittest.TestCase):
@@ -34,14 +32,11 @@ class FakePage:
         return {'text': next(self._bodies), 'title': '', 'url': 'https://example.com'}
 
 
-class ReadinessTests(unittest.IsolatedAsyncioTestCase):
+class PageInspectionTests(unittest.IsolatedAsyncioTestCase):
     async def test_normal_page(self):
-        with patch.dict(os.environ, {'CLOAKBROWSER_PAGE_SETTLE_SECONDS': '0'}):
-            self.assertIsNone(await wait_for_page_ready(FakePage(['Example Domain'])))
+        self.assertIsNone(await page_challenge(FakePage(['Example Domain'])))
 
-    async def test_persistent_challenge(self):
-        with patch.dict(os.environ, {'CLOAKBROWSER_PAGE_SETTLE_SECONDS': '0',
-                                     'CLOAKBROWSER_CHALLENGE_WAIT_SECONDS': '0'}):
-            self.assertEqual(await wait_for_page_ready(
-                FakePage(['Performing security verification by Cloudflare'])),
-                'Cloudflare verification')
+    async def test_known_verification(self):
+        self.assertEqual(await page_challenge(FakePage([
+            'Performing security verification by Cloudflare'])),
+            'Cloudflare verification')

@@ -23,7 +23,7 @@ A browser tab/window closing does not immediately destroy the server-side manual
 
 ## Session and input constraints
 
-- Human session idle timeout: 15 minutes. Polling screenshots or querying status does **not** count as human activity; interacting refreshes last-active time. Browser generation changes invalidate a session.
+- Human session idle timeout: 15 minutes. One expiry task belongs to each Page session and survives login-token rotation; resuming an old tab does not create another expiry task. Polling screenshots or querying status does **not** count as human activity; interacting refreshes last-active time. Browser generation changes invalidate a session.
 - Browser screenshots are JPEG frames over authenticated HTTP requests; transient HTTP 500 during navigation should be retried without assuming the remote Page has died. Terminal session/auth errors require reconnection.
 - Actions are limited and validated: click, pointer move/down/up, wheel, selected keys, text (up to 512 chars), navigation, back/forward, refresh and viewport resize. URL and navigation requests go through the app's URL safety checks; popups are closed rather than being allowed to evade Page quotas.
 - The UI tracks the displayed screenshot dimensions for accurate click coordinates; the manual Page viewport can be resized independently from other watch Pages.

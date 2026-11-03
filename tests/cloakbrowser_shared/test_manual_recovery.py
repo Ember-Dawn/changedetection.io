@@ -13,6 +13,9 @@ from changedetection_cloak_shared.manager import manager
 
 class RecoveryTests(unittest.TestCase):
     def setUp(self):
+        self.live = patch.object(manager, 'session_alive', return_value=True)
+        self.live.start()
+        self.addCleanup(self.live.stop)
         self.sessions = ManualSessionManager()
         self.entry = SimpleNamespace(
             token='first-token', owner='account-a', watch_uuid='watch-1',
@@ -44,6 +47,10 @@ class RecoveryTests(unittest.TestCase):
 
 class NavigationTests(unittest.IsolatedAsyncioTestCase):
     async def test_resume_rotates_token(self):
+        with patch.object(manager, 'session_alive', return_value=True):
+            await self._assert_resume_rotates_token()
+
+    async def _assert_resume_rotates_token(self):
         s = ManualSessionManager()
         s._session = SimpleNamespace(
             token='old', owner='account-a', watch_uuid=None,
@@ -58,6 +65,10 @@ class NavigationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(s._get(d['session'],'account-a'),s._session)
 
     async def test_navigate_same_page(self):
+        with patch.object(manager, 'session_alive', return_value=True):
+            await self._assert_navigate_same_page()
+
+    async def _assert_navigate_same_page(self):
         s = ManualSessionManager()
         page=SimpleNamespace(url='https://example.com/',goto=AsyncMock())
         s._session=SimpleNamespace(
@@ -71,6 +82,10 @@ class NavigationTests(unittest.IsolatedAsyncioTestCase):
                                             wait_until='domcontentloaded',timeout=35000)
 
     async def test_refuse_non_http_navigation(self):
+        with patch.object(manager, 'session_alive', return_value=True):
+            await self._assert_refuse_non_http_navigation()
+
+    async def _assert_refuse_non_http_navigation(self):
         s=ManualSessionManager()
         page=SimpleNamespace(url='https://example.com/',goto=AsyncMock())
         s._session=SimpleNamespace(

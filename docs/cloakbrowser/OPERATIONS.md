@@ -99,3 +99,9 @@ docker compose run --rm --no-deps \
 - Stress cancellation/timeout on a *test profile*, not the only valuable user Profile. A timed-out Page close must not create an extra slot or second Profile writer.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for invariants and [VERIFICATION.md](VERIFICATION.md) for notification diagnosis.
+
+## Verification notification troubleshooting (backend reliability round 1)
+
+The watch's `manual_attention_reason` indicates an identified challenge. A separate `manual_attention_pending_token` means an Apprise notification is queued/in flight. Successful send acknowledgment writes `manual_attention_notified_reason`; sending failure clears pending and retries on the next eligible check after at least 5 minutes. Pending tokens left by a crash are retried after 10 minutes. Recovery uses corresponding `manual_attention_recovery_*` state and is only queued after successful watch processing.
+
+For a missing Telegram message, verify effective watch/tag/global notification URLs and mute flags, the Notification debug log, and container logs for Apprise errors. The synthetic tests do not send external Telegram messages. Browser-manager compatibility and manual lifetime tests can be run on the Docker host with `python -m unittest discover -s tests/cloakbrowser_shared -v`.

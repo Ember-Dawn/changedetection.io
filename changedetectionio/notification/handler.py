@@ -491,7 +491,7 @@ def process_notification(n_object: NotificationContextData, datastore):
                     n_body = as_monospaced_html_email(content=n_body, title=n_title)
 
         if not url.startswith('null://'):
-            apobj.notify(
+            delivered = apobj.notify(
                 title=n_title,
                 body=n_body,
                 # `body_format` Tell apprise what format the INPUT is in, specify a wrong/bad type and it will force skip conversion in apprise
@@ -500,6 +500,8 @@ def process_notification(n_object: NotificationContextData, datastore):
                 # False is not an option for AppRise, must be type None
                 attach=n_object.get('screenshot', None)
             )
+            if delivered is False and n_object.get('verification_event_type'):
+                raise RuntimeError('Apprise reported failed browser-verification delivery')
 
         # Returns empty string if nothing found, multi-line string otherwise
         log_value = logs.getvalue()

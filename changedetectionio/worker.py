@@ -416,13 +416,13 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                     process_changedetection_results = False
                     
                 except content_fetchers_exceptions.PageUnloadable as e:
-                    from changedetectionio.verification_alerts import shared_backend, mark_verification
+                    from changedetectionio.verification_alerts import (
+                        shared_backend, mark_verification, classify_verification_error,
+                    )
                     if shared_backend(watch, datastore, getattr(update_handler, 'fetcher', None)):
-                        description = str(getattr(e, 'message', '') or '')
-                        for kind in ('Cloudflare verification', 'Google verification'):
-                            if kind in description:
-                                mark_verification(datastore, notification_q, uuid, kind)
-                                break
+                        challenge = classify_verification_error(e)
+                        if challenge:
+                            mark_verification(datastore, notification_q, uuid, challenge)
                     err_text = "Page request from server didnt respond correctly"
                     if e.message:
                         err_text = "{} - {}".format(err_text, e.message)
@@ -575,8 +575,8 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                                 logger.warning(f"LLM evaluation error for {uuid}: {e}")
 
                         datastore.update_watch(uuid=uuid, update_obj=update_obj)
-                        from changedetectionio.verification_alerts import clear_after_success
-                        clear_after_success(datastore, notification_q, uuid)
+                        # Recovery is committed below, after history and final
+                        # watch metadata have been persisted successfully.
 
                         if changed_detected or not watch.history_n:
                             if update_handler.screenshot:
@@ -690,6 +690,8 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                                            )
 
                     datastore.update_watch(uuid=uuid, update_obj=final_updates)
+                    from changedetectionio.verification_alerts import clear_after_success
+                    clear_after_success(datastore, notification_q, uuid)
 
                     # NOW clear fetcher content - after all processing is complete
                     # This is the last point where we need the fetcher data

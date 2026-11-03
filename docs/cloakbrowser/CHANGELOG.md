@@ -13,6 +13,7 @@ This is a **feature and patch history**, reconstructed from the maintained sourc
 | 7. User experience | Manual buttons named **人工操作**, sidebar **Browsers** entry, compact navigation, URL sync, frame/status retry, full remaining-height view and Page viewport mapping | Current remote view remains screenshot polling; not noVNC/CDP streaming |
 | 8. Verification alert protection | Early challenge detection before shared XPath extraction, filter-failure fallback, Google/Cloudflare classification, deduplicated Apprise/Telegram queue alerts and recovery handling | Alert *queued* vs *delivered* is distinct; only operator can validate real Telegram delivery |
 | 9. Documentation consolidation | New root `AGENTS.md`, topic-centered authoritative docs, archived incident notes | **Documentation-only**; no browser/runtime behavior changes in this round |
+| 10. 2026-11-03 backend reliability/refactor round 1 | `manual_session.py`, `manager.py`, `page_readiness.py`, `verification_alerts.py`, notification queue consumer and Worker, targeted tests and docs | Single expiry supervisor survives token rotation; notification delivery acknowledgements with cooldown and pending expiry, stale-event rejection, recovery after final history persistence; retired unused preview wait helper. No UI or Docker changes. Synthetic tests only; real Chromium/Telegram acceptance required. |
 
 ## Updating this log
 

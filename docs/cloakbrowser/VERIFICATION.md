@@ -19,14 +19,17 @@ The former `CLOAKBROWSER_PAGE_SETTLE_SECONDS` and `CLOAKBROWSER_CHALLENGE_WAIT_S
 
 ## Notification state: detection is not delivery
 
-`verification_alerts.py` tracks two distinct watch fields:
+`verification_alerts.py` separates three states:
 
-- `manual_attention_reason`: known challenge type currently observed.
-- `manual_attention_notified_reason`: the challenge type for which an alert was successfully **queued**.
+- `manual_attention_reason`: currently identified Google/Cloudflare verification, independent of watch pause state.
+- `manual_attention_pending_token` / `manual_attention_pending_since`: one in-flight attention alert, matching the notification queue item. Pending entries expire after 10 minutes so a process restart cannot leave a watch permanently stuck.
+- `manual_attention_notified_reason`: set **after Apprise actually returns success**, not merely after queue admission.
 
-This distinction lets the next check retry enqueueing if there were no configured notification URLs earlier. When a normal fetch and watch processing succeed, the challenge state is cleared; a recovery alert is only attempted if the initial alert had previously been queued. Repeated identical challenges should not spam Telegram. A change from one recognized challenge type to another may require a new alert.
+Failures clear the pending token and may retry on a later scheduled check with a **5-minute minimum cooldown**. The existing notification worker handles Apprise delivery and records the result through `acknowledge_delivery()`. A missing notification URL does not start the retry cooldown. An obsolete queued alert is skipped if the watch has already recovered or the token changed.
 
-**Queued ≠ delivered.** Actual Telegram delivery depends on correct Apprise URLs and the notification worker. In a failure report, inspect the watch's effective notification configuration, muted flags, notification worker logs, and the actual `last_error`. A `FilterNotFoundInResponse` warning in the UI alone does not prove the challenge classifier ran. The user previously observed Google Scholar filter errors without a Telegram alert; this motivated early detection plus fallback, but remote-site variants must still be tested in the deployed container.
+When a normal fetch and processing finish, the watch state is cleared and a recovery message is queued only if the original attention alert was confirmed successful. Recovery notices also use matching tokens and an independent retry state (`manual_attention_recovery_*`). A newer verification invalidates a pending recovery. A recovery is considered successful only after the Worker has saved history and final metadata; an unchanged checksum is already a successfully fetched no-op.
+
+**Limitations:** a notification that reached Telegram but whose acknowledgement was lost may be retried. The app cannot provide transactional exactly-once delivery across process crashes and an external transport. Actual delivery remains dependent on correct credentials and network access. Monitor the notification debug log if messages do not arrive.
 
 Watch state is not a user pause. Scheduler retries at its configured cadence; for challenge-prone websites prefer a sensible interval rather than aggressive rechecking. Preserve last successful content while the challenge remains.
 
@@ -36,9 +39,10 @@ Watch state is not a user pause. Scheduler retries at its configured cadence; fo
 2. Ordinary Micro Center product page and Cloudflare `Performing security verification` page (first alert).
 3. Repeated same challenge: no additional alert.
 4. Challenge with no notification URL configured: status recorded; once configured, a later check may enqueue it.
-5. Recovery: a truly successful check clears the state and queues one recovery notice if an initial alert had been queued.
-6. An unknown challenge page: normal error handling, no fabricated verification alert.
-7. Add Watch preview must show screenshot without challenge-specific extra waiting and must not save challenge content as a baseline.
-8. Use a real Telegram test endpoint only with operator approval; mock tests cannot prove message delivery.
+5. Recovery: a truly successful check clears the state and queues one recovery notice only if the initial alert was acknowledged as successfully delivered.
+6. A failed Telegram delivery, stale queued notification, or interrupted container restart: retry without permanent suppression or uncontrolled spam.
+7. An unknown challenge page: normal error handling, no fabricated verification alert.
+8. Add Watch preview must show screenshot without challenge-specific extra waiting and must not save challenge content as a baseline.
+9. Use a real Telegram test endpoint only with operator approval; mock tests cannot prove message delivery.
 
 The original independent `html_cloakbrowser` backend and ordinary HTTP fetchers should remain unchanged by shared-specific challenge detection.

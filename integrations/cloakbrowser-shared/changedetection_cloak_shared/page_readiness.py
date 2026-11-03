@@ -1,25 +1,11 @@
-"""Conservative challenge/interstitial detection and passive page readiness.
+"""Conservative challenge/interstitial detection for shared browser pages.
 
 This does not solve CAPTCHA or bypass website security checks.
 """
 import asyncio
 import html
-import os
 import re
-import time
 from loguru import logger
-
-
-def _seconds(name, default, maximum):
-    try:
-        value = float(os.getenv(name, str(default)))
-    except ValueError:
-        logger.warning('Invalid {} value; using {}', name, default)
-        return default
-    if not 0 <= value <= maximum:
-        logger.warning('Out-of-range {} value; using {}', name, default)
-        return default
-    return value
 
 
 def challenge_kind(text, *, url='', title=''):
@@ -55,11 +41,6 @@ def challenge_kind(text, *, url='', title=''):
     )) or ('google.com/sorry' in url)
     if google_traffic and google_context:
         return 'Google verification'
-    if ('scholar.google.' in url or 'google.com/sorry' in url) and any(marker in combined for marker in (
-        '请进行人机身份验证', '进行人机身份验证', '请进行人机验证',
-        '进行人机验证', 'confirm you are human', 'verify that you are human',
-    )) and any(marker in combined for marker in ('recaptcha', '人机', '机器人')):
-        return 'Google verification'
     if 'google.com/sorry' in url and ('captcha' in combined or 'recaptcha' in combined):
         return 'Google verification'
     # Google Scholar localized CAPTCHA pages often say only 人机身份验证,
@@ -92,18 +73,3 @@ async def page_challenge(page):
         return None
 
 
-async def wait_for_page_ready(page):
-    """Passive delay, followed by bounded wait if a challenge remains visible."""
-    settle = _seconds('CLOAKBROWSER_PAGE_SETTLE_SECONDS', 2, 30)
-    if settle:
-        await asyncio.sleep(settle)
-    kind = await page_challenge(page)
-    if not kind:
-        return None
-    budget = _seconds('CLOAKBROWSER_CHALLENGE_WAIT_SECONDS', 15, 90)
-    deadline = time.monotonic() + budget
-    logger.info('{} displayed; waiting up to {}s for normal page transition', kind, budget)
-    while kind and time.monotonic() < deadline:
-        await asyncio.sleep(min(1, max(0, deadline - time.monotonic())))
-        kind = await page_challenge(page)
-    return kind

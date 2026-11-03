@@ -1644,10 +1644,22 @@ def notification_runner(worker_id=0):
                         n_object['notification_format'] = datastore.data['settings'][
                             'application'
                         ].get('notification_format')
+                    from changedetectionio.verification_alerts import delivery_is_current, acknowledge_delivery
+                    if n_object.get('verification_event_type') and not delivery_is_current(datastore, n_object):
+                        logger.info('Skipping obsolete browser-verification notification for {}', n_object.get('uuid'))
+                        continue
                     if n_object.get('notification_urls', {}):
                         sent_obj = process_notification(n_object, datastore)
+                    if n_object.get('verification_event_type'):
+                        acknowledge_delivery(datastore, n_object, succeeded=bool(sent_obj))
 
                 except Exception as e:
+                    if n_object.get('verification_event_type'):
+                        try:
+                            from changedetectionio.verification_alerts import acknowledge_delivery
+                            acknowledge_delivery(datastore, n_object, succeeded=False)
+                        except Exception as ack_error:
+                            logger.warning('Could not record verification delivery failure: {}', ack_error)
                     logger.error(
                         f"Notification worker {worker_id} - Watch URL: {n_object['watch_url']}  Error {str(e)}"
                     )
