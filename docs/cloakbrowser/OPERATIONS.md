@@ -8,6 +8,8 @@ Single container, shared persistent Profile. Round 3 adds fail-closed browser re
 
 ## Runtime
 
+Before deployment, use `.env.cloakbrowser.example` as the reference. Copy it to `.env` only if absent; preserve existing credentials when updating. Host WebUI port defaults to `9901`, mapped to container port `5000` on `127.0.0.1`. Open `http://127.0.0.1:9901` on the Docker host; for access from another machine use SSH forwarding or a secured reverse proxy. The Compose file fixes `FETCH_WORKERS=3` and `CLOAKBROWSER_PROFILE_DIR=/browser-profile`; it forwards page concurrency and browser recovery values from `.env`.
+
 ```bash
 # Apply the incremental payload to your repository and rebuild.
 docker compose -f docker-compose.cloakbrowser.yml build --pull

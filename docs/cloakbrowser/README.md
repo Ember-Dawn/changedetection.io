@@ -37,11 +37,22 @@ Shared mode keeps **one persistent Chromium Context per Python process**. Each c
 
 ## Configuration
 
+### Environment template and WebUI port
+
+`.env.cloakbrowser.example` is the reference for operator-adjustable settings: license key, host port, shared page limit and recovery parameters. Copy it to `.env` only if `.env` does not already exist. If `.env` already exists, update the relevant values without overwriting your license key.
+
+The host WebUI port defaults to **9901** while the container still listens on **5000**. The default Compose binding is `127.0.0.1:9901:5000`, so the Docker host accesses `http://127.0.0.1:9901`. Other LAN or Tailscale clients cannot connect directly with this binding; use SSH forwarding or an authenticated reverse proxy. Change `CHANGEDETECTION_PORT` in `.env` to choose another host port.
+
+`FETCH_WORKERS=3` and `CLOAKBROWSER_PROFILE_DIR=/browser-profile` are fixed in Compose, not in the example `.env`. Check effective configuration with `docker compose -f docker-compose.cloakbrowser.yml config --quiet`; avoid sharing full `config` output since it can expose the license key.
+
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `CLOAKBROWSER_LICENSE_KEY` | required | Put in `.env` (never commit) |
+| `CHANGEDETECTION_PORT` | `9901` | Host WebUI port; container remains on `5000` |
 | `CLOAKBROWSER_PROFILE_DIR` | `/browser-profile` | Bind mounted browser data directory |
 | `CLOAKBROWSER_MAX_PAGES` | `3` | Maximum simultaneous shared pages, including previews |
+| `CLOAKBROWSER_RECOVERY_MAX_RETRIES` | `3` | Automatic retries after ordinary launch failure |
+| `CLOAKBROWSER_RECOVERY_INITIAL_DELAY` | `2` | Initial retry delay, seconds |
 | `CLOAKBROWSER_PREVIEW_TIMEOUT` | `180` seconds | Timeout for a single synchronous UI preview action |
 | `CLOAKBROWSER_HUMANIZE` | `true` | Same CloakBrowser option as first round |
 | `CLOAKBROWSER_SHARED_PROXY` | unset | One profile-wide proxy; per-watch mismatch is rejected |
