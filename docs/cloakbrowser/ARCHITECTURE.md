@@ -49,3 +49,8 @@ Main-program modifications are limited to the browser-steps loop dispatch, Add W
 6. The extension depends on the original package's public `register_content_fetcher` and on its internal call to `launch_async`. Changing original plugin versions requires compatibility tests.
 
 See README.md for deployment and runtime tests, and UPSTREAM.md for baseline source hashes.
+
+
+## Round 3 reliability changes
+
+The BrowserManager now distinguishes STOPPED / STARTING / RUNNING / RECOVERING / STOPPING / FAILED, tracks generations, validates connectivity before reusing the persistent Context, and refuses a second launch when an old context cannot be closed. Managed Page.close only releases a permit after it knows the Page is closed (or its generation was retired). The long-running job registry is removed from inside the underlying manager-loop task's finalizer, not immediately on cancellation of the worker-side concurrent Future. Shutdown first blocks work and cancels jobs, then closes the persistent Context and releases the advisory Profile lock. The lock sits **inside** the bind-mounted Profile so separate Docker processes can see it. This is not a replacement for Chromium's own lock. See OPERATIONS.md for cold backup and restore.

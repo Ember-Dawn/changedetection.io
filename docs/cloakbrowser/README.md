@@ -1,4 +1,4 @@
-# CloakBrowser, round 2 A+B (shared persistent browser)
+# CloakBrowser, round 3 A+B (reliability and Profile operations)
 
 This round adds **single-instance + multiple short-lived Tabs + shared on-disk profile** to the first-round one-container Docker image. The original dgtlmoon CloakBrowser backend remains available for isolated tasks.
 
@@ -82,3 +82,8 @@ python -m unittest discover -s tests/cloakbrowser_shared -v
 - Browser restarts after crashes, slow cancellation hardening, Profile cold backup, process health checks and manual full-visual browser control remain future work.
 - A single persistent Context means shared cookies and site storage. Watch-specific proxy and UA changes cannot safely be applied to that session.
 - Multiple changedetection.io application processes are unsupported with the same Profile.
+
+
+## Third round additions
+
+Round 3 adds browser-generation fault handling, safer Page quota semantics, cancellation cleanup tracking, conservative fail-closed recovery, an on-disk cooperative Profile lock and an offline backup/restore CLI. See [OPERATIONS.md](OPERATIONS.md) for commands, limitations and local tests. Manual visual browser control remains out of scope.

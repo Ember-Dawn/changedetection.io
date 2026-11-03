@@ -19,6 +19,12 @@ async def test():
     return await manager.run_fetch('smoke', body)
 
 
+def print_status():
+    # Status is process-local. Calling this module in a new container cannot
+    # observe the running application's BrowserManager.
+    print(manager.status())
+
+
 if __name__ == '__main__':
     if not os.environ.get('CLOAKBROWSER_LICENSE_KEY'):
         raise SystemExit('CLOAKBROWSER_LICENSE_KEY is required')

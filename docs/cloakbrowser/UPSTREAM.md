@@ -34,3 +34,8 @@ The original `.dockerignore` was also read in full from the upload. Dedicated Do
 - Docker: install local package without pulling a second PyPI changedetection.io, mount separate persistent profile, exclude it from build context.
 
 No files were moved, renamed, or deleted in this round.
+
+
+### Round 3 A+B
+
+No changes to original dgtlmoon `changedetection.io-cloak-browser` package or CloakHQ browser source. Local shared adapter adds state transitions, ProfileLock and offline backup. The extension still depends on the upstream 0.1.1 fetcher's `launch_async` import behavior. Do not assume advanced auto recovery is safe if the old Chromium cannot be confirmed shut down; conservative FAILED behavior is intentional. The user runs real Docker/Chromium tests locally.

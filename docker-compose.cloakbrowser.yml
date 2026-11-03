@@ -9,7 +9,7 @@ services:
     restart: unless-stopped
     init: true
     shm_size: "1gb"
-    stop_grace_period: 45s
+    stop_grace_period: 70s
     ports:
       - "127.0.0.1:${CHANGEDETECTION_PORT:-5000}:5000"
     environment:
@@ -18,6 +18,8 @@ services:
       FETCH_WORKERS: "3"
       CLOAKBROWSER_PROFILE_DIR: /browser-profile
       CLOAKBROWSER_MAX_PAGES: ${CLOAKBROWSER_MAX_PAGES:-3}
+      CLOAKBROWSER_RECOVERY_MAX_RETRIES: ${CLOAKBROWSER_RECOVERY_MAX_RETRIES:-3}
+      CLOAKBROWSER_RECOVERY_INITIAL_DELAY: ${CLOAKBROWSER_RECOVERY_INITIAL_DELAY:-2}
     volumes:
       - ./datastore:/datastore
       # Downloaded Chromium cache, NOT the future persistent Chrome profile
