@@ -13,6 +13,8 @@
   let inputTail = Promise.resolve(), addressDirty = false, navigating = false;
   let currentUrl = null, currentSession = null, pointerPending = null, pointerSending = false;
   let frameFailures = 0, statusFailures = 0;
+  let layoutTimer = null, viewportTail = Promise.resolve(), viewportApplied = '';
+  const root = $('manual-browser-root');
   const requestedUrl = $('manual-url').value.trim();
   const requestedWatch = $('manual-watch-uuid').value.trim();
   function cover(text) {
@@ -61,6 +63,7 @@
     $('manual-site-data').textContent = '';
     $('manual-remaining').textContent = '';
     frameFailures = 0; statusFailures = 0;
+    viewportApplied = '';
     cover('会话已结束，可重新连接。');
   }
   function planFrame() {
@@ -149,6 +152,7 @@
       generation = data.generation;
       controls(true);
       message('人工操作已连接');
+      await syncViewport();
       currentSession = null;
       $('manual-existing').hidden = true;
       $('manual-connection').textContent = '● 已连接';
@@ -203,8 +207,12 @@
   $('manual-enter').addEventListener('click', () => action('key', {key:'Enter'}));
   $('manual-backspace').addEventListener('click', () => action('key', {key:'Backspace'}));
   function point(event) {
+    // The <img> uses intrinsic aspect ratio (max-width/max-height), not
+    // object-fit letterboxing, so its bounding box equals actual pixels.
     const rect = $frame.getBoundingClientRect();
-    if (!rect.width || !rect.height) return null;
+    if ($frame.hidden || !rect.width || !rect.height) return null;
+    if (event.clientX < rect.left || event.clientX > rect.right ||
+        event.clientY < rect.top || event.clientY > rect.bottom) return null;
     return { x: Math.max(0, Math.min(viewportWidth, (event.clientX - rect.left)*viewportWidth/rect.width)),
              y: Math.max(0, Math.min(viewportHeight, (event.clientY - rect.top)*viewportHeight/rect.height)) };
   }
@@ -299,6 +307,7 @@
       // The old tab's previous token is revoked by the server.
       sid = d.session; generation = d.generation;
       controls(true);
+      await syncViewport();
       $('manual-existing').hidden = true;
       currentSession = null;
       message('已恢复之前的人工会话');
@@ -347,6 +356,47 @@
   $('manual-go').addEventListener('click', () => navigatePage($('manual-url').value));
   $('manual-back').addEventListener('click', () => action('back'));
   $('manual-forward').addEventListener('click', () => action('forward'));
+  function sizeRoot() {
+    // Respect the actual position below CDIO's global navigation/header.
+    // The frame expands into all remaining available viewport height.
+    const top = Math.max(0, root.getBoundingClientRect().top);
+    const target = Math.max(420, Math.floor(window.innerHeight - top - 12));
+    root.style.height = target + 'px';
+  }
+  async function syncViewport() {
+    if (!sid || navigating || !active) return;
+    const box = $wrap.getBoundingClientRect();
+    const width = Math.max(320, Math.min(2560, Math.round(box.width - 2)));
+    const height = Math.max(240, Math.min(1800, Math.round(box.height - 2)));
+    const dimensions = `${width}x${height}`;
+    if (dimensions === viewportApplied) return;
+    const token = sid;
+    try {
+      // Resize only the artificial/manual tab. Never resize another watch.
+      await action('resize', {width, height}, true);
+      if (token !== sid) return;
+      viewportApplied = dimensions;
+      viewportWidth = width;
+      viewportHeight = height;
+    } catch (e) {
+      message('更新浏览器尺寸失败（仍可操作）：' + e.message);
+    }
+  }
+  function scheduleLayout() {
+    sizeRoot();
+    if (layoutTimer) clearTimeout(layoutTimer);
+    layoutTimer = setTimeout(syncViewport, 180);
+  }
+  window.addEventListener('resize', scheduleLayout);
+  // Parent CDIO controls can change height without a window resize.
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(() => {
+      if (layoutTimer) clearTimeout(layoutTimer);
+      layoutTimer = setTimeout(syncViewport, 180);
+    });
+    observer.observe($wrap);
+  }
+  sizeRoot();
   controls(false);
   inspectSession();
 })();

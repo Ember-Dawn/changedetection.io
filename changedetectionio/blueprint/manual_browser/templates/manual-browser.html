@@ -1,12 +1,19 @@
 {% extends 'base.html' %}
 {% block content %}
 <style>
-#manual-browser-root{max-width:1480px;margin:auto}
-#manual-browser-root .manual-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}
+#manual-browser-root{width:100%;max-width:none;margin:0;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;min-height:420px}
+#manual-browser-root .manual-heading{flex:0 0 auto}
+#manual-browser-root .manual-view{flex:1 1 auto;min-height:180px;height:0;max-height:none}
+#manual-browser-root .manual-controls{flex:0 0 auto}
+#manual-browser-root .manual-tips{margin:4px 0;font-size:.85em}
+#manual-browser-root .manual-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0}
+#manual-browser-root .manual-row .pure-button{height:34px;box-sizing:border-box;padding:6px 12px}
+#manual-browser-root .manual-row input.manual-address{height:34px;box-sizing:border-box}
+#manual-browser-root .manual-status{flex:0 0 auto}
 #manual-browser-root .manual-address{flex:1 1 360px;min-width:180px}
-#manual-browser-root .manual-view{background:#161b24;min-height:200px;width:100%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;touch-action:none}
-#manual-browser-root .manual-view img{max-width:100%;width:auto;height:auto;display:block;user-select:none;cursor:crosshair}
-#manual-browser-root .manual-icon{height:36px;width:36px;display:inline-flex;align-items:center;justify-content:center;padding:8px}
+#manual-browser-root .manual-view{background:#161b24;width:100%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;touch-action:none}
+#manual-browser-root .manual-view img{max-width:100%;max-height:100%;width:auto;height:auto;display:block;user-select:none;cursor:crosshair}
+#manual-browser-root .manual-row .manual-icon{height:34px;width:34px;min-width:34px;display:inline-flex;align-items:center;justify-content:center;padding:0}
 #manual-browser-root .manual-icon svg{width:16px;height:16px}
 #manual-browser-root .manual-view:focus{outline:none}
 #manual-browser-root .manual-view:focus-visible{outline:2px solid #4b9bff;outline-offset:2px}
@@ -18,8 +25,8 @@
 @media(max-width:680px) { #manual-browser-root .manual-address{flex-basis:100%} }
 </style>
 <div class="box" id="manual-browser-root">
-  <h3>人工操作 · 共享 CloakBrowser</h3>
-  <p>同一个 Persistent Context 中的 Tab，关闭窗口不会删除 Cookie。</p>
+  <div class="manual-heading"><h3 style="margin:0 0 4px">人工操作 · 共享 CloakBrowser</h3>
+  <p class="manual-tips">共享 Persistent Context · 关闭人工会话不会删除 Cookie</p></div>
   <input type="hidden" id="manual-csrf" value="{{ csrf_token() }}">
   <input type="hidden" id="manual-watch-uuid" value="{{ watch_uuid }}">
   <div id="manual-existing" class="manual-session-notice" hidden>
@@ -57,14 +64,16 @@
     <summary>浏览器详情</summary>
     <p id="manual-detail" style="overflow-wrap:anywhere"></p>
   </details>
-  <div class="manual-row">
+  <div class="manual-row manual-controls">
     <label for="manual-text">输入文字</label>
     <input id="manual-text" type="text" maxlength="512" placeholder="先点击画面中的输入框" style="flex:1;min-width:170px">
     <button id="manual-type" type="button" class="pure-button" disabled>发送文字</button>
     <button id="manual-enter" type="button" class="pure-button" disabled>Enter</button>
     <button id="manual-backspace" type="button" class="pure-button" disabled>Backspace</button>
   </div>
-  <p style="opacity:.75">点击画面进行鼠标操作、滚轮滚动，画面获得焦点后可使用键盘。空闲 15 分钟自动关闭；关闭网页标签页后仍可恢复该会话。</p>
+  <details class="manual-tips"><summary>使用说明</summary>
+    点击画面进行鼠标操作或滚动，画面获得焦点后支持键盘。空闲 15 分钟自动关闭；关闭网页标签页后仍可恢复该会话。
+  </details>
 </div>
 <script>
 window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token()} | tojson }};

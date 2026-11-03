@@ -115,10 +115,10 @@ def construct_blueprint(datastore: ChangeDetectionStore):
             try:
                 await stepper.connect(proxy=None)
                 await stepper.call_action(action_name="Goto site", selector=None, optional_value=None)
+                # Keep the upstream one-shot navigation + screenshot timeline.
+                # Manual control handles interactive verification; do not hold
+                # this HTTP request for 2+15 additional seconds.
                 kind = None
-                if resolved_fetcher == 'html_cloakbrowser_shared':
-                    from changedetection_cloak_shared.page_readiness import wait_for_page_ready
-                    kind = await wait_for_page_ready(stepper.page)
                 # Always show the screenshot, even when verification remains.
                 (screenshot, xpath_data) = await stepper.get_current_state()
                 # Also grab the rendered HTML so the processor can run on submit without

@@ -288,20 +288,30 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                         continue
                     logger.debug(f"Received FilterNotFoundInResponse exception for {uuid}")
 
-                    err_text = "Warning, no filters were found, no change detection ran - Did the page change layout? update your Visual Filter if necessary."
+                    # Defense in depth for fetchers whose full HTML is present
+                    # even though the expected CSS/XPath no longer matches.
+                    challenge = None
+                    from changedetectionio.verification_alerts import shared_backend, classify_fetcher, mark_verification
+                    if shared_backend(watch, datastore, getattr(update_handler, 'fetcher', None)):
+                        challenge = classify_fetcher(getattr(update_handler, 'fetcher', None), watch)
+                    if challenge:
+                        mark_verification(datastore, notification_q, uuid, challenge)
+                        err_text = f'{challenge} still displayed; manual attention required'
+                    else:
+                        err_text = "Warning, no filters were found, no change detection ran - Did the page change layout? update your Visual Filter if necessary."
                     datastore.update_watch(uuid=uuid, update_obj={'last_error': err_text})
 
                     # Filter wasnt found, but we should still update the visual selector so that they can have a chance to set it up again
                     if e.screenshot:
-                        watch.save_screenshot(screenshot=e.screenshot)
-                        e.screenshot = None  # Free memory immediately
+                        watch.save_screenshot(screenshot=e.screenshot, as_error=bool(challenge))
+                        e.screenshot = None
 
-                    if e.xpath_data:
+                    if e.xpath_data and not challenge:
                         watch.save_xpath_data(data=e.xpath_data)
-                        e.xpath_data = None  # Free memory immediately
+                        e.xpath_data = None
 
                     # Only when enabled, send the notification
-                    if watch.get('filter_failure_notification_send', False):
+                    if not challenge and watch.get('filter_failure_notification_send', False):
                         c = watch.get('consecutive_filter_failures', 0)
                         c += 1
                         # Send notification if we reached the threshold?
@@ -329,8 +339,10 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                     logger.debug(f'[{uuid}] - checksumFromPreviousCheckWasTheSame - Checksum from previous check was the same, nothing todo here.')
                     # Reset the edited flag since we successfully completed the check
                     watch.reset_watch_edited_flag()
-                    # Page was fetched successfully - clear any previous error state
+                    # Unchanged checksum still means a successful page fetch.
                     datastore.update_watch(uuid=uuid, update_obj={'last_error': False})
+                    from changedetectionio.verification_alerts import clear_after_success
+                    clear_after_success(datastore, notification_q, uuid)
                     cleanup_error_artifacts(uuid, datastore)
                     
                 except content_fetchers_exceptions.BrowserConnectError as e:
@@ -404,22 +416,13 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                     process_changedetection_results = False
                     
                 except content_fetchers_exceptions.PageUnloadable as e:
-                    challenge_kind = None
-                    if watch and (watch.get_fetch_backend == 'html_cloakbrowser_shared' or
-                                  (watch.get_fetch_backend == 'system' and
-                                   datastore.data['settings']['application'].get('fetch_backend') == 'html_cloakbrowser_shared')):
+                    from changedetectionio.verification_alerts import shared_backend, mark_verification
+                    if shared_backend(watch, datastore, getattr(update_handler, 'fetcher', None)):
                         description = str(getattr(e, 'message', '') or '')
-                        if 'Cloudflare verification' in description:
-                            challenge_kind = 'Cloudflare verification'
-                        elif 'Google verification' in description:
-                            challenge_kind = 'Google verification'
-                    if challenge_kind and watch.get('manual_attention_reason') != challenge_kind:
-                        datastore.update_watch(uuid=uuid, update_obj={'manual_attention_reason': challenge_kind})
-                        try:
-                            from changedetectionio.notification_service import create_notification_service
-                            create_notification_service(datastore, notification_q).send_verification_state_notification(uuid, challenge_kind)
-                        except Exception as notify_error:
-                            logger.warning('Verification notification could not be queued for {}: {}', uuid, notify_error)
+                        for kind in ('Cloudflare verification', 'Google verification'):
+                            if kind in description:
+                                mark_verification(datastore, notification_q, uuid, kind)
+                                break
                     err_text = "Page request from server didnt respond correctly"
                     if e.message:
                         err_text = "{} - {}".format(err_text, e.message)
@@ -456,14 +459,8 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                         update_obj['consecutive_filter_failures'] = 0
 
                     update_obj['last_error'] = False
-                    if watch.get('manual_attention_reason'):
-                        previous_challenge = watch.get('manual_attention_reason')
-                        update_obj['manual_attention_reason'] = None
-                        try:
-                            from changedetectionio.notification_service import create_notification_service
-                            create_notification_service(datastore, notification_q).send_verification_state_notification(uuid, previous_challenge, recovered=True)
-                        except Exception as notify_error:
-                            logger.warning('Recovery notification could not be queued for {}: {}', uuid, notify_error)
+                    # Do not mark verification resolved yet; filtering/processor
+                    # work below must also succeed before sending recovery.
                     cleanup_error_artifacts(uuid, datastore)
 
                 if not datastore.data['watching'].get(uuid):
@@ -578,6 +575,8 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                                 logger.warning(f"LLM evaluation error for {uuid}: {e}")
 
                         datastore.update_watch(uuid=uuid, update_obj=update_obj)
+                        from changedetectionio.verification_alerts import clear_after_success
+                        clear_after_success(datastore, notification_q, uuid)
 
                         if changed_detected or not watch.history_n:
                             if update_handler.screenshot:

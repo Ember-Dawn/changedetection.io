@@ -26,13 +26,10 @@ def register_content_fetcher():
             # The upstream Fetcher operates on Playwright pages; run the *entire*
             # upstream coroutine on the BrowserManager loop. The manager routes
             # upstream launch_async() to a per-job lease of its shared context.
-            # The upstream fetcher waits WEBDRIVER_DELAY_BEFORE_CONTENT_READY
-            # plus render_extract_delay. Add a bounded shared-only settle delay.
-            from .page_readiness import _seconds, challenge_kind
-            self.render_extract_delay = (
-                (self.render_extract_delay or 0)
-                + _seconds('CLOAKBROWSER_PAGE_SETTLE_SECONDS', 2, 30)
-            )
+            # Preserve upstream and per-watch extraction delays unchanged.
+            # BrowserManager checks for verification immediately after the
+            # upstream navigation settle, before XPath/content extraction.
+            from .page_readiness import challenge_kind
             result = await manager.run_fetch(kwargs.get('watch_uuid'), super().run, *args, **kwargs)
             kind = challenge_kind(self.content, url=kwargs.get('url', ''))
             if kind:

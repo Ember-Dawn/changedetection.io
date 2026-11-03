@@ -443,12 +443,14 @@ class NotificationService:
         body = ('The page is reachable again. Normal monitoring has resumed.' if recovered else
                 f'{kind} was detected. The last successful monitor content was preserved. '
                 'Open this watch and use Manual control to check the website.')
-        body += '\\nWatch: {{watch_url}}\\nManual control: {{base_url}}/manual-browser/?watch_uuid={{watch_uuid}}'
+        body += '\nWatch: {{watch_url}}\nManual control: {{base_url}}manual-browser/?watch_uuid={{watch_uuid}}'
+        # A plain-text operational alert works with Telegram and other Apprise
+        # transports regardless of the watch's usual HTML diff format.
         message = NotificationContextData({
             'notification_urls': urls,
             'notification_title': title,
             'notification_body': body,
-            'notification_format': _check_cascading_vars(self.datastore, 'notification_format', watch),
+            'notification_format': 'text',
             'uuid': watch_uuid,
             'watch_uuid': watch_uuid,
             'watch_url': watch.get('url'),
@@ -456,6 +458,8 @@ class NotificationService:
             'screenshot': None,
         })
         self.notification_q.put(message)
+        logger.info('Queued shared browser verification {} for watch {}',
+                    'recovery' if recovered else 'attention', watch_uuid)
         return True
 
     def send_content_changed_notification(self, watch_uuid):

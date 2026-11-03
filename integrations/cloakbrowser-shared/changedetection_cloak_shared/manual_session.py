@@ -318,6 +318,14 @@ class ManualSessionManager:
         elif action == 'forward':
             await page.go_forward(wait_until='domcontentloaded', timeout=30000)
             session.address = page.url
+        elif action == 'resize':
+            # Manual-only Playwright viewport. No browser restart, and no
+            # change to other monitoring Pages in the shared Context.
+            width, height = args.get('width'), args.get('height')
+            if (type(width) is not int or type(height) is not int or
+                    not 320 <= width <= 2560 or not 240 <= height <= 1800):
+                raise ManualSessionError('Invalid viewport dimensions')
+            await page.set_viewport_size({'width': width, 'height': height})
         elif action == 'refresh':
             await page.reload(wait_until='domcontentloaded', timeout=30000)
             session.address = page.url

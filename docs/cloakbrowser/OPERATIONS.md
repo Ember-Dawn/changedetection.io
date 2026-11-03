@@ -140,26 +140,25 @@ Any live WebUI preview session that spans a browser crash may need to be reopene
 
 ## Shared-browser page readiness and verification interstitial safety
 
-`CLOAKBROWSER_PAGE_SETTLE_SECONDS` (default 2, 0-30) adds a short settling
-delay for shared-browser visual preview and scheduled-watch extraction.
-The original upstream fetcher already has its own extraction delay, including
-the per-watch "Wait seconds before extracting text" setting.
+Add Watch uses the existing browser-step navigation/screenshot flow without
+additional page-settling or challenge-specific waits. It still displays
+recognized Google/Cloudflare verification screenshots with a warning, but
+does not promote their HTML/XPath to a successful monitor baseline.
 
-If a recognized Google or Cloudflare verification interstitial is visible
-during an Add Watch preview, the browser waits passively for at most
-`CLOAKBROWSER_CHALLENGE_WAIT_SECONDS` (default 15, 0-90) additional seconds.
-If the interstitial remains, preview returns HTTP 409 and does not save
-temporary watch HTML or a misleading screenshot. It never clicks CAPTCHA
-or attempts to bypass a site's checks.
+Scheduled shared-browser watches use the upstream extraction delay and the
+existing per-watch "Wait seconds before extracting text" option. After this
+existing wait, **before** XPath/HTML extraction, the shared Page lease checks
+for known verification interstitials. It raises `PageUnloadable` to preserve
+the last successful version and record a manual-attention state. There is also
+a conservative fallback when content extraction succeeds but CSS/XPath filters
+fail. First verification can queue one Apprise/Telegram alert; repeat
+occurrences are deduplicated, and successful recovery queues a recovery alert.
 
-For scheduled shared-browser watches, after normal extraction a conservative
-HTML classifier raises `PageUnloadable` if the response is a recognized
-verification interstitial. The worker records an error instead of committing
-challenge text as a successful watch change. The longer challenge-specific
-wait currently applies to preview only, not scheduled watches; use the
-existing per-watch extract delay if necessary. Unfamiliar challenges may not
-be detected; legitimate pages containing similar strings can rarely be
-misclassified. Existing non-shared backends are unaffected.
+`CLOAKBROWSER_PAGE_SETTLE_SECONDS` and `CLOAKBROWSER_CHALLENGE_WAIT_SECONDS`
+have been retired from the active Compose/template and no longer affect these
+paths. Remove them from an existing private `.env` at your convenience.
+Verification detection is best-effort; unfamiliar challenges may escape
+classification. Existing non-shared backends are unaffected.
 
 Apply the incremental `payload/` files to the repository root, then rebuild:
 
@@ -168,95 +167,12 @@ docker compose build
 docker compose up -d --force-recreate
 ```
 
-## Manual browser: authenticated human operation (November 2026)
+## Full-height manual-control viewport
 
-This extension adds **one** live interactive Tab in the **existing** shared
-CloakBrowser Persistent Context. There is no second browser/container, no
-exposed CDP/debugging port, and no automated challenge solver.
+The interactive browser canvas fills the visible space beneath changedetection.io
+navigation and toolbars, not a restricted 75vh area. Only the manually operated
+Playwright Page is resized. The screenshot keeps its aspect ratio and cursor
+coordinates are calculated from the actual displayed image rectangle.
 
-**Prerequisite:** set a changedetection.io application password and log in.
-The `/manual-browser/` interface and all `/manual-browser/api/*` actions
-intentionally return HTTP 403 if password authentication is disabled. They
-use the existing Flask-WTF CSRF token; the GET frame/status routes also require
-`X-CSRFToken` to prevent passive cross-site screenshot disclosure. Keep the
-WebUI behind a trusted authenticated ingress (e.g. Cloudflare Access) as well.
-
-Workflow, **new watch**:
-1. Enter a URL in Add Watch, click **打开浏览器（人工操作）**.
-2. In the new authenticated window, click **打开浏览器**, interact with the
-   actual Tab with mouse/keyboard, then click **完成并重新检查**.
-3. Return to Add Watch and click **前往 / Go** again for a fresh static preview.
-4. Only save a Watch after the preview contains the expected content.
-
-Workflow, **existing watch**:
-1. Open the watch list or edit page; click **打开浏览器** for a Watch that uses
-   `html_cloakbrowser_shared`.
-2. Start the session; automated checks for *that Watch* are consumed instead
-   of running while the operator controls it. Opening refuses a currently
-   running watch; retry once the active check finishes. Other Watches can run.
-3. Click **完成并重新检查** to close the manual Tab, release its slot, and queue
-   one check through the existing priority queue (unless the Watch was paused
-   by the operator). The Watch's original paused setting is never overwritten.
-4. If the next check still detects a verification page, the last successful
-   content stays intact and `last_error` remains visible. No verification
-   success is promised.
-
-Only one manual session can exist at a time. Inactivity automatically closes
-its Page after 15 minutes. Frame polling does **not** count as operator activity.
-The session is tied to the BrowserManager generation and becomes invalid if
-that generation crashes or restarts. Any manual Page counts towards
-`CLOAKBROWSER_MAX_PAGES` exactly like a normal watch Page. Popup windows
-spawned by a website are closed automatically in this first version because
-they are not yet tracked by the shared page quota; navigation inside the
-original Tab remains interactive. Some popup-based login flows will therefore
-need a future multi-page-aware implementation.
-
-The small status bar shows current URL, *counts only* for cookies and
-LocalStorage, Profile lock state, browser generation and session lifetime. It
-never returns cookie values or tokens. A populated Profile alone does not
-prove a website is still signed in; verify the session survives a clean
-container restart using a legitimate test account.
-
-**Security limitations:** Browser navigation requests are validated against
-`is_fetch_url_allowed()`, including navigation triggered by page interactions.
-This is a defense in depth, not a general guarantee against all forms of
-browser-based SSRF or a third-party web page accessing internal resources.
-Enable app authentication, never allow anonymous remote control, and avoid
-exposing the browser management interface on untrusted networks. Remote
-human interactions with third-party challenges must comply with their terms.
-
-Rebuild after applying the incremental ZIP:
-
-```bash
-docker compose build
-docker compose up -d --force-recreate
-```
-
-Local acceptance: open a test site, click/type/scroll, close and check that
-`active_pages`/`reserved_slots` return to their prior values; verify existing
-watch recheck, paused watch stays paused, 15-minute expiry, 2 simultaneous
-open attempts (second should get HTTP 409), authentication/CSRF rejection,
-and Profile persistence after normal Docker restart.
-
-## 人工浏览器界面与会话切换（第二次优化）
-
-新增监控、Page Watches 和任务编辑页的人工浏览器入口统一命名为「人工操作」。
-界面现在先调用 `/manual-browser/api/current`，识别用户是否仍有尚未关闭的人工会话。
-同一登录会话可「恢复已有会话」或确认后「关闭旧会话并打开当前网站」。
-恢复操作会轮换控制令牌，使旧网页标签页的控制请求失效。
-其他登录用户只会看到会话被占用，无法获得原会话令牌或访问地址。
-
-实时地址栏随实际页面 URL 更新（用户正在编辑时不覆盖输入内容）；按 Enter / 前往
-会在当前 Page 导航，并且仍经过 URL 安全校验与重定向导航守卫。
-导航、刷新过程中隐藏旧画面，避免将旧网站误当新页面。后退、前进继续使用同一个 Page。
-截图与鼠标移动进行了轻量优化，鼠标位置仅保留最新待发送值，避免请求无限积压。
-
-关闭浏览器页面不会立即删除服务器人工会话，可从同一登录会话恢复。
-空闲 15 分钟自动回收仍生效。需要立即释放 Page 时点击「关闭会话」；
-已有 Watch 可点击「完成并重新检查」重新提交任务队列。
-普通监控 Page、Persistent Context、Cookie、Profile 均保留原有机制。
-
-本地部署：
-`docker compose build`，然后 `docker compose up -d --force-recreate`。
-本地应验证 URL 导航与跳转、浏览器恢复、会话切换、旧标签页控制权限失效、
-正常监控期间 Tab 配额与任务保留、鼠标/键盘操作和跨重启 Cookie 状态。
+See `FAST_PREVIEW_MANUAL_HEIGHT_AND_VERIFICATION.md` for the complete change
+summary and local verification procedure.
