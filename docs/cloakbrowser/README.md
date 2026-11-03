@@ -1,102 +1,50 @@
-# CloakBrowser, round 3 A+B (reliability and Profile operations)
+# CloakBrowser integration: current status and documentation
 
-This round adds **single-instance + multiple short-lived Tabs + shared on-disk profile** to the first-round one-container Docker image. The original dgtlmoon CloakBrowser backend remains available for isolated tasks.
+This fork packages changedetection.io and CloakBrowser **in one Docker service**. Its optional local backend, `html_cloakbrowser_shared`, reuses **one persistent Chromium BrowserContext** and opens short-lived Pages/Tabs for monitoring tasks. A protected human-control UI can operate an additional Page using the same on-disk Profile. The upstream independent CloakBrowser backend, `html_cloakbrowser`, is retained separately.
 
-**Execution status:** code compiled and fake-browser unit tests passed in the authoring environment. Docker is not available here. Real Chromium, plugin registration inside an image, live Browser Steps, multi-site logins and restart persistence must be verified on your own Docker host before moving existing production watches.
+**Documentation policy:** This README and the linked topic documents describe the *current intended implementation*. Files under [`history/`](history/) document earlier patches and may describe behavior that has since changed. When there is disagreement, inspect the current source.
 
-## Apply and build
+## Documentation
 
-Apply every file under this ZIP's `payload/` to your repository root. Retain first-round files. Verify that `requirements-cloakbrowser.txt` still installs `changedetection.io-cloak-browser==0.1.1` and the agreed CloakBrowser version, and do not add dynamic `EXTRA_PACKAGES` for the shared backend.
+| Read | For |
+| --- | --- |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | BrowserManager architecture, event loop, Page/Tab concurrency and lifecycle |
+| [MANUAL_BROWSER.md](MANUAL_BROWSER.md) | Login protection, interactive browser, recovery and session ownership |
+| [VERIFICATION.md](VERIFICATION.md) | Google/Cloudflare challenges, watch states, Apprise/Telegram and limitations |
+| [OPERATIONS.md](OPERATIONS.md) | Docker deployment, troubleshooting, safe Profile backup/restore and test checklist |
+| [UPSTREAM.md](UPSTREAM.md) | Exact dependency pins, upstream coupling, modification boundaries |
+| [CHANGELOG.md](CHANGELOG.md) | Historical sequence of implementation milestones |
+| [history/](history/) | Archived round/incident documents; reference only |
+
+The repository root [`AGENTS.md`](../../AGENTS.md) is the recommended starting point for a future AI maintainer.
+
+## Current at a glance
+
+- `docker-compose.yml` builds `Dockerfile.cloakbrowser`; host HTTP port defaults to `127.0.0.1:9901` and container port `5000`.
+- Python package versions are **pinned** (`cloakbrowser==0.7.0`, `changedetection.io-cloak-browser==0.1.1`). The CloakBrowser-managed Chromium binary is version-resolved/downloaded separately; check the running version using `python -m cloakbrowser info`.
+- Shared context Profile is bind-mounted at `./browser-profile:/browser-profile`. Binary/cache data is separate: `./cloakbrowser-home:/root/.cloakbrowser`. Watch settings and history are under `./datastore:/datastore`.
+- `FETCH_WORKERS=3` and default `CLOAKBROWSER_MAX_PAGES=3`. Each concurrent shared fetch leases **its own** Page, up to the available Page limit; queued checks wait. Pages close after checks, while the Profile/Context survives. A manual browser Page also consumes one permit.
+- The manual browser is reachable at **Browsers** in the sidebar and from relevant Add Watch / existing Watch entry points. It uses actual Chromium, but presents a periodic screenshot stream over HTTP, not a low-latency VNC/video desktop.
+- Add Watch uses the normal browser-step screenshot flow without the previously added 2-second settling / 15-second challenge waits. Known challenge screenshots can be shown without saving them as normal baselines.
+- Shared scheduled watches attempt to detect known Google/Cloudflare verification pages **before** normal extraction, keep the last good content, and can notify via configured Apprise channels on first detection and later recovery. Detection and successful Telegram delivery are not guaranteed.
+
+## Minimal deployment
 
 ```bash
-cp .env.cloakbrowser.example .env        # only if your .env does not already exist
-# Keep your existing license key if .env already exists.
-mkdir -p datastore cloakbrowser-home browser-profile
-chmod 700 browser-profile cloakbrowser-home
-
-docker compose build --pull
-# Validate both original and new plugin registrations without starting Chromium:
-docker compose run --rm changedetection python -c "from changedetectionio.content_fetchers import available_fetchers; print(available_fetchers()); assert {'html_cloakbrowser', 'html_cloakbrowser_shared'} <= {k for k, _ in available_fetchers()}"
-# Original isolated browser smoke test:
-docker compose run --rm changedetection python /app/scripts/cloakbrowser-smoke.py --browser
-# New shared persistent browser smoke test:
-docker compose run --rm changedetection python -m changedetection_cloak_shared.cli
-# Start service:
+cd ~/app/changedetection.io
+mkdir -p datastore cloakbrowser-home browser-profile backups
+chmod 700 cloakbrowser-home browser-profile backups
+# Only when .env does not exist:
+cp -n .env.cloakbrowser.example .env
+# Set CLOAKBROWSER_LICENSE_KEY in .env without printing it in logs.
+docker compose config --quiet
+docker compose build
 docker compose up -d
+docker compose logs --tail=100 changedetection
 ```
 
-The first browser launch may download CloakHQ's precompiled Chromium and requires a valid `CLOAKBROWSER_LICENSE_KEY` and network connectivity. This is a third-party binary; the original plugin warns that it is not audited by its maintainer. Do not store important account credentials until you have evaluated the trust and security implications.
+Do not overwrite an existing `.env` or remove an existing Profile. Read [OPERATIONS.md](OPERATIONS.md) before backing up, restoring, or debugging startup failure.
 
-## Use the shared mode
+## Important limits
 
-In changedetection.io, open a watch -> Edit -> Fetch -> select **CloakBrowser - Shared persistent profile (experimental)**. The original **CloakBrowser - Stealth Chromium** entry remains independent/isolation mode. **Existing watches are not silently migrated.** First test a simple page, then a JS page, screenshots, Browser Steps, and a site requiring login.
-
-Shared mode keeps **one persistent Chromium Context per Python process**. Each checking watch gets its own short-lived page, up to `CLOAKBROWSER_MAX_PAGES` in parallel. The page closes at the end of the check, while Cookies and other data survive in the mounted browser-profile directory. The browser starts lazily and stays running between checks.
-
-**Manual login in round 2:** a Browser Steps preview operates against the same profile and can carry out navigations and form steps, but there is no complete interactive desktop or remote-control UI yet. That interface is a future round.
-
-## Configuration
-
-The default `docker-compose.yml` replaces the upstream sample Compose. It builds `Dockerfile.cloakbrowser` and runs the shared-browser stack. Use standard `docker compose` commands; the older `docker-compose.cloakbrowser.yml` is removed.
-
-### Environment template and WebUI port
-
-`.env.cloakbrowser.example` is the reference for operator-adjustable settings: license key, host port, shared page limit and recovery parameters. Copy it to `.env` only if `.env` does not already exist. If `.env` already exists, update the relevant values without overwriting your license key.
-
-The host WebUI port defaults to **9901** while the container still listens on **5000**. The default Compose binding is `127.0.0.1:9901:5000`, so the Docker host accesses `http://127.0.0.1:9901`. Other LAN or Tailscale clients cannot connect directly with this binding; use SSH forwarding or an authenticated reverse proxy. Change `CHANGEDETECTION_PORT` in `.env` to choose another host port.
-
-`FETCH_WORKERS=3` and `CLOAKBROWSER_PROFILE_DIR=/browser-profile` are fixed in Compose, not in the example `.env`. Check effective configuration with `docker compose config --quiet`; avoid sharing full `config` output since it can expose the license key.
-
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `CLOAKBROWSER_LICENSE_KEY` | required | Put in `.env` (never commit) |
-| `CHANGEDETECTION_PORT` | `9901` | Host WebUI port; container remains on `5000` |
-| `CLOAKBROWSER_PROFILE_DIR` | `/browser-profile` | Bind mounted browser data directory |
-| `CLOAKBROWSER_MAX_PAGES` | `3` | Maximum simultaneous shared pages, including previews |
-| `CLOAKBROWSER_RECOVERY_MAX_RETRIES` | `3` | Automatic retries after ordinary launch failure |
-| `CLOAKBROWSER_RECOVERY_INITIAL_DELAY` | `2` | Initial retry delay, seconds |
-| `CLOAKBROWSER_PREVIEW_TIMEOUT` | `180` seconds | Timeout for a single synchronous UI preview action |
-| `CLOAKBROWSER_HUMANIZE` | `true` | Same CloakBrowser option as first round |
-| `CLOAKBROWSER_SHARED_PROXY` | unset | One profile-wide proxy; per-watch mismatch is rejected |
-| `CLOAKBROWSER_SHARED_USER_AGENT` | unset | Profile-wide UA only |
-
-The Compose file maps `./datastore` for monitors, `./cloakbrowser-home` for downloaded Chromium and cache, and `./browser-profile` for cookies, LocalStorage, IndexedDB, history and profile fingerprint seed. The `.dockerignore` explicitly excludes all three directories, protecting secrets and reducing the build context.
-
-These directories must be writable by the container user. Do not copy a Windows Chrome profile directly into the Linux container. Do not start two containers or Chrome processes against the same profile folder at once. The mounted profile contains valuable login secrets; secure it accordingly.
-
-The Compose app port is bound to `127.0.0.1` by default as in round 1. Change to a secured reverse proxy when LAN/remote access is required.
-
-## Acceptance checks
-
-1. From the one-container image, verify both backend names appear.
-2. Create 5+ shared-mode watches with `CLOAKBROWSER_MAX_PAGES=3`; observe one Chromium launch and at most 3 simultaneous monitoring pages. Note that normal short-lived Chromium subprocesses may spawn multiple renderer processes.
-3. Check that an HTTP Requests watch and an original isolated CloakBrowser watch are unaffected.
-4. Use the Browser Steps live preview on a shared-mode watch; verify it does not close the browser running other shared watches.
-5. Create a watch via the Add Watch visual snapshot picker while selecting shared CloakBrowser. Verify navigation, screenshot and XPath extraction.
-6. Log in to a test website via a shared profile page; verify a separate shared watch sees the same cookie state. Stop the service cleanly, start it again and check whether the website's session remains valid.
-7. Cancel a shared-mode watch from the queue while another shared-mode watch is running; the other watch should not be interrupted.
-8. Confirm data was created in `browser-profile` on the host.
-
-If these fail, select the original `html_cloakbrowser` backend as a safe rollback for affected watches. Do not delete the persistent Profile folder to fix startup issues without making a cold backup first.
-
-## Diagnostics
-
-```bash
-docker compose logs --tail=200 changedetection
-docker compose run --rm changedetection python -m cloakbrowser info --quick
-# Unit tests from the repository root on a Python host with deps installed:
-python -m unittest discover -s tests/cloakbrowser_shared -v
-```
-
-## Known limitations at the end of round 2
-
-- No real Docker/Chromium integration test has been run in this assistant environment.
-- The launcher adapter relies on an upstream implementation detail and must be reviewed on upstream upgrades.
-- Browser restarts after crashes, slow cancellation hardening, Profile cold backup, process health checks and manual full-visual browser control remain future work.
-- A single persistent Context means shared cookies and site storage. Watch-specific proxy and UA changes cannot safely be applied to that session.
-- Multiple changedetection.io application processes are unsupported with the same Profile.
-
-
-## Third round additions
-
-Round 3 adds browser-generation fault handling, safer Page quota semantics, cancellation cleanup tracking, conservative fail-closed recovery, an on-disk cooperative Profile lock and an offline backup/restore CLI. See [OPERATIONS.md](OPERATIONS.md) for commands, limitations and local tests. Manual visual browser control remains out of scope.
+One shared Context deliberately shares site state; per-watch incompatible proxy/User-Agent settings cannot be isolated. One persistent Profile must never have multiple simultaneous writers. The free CloakBrowser license was observed to permit one concurrent browser *session*, not only one Page; separate `html_cloakbrowser` launches may contend with that limit. CAPTCHA challenges still require the website to accept a human interaction; manual control is not a guarantee of passage.

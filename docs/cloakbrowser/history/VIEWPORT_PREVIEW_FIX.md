@@ -1,3 +1,5 @@
+> **Historical note — not current setup instructions.** For current behavior read [../README.md](../README.md), [../OPERATIONS.md](../OPERATIONS.md), [../MANUAL_BROWSER.md](../MANUAL_BROWSER.md) and [../VERIFICATION.md](../VERIFICATION.md).
+
 # Shared CloakBrowser add-watch preview: viewport fix
 
 ## Verified cause
