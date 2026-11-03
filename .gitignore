@@ -32,3 +32,8 @@ test-memory.log
 
 # Per-test loguru logs written by tests/conftest.py (dirname(__file__)/logs)
 changedetectionio/tests/logs/
+
+# CloakBrowser local runtime and sensitive data
+cloakbrowser-home/
+browser-profile/
+backups/
