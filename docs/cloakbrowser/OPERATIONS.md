@@ -8,13 +8,15 @@ Single container, shared persistent Profile. Round 3 adds fail-closed browser re
 
 ## Runtime
 
+The root `docker-compose.yml` is the active configuration; run ordinary `docker compose` commands without `-f`. It uses `Dockerfile.cloakbrowser` and the existing `.env` file.
+
 Before deployment, use `.env.cloakbrowser.example` as the reference. Copy it to `.env` only if absent; preserve existing credentials when updating. Host WebUI port defaults to `9901`, mapped to container port `5000` on `127.0.0.1`. Open `http://127.0.0.1:9901` on the Docker host; for access from another machine use SSH forwarding or a secured reverse proxy. The Compose file fixes `FETCH_WORKERS=3` and `CLOAKBROWSER_PROFILE_DIR=/browser-profile`; it forwards page concurrency and browser recovery values from `.env`.
 
 ```bash
 # Apply the incremental payload to your repository and rebuild.
-docker compose -f docker-compose.cloakbrowser.yml build --pull
-docker compose -f docker-compose.cloakbrowser.yml up -d
-docker compose -f docker-compose.cloakbrowser.yml logs -f --tail=150 changedetection
+docker compose build --pull
+docker compose up -d
+docker compose logs -f --tail=150 changedetection
 ```
 
 Shared backend remains `html_cloakbrowser_shared`; the author's original isolated backend remains `html_cloakbrowser`. Browser activity starts lazily. Changes to global proxy, User-Agent, or browser fingerprint require a browser restart, not in-place mutation.
@@ -34,7 +36,7 @@ The manager blocks a second managed process via `browser-profile/.changedetectio
 1. Stop the application **and wait until it exits**:
 
 ```bash
-docker compose -f docker-compose.cloakbrowser.yml stop
+docker compose stop
 ```
 
 2. From the repository root, create a restricted backup directory and run a temporary container (service must remain stopped):
@@ -42,7 +44,7 @@ docker compose -f docker-compose.cloakbrowser.yml stop
 ```bash
 mkdir -p backups
 chmod 700 backups
-docker compose -f docker-compose.cloakbrowser.yml run --rm --no-deps \
+docker compose run --rm --no-deps \
   -v "$PWD/backups:/backups" changedetection \
   python -m changedetection_cloak_shared.backup backup --output /backups
 ```
@@ -54,20 +56,20 @@ The backup tool checks its cooperative lock, refuses unsafe symlinks/special fil
 4. Start the app again:
 
 ```bash
-docker compose -f docker-compose.cloakbrowser.yml up -d
+docker compose up -d
 ```
 
 **Do not run the backup tool against a running Chromium**. The cooperative lock blocks the shared manager, but does not protect against unrelated Chromium processes or external scripts that ignore the lock.
 
 ## Offline restore
 
-1. `docker compose -f docker-compose.cloakbrowser.yml stop`.
+1. `docker compose stop`.
 2. Independently preserve the current `browser-profile/` contents (including any data created since the last backup). Move its content into a separate protected directory; leave the mounted Profile path present but **empty**, except possibly `.changedetection.lock` and Chromium's stale Singleton* entries. Never delete a Profile just to recover a startup error without making a copy.
 3. Verify the archive's `.sha256` against a trusted checksum (the tool also checks it).
 4. Supply the **actual** archive path and independent 64-character checksum:
 
 ```bash
-docker compose -f docker-compose.cloakbrowser.yml run --rm --no-deps \
+docker compose run --rm --no-deps \
   -v "$PWD/backups:/backups:ro" changedetection \
   python -m changedetection_cloak_shared.backup restore \
   --archive /backups/cloakbrowser-profile-YYYYMMDDTHHMMSSZ.tar.gz \

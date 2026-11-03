@@ -14,15 +14,15 @@ cp .env.cloakbrowser.example .env        # only if your .env does not already ex
 mkdir -p datastore cloakbrowser-home browser-profile
 chmod 700 browser-profile cloakbrowser-home
 
-docker compose -f docker-compose.cloakbrowser.yml build --pull
+docker compose build --pull
 # Validate both original and new plugin registrations without starting Chromium:
-docker compose -f docker-compose.cloakbrowser.yml run --rm changedetection python -c "from changedetectionio.content_fetchers import available_fetchers; print(available_fetchers()); assert {'html_cloakbrowser', 'html_cloakbrowser_shared'} <= {k for k, _ in available_fetchers()}"
+docker compose run --rm changedetection python -c "from changedetectionio.content_fetchers import available_fetchers; print(available_fetchers()); assert {'html_cloakbrowser', 'html_cloakbrowser_shared'} <= {k for k, _ in available_fetchers()}"
 # Original isolated browser smoke test:
-docker compose -f docker-compose.cloakbrowser.yml run --rm changedetection python /app/scripts/cloakbrowser-smoke.py --browser
+docker compose run --rm changedetection python /app/scripts/cloakbrowser-smoke.py --browser
 # New shared persistent browser smoke test:
-docker compose -f docker-compose.cloakbrowser.yml run --rm changedetection python -m changedetection_cloak_shared.cli
+docker compose run --rm changedetection python -m changedetection_cloak_shared.cli
 # Start service:
-docker compose -f docker-compose.cloakbrowser.yml up -d
+docker compose up -d
 ```
 
 The first browser launch may download CloakHQ's precompiled Chromium and requires a valid `CLOAKBROWSER_LICENSE_KEY` and network connectivity. This is a third-party binary; the original plugin warns that it is not audited by its maintainer. Do not store important account credentials until you have evaluated the trust and security implications.
@@ -37,13 +37,15 @@ Shared mode keeps **one persistent Chromium Context per Python process**. Each c
 
 ## Configuration
 
+The default `docker-compose.yml` replaces the upstream sample Compose. It builds `Dockerfile.cloakbrowser` and runs the shared-browser stack. Use standard `docker compose` commands; the older `docker-compose.cloakbrowser.yml` is removed.
+
 ### Environment template and WebUI port
 
 `.env.cloakbrowser.example` is the reference for operator-adjustable settings: license key, host port, shared page limit and recovery parameters. Copy it to `.env` only if `.env` does not already exist. If `.env` already exists, update the relevant values without overwriting your license key.
 
 The host WebUI port defaults to **9901** while the container still listens on **5000**. The default Compose binding is `127.0.0.1:9901:5000`, so the Docker host accesses `http://127.0.0.1:9901`. Other LAN or Tailscale clients cannot connect directly with this binding; use SSH forwarding or an authenticated reverse proxy. Change `CHANGEDETECTION_PORT` in `.env` to choose another host port.
 
-`FETCH_WORKERS=3` and `CLOAKBROWSER_PROFILE_DIR=/browser-profile` are fixed in Compose, not in the example `.env`. Check effective configuration with `docker compose -f docker-compose.cloakbrowser.yml config --quiet`; avoid sharing full `config` output since it can expose the license key.
+`FETCH_WORKERS=3` and `CLOAKBROWSER_PROFILE_DIR=/browser-profile` are fixed in Compose, not in the example `.env`. Check effective configuration with `docker compose config --quiet`; avoid sharing full `config` output since it can expose the license key.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -80,8 +82,8 @@ If these fail, select the original `html_cloakbrowser` backend as a safe rollbac
 ## Diagnostics
 
 ```bash
-docker compose -f docker-compose.cloakbrowser.yml logs --tail=200 changedetection
-docker compose -f docker-compose.cloakbrowser.yml run --rm changedetection python -m cloakbrowser info --quick
+docker compose logs --tail=200 changedetection
+docker compose run --rm changedetection python -m cloakbrowser info --quick
 # Unit tests from the repository root on a Python host with deps installed:
 python -m unittest discover -s tests/cloakbrowser_shared -v
 ```
