@@ -62,6 +62,36 @@ class ManualSessionManager:
             raise ManualSessionError('Manual session expired after 15 minutes of inactivity')
         return session
 
+    def inspect(self, owner):
+        """Never reveal another operator's URL or control token."""
+        with self._guard:
+            entry = self._session
+            if entry is None or entry.closed:
+                return {'active': False, 'opening': self._opening}
+            age = time.monotonic() - entry.last_active
+            if entry.browser_generation != manager._generation or manager._stopping or age > _SESSION_SECONDS:
+                return {'active': False, 'opening': True}
+            yours = entry.owner == owner
+            result = {'active': True, 'owned': yours,
+                      'seconds_remaining': max(0, int(_SESSION_SECONDS - age))}
+            if yours:
+                result.update({'url': entry.address, 'session': entry.token,
+                               'generation': entry.browser_generation,
+                               'watch_uuid': entry.watch_uuid or ''})
+            return result
+
+    async def _resume_owned(self, token, owner):
+        """Transfer control: a previous tab's token stops working."""
+        entry = self._get(token, owner)
+        entry.token = secrets.token_urlsafe(32)
+        task = asyncio.create_task(self._expiry_watch(entry.token), name='manual-session-expiry')
+        self._expiry_tasks.add(task)
+        task.add_done_callback(self._expiry_tasks.discard)
+        return {'session': entry.token, 'generation': entry.browser_generation}
+
+    def resume(self, token, owner):
+        return manager.call_sync(self._resume_owned(token, owner), timeout=15)
+
     def _reserve(self, watch_uuid):
         with self._guard:
             if self._opening or self._session is not None:
@@ -192,6 +222,7 @@ class ManualSessionManager:
         session = self._get(token, owner)
         page = session.page
         url = page.url
+        session.address = url
         # Never return cookies/LocalStorage values to the client.
         info = await page.evaluate('''() => ({
             width: window.innerWidth, height: window.innerHeight,
@@ -253,8 +284,27 @@ class ManualSessionManager:
             if not isinstance(value, str) or len(value) > 512:
                 raise ManualSessionError('Text must be at most 512 characters')
             await page.keyboard.insert_text(value)
+        elif action == 'navigate':
+            url = args.get('url')
+            if not isinstance(url, str) or len(url) > 2048:
+                raise ManualSessionError('Invalid navigation URL')
+            if not url.lower().startswith(('http://', 'https://')):
+                raise ManualSessionError('Navigation requires an http(s) URL')
+            from changedetectionio.validate_url import is_fetch_url_allowed
+            allowed, reason = await asyncio.to_thread(is_fetch_url_allowed, url)
+            if not allowed:
+                raise ManualSessionError(f'Navigation refused: {reason}')
+            await page.goto(url, wait_until='domcontentloaded', timeout=35000)
+            session.address = page.url
+        elif action == 'back':
+            await page.go_back(wait_until='domcontentloaded', timeout=30000)
+            session.address = page.url
+        elif action == 'forward':
+            await page.go_forward(wait_until='domcontentloaded', timeout=30000)
+            session.address = page.url
         elif action == 'refresh':
             await page.reload(wait_until='domcontentloaded', timeout=30000)
+            session.address = page.url
         else:
             raise ManualSessionError('Unsupported manual action')
         session.last_active = time.monotonic()

@@ -43,7 +43,7 @@
 <div class="edit-form monospaced-textarea">
     {% if watch.get_fetch_backend == 'html_cloakbrowser_shared' or (watch.get_fetch_backend == 'system' and settings_application['fetch_backend'] == 'html_cloakbrowser_shared') %}
     <p><a href="{{ url_for('manual_browser.index', watch_uuid=uuid) }}" target="_blank" rel="noopener"
-          class="pure-button pure-button-primary">打开浏览器 · 人工操作</a></p>
+          class="pure-button pure-button-primary">人工操作</a></p>
     {% endif %}
 
     <div class="tabs collapsable">

@@ -101,6 +101,19 @@ def construct_blueprint(datastore, update_q, queuedWatchMetaData):
         return render_template('manual-browser.html', initial_url=initial_url,
                                watch_uuid=watch_uuid, watch_title=watch_title)
 
+    @blueprint.route('/api/current', methods=['GET'])
+    @_requires_operator
+    def current_session():
+        response = jsonify(manual_sessions.inspect(_controller_id()))
+        response.headers['Cache-Control'] = 'no-store, private'
+        return response
+
+    @blueprint.route('/api/resume', methods=['POST'])
+    @_requires_operator
+    def resume_session():
+        data = _json()
+        return jsonify(manual_sessions.resume(data.get('session', ''), _controller_id()))
+
     @blueprint.route('/api/open', methods=['POST'])
     @_requires_operator
     def open_page():

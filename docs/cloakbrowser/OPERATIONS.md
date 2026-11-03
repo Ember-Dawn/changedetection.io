@@ -237,3 +237,26 @@ Local acceptance: open a test site, click/type/scroll, close and check that
 watch recheck, paused watch stays paused, 15-minute expiry, 2 simultaneous
 open attempts (second should get HTTP 409), authentication/CSRF rejection,
 and Profile persistence after normal Docker restart.
+
+## 人工浏览器界面与会话切换（第二次优化）
+
+新增监控、Page Watches 和任务编辑页的人工浏览器入口统一命名为「人工操作」。
+界面现在先调用 `/manual-browser/api/current`，识别用户是否仍有尚未关闭的人工会话。
+同一登录会话可「恢复已有会话」或确认后「关闭旧会话并打开当前网站」。
+恢复操作会轮换控制令牌，使旧网页标签页的控制请求失效。
+其他登录用户只会看到会话被占用，无法获得原会话令牌或访问地址。
+
+实时地址栏随实际页面 URL 更新（用户正在编辑时不覆盖输入内容）；按 Enter / 前往
+会在当前 Page 导航，并且仍经过 URL 安全校验与重定向导航守卫。
+导航、刷新过程中隐藏旧画面，避免将旧网站误当新页面。后退、前进继续使用同一个 Page。
+截图与鼠标移动进行了轻量优化，鼠标位置仅保留最新待发送值，避免请求无限积压。
+
+关闭浏览器页面不会立即删除服务器人工会话，可从同一登录会话恢复。
+空闲 15 分钟自动回收仍生效。需要立即释放 Page 时点击「关闭会话」；
+已有 Watch 可点击「完成并重新检查」重新提交任务队列。
+普通监控 Page、Persistent Context、Cookie、Profile 均保留原有机制。
+
+本地部署：
+`docker compose build`，然后 `docker compose up -d --force-recreate`。
+本地应验证 URL 导航与跳转、浏览器恢复、会话切换、旧标签页控制权限失效、
+正常监控期间 Tab 配额与任务保留、鼠标/键盘操作和跨重启 Cookie 状态。
