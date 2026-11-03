@@ -137,3 +137,33 @@ Any live WebUI preview session that spans a browser crash may need to be reopene
    removed when the filesystem permits rollback.
 5. Try a symlink `browser-profile` or `.changedetection.lock`; the management
    tools must refuse rather than follow unsafe paths.
+
+## Shared-browser page readiness and verification interstitial safety
+
+`CLOAKBROWSER_PAGE_SETTLE_SECONDS` (default 2, 0-30) adds a short settling
+delay for shared-browser visual preview and scheduled-watch extraction.
+The original upstream fetcher already has its own extraction delay, including
+the per-watch "Wait seconds before extracting text" setting.
+
+If a recognized Google or Cloudflare verification interstitial is visible
+during an Add Watch preview, the browser waits passively for at most
+`CLOAKBROWSER_CHALLENGE_WAIT_SECONDS` (default 15, 0-90) additional seconds.
+If the interstitial remains, preview returns HTTP 409 and does not save
+temporary watch HTML or a misleading screenshot. It never clicks CAPTCHA
+or attempts to bypass a site's checks.
+
+For scheduled shared-browser watches, after normal extraction a conservative
+HTML classifier raises `PageUnloadable` if the response is a recognized
+verification interstitial. The worker records an error instead of committing
+challenge text as a successful watch change. The longer challenge-specific
+wait currently applies to preview only, not scheduled watches; use the
+existing per-watch extract delay if necessary. Unfamiliar challenges may not
+be detected; legitimate pages containing similar strings can rarely be
+misclassified. Existing non-shared backends are unaffected.
+
+Apply the incremental `payload/` files to the repository root, then rebuild:
+
+```bash
+docker compose build
+docker compose up -d --force-recreate
+```

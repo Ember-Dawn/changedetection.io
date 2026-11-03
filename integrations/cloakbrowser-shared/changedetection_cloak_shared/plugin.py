@@ -26,7 +26,24 @@ def register_content_fetcher():
             # The upstream Fetcher operates on Playwright pages; run the *entire*
             # upstream coroutine on the BrowserManager loop. The manager routes
             # upstream launch_async() to a per-job lease of its shared context.
-            return await manager.run_fetch(kwargs.get('watch_uuid'), super().run, *args, **kwargs)
+            # The upstream fetcher waits WEBDRIVER_DELAY_BEFORE_CONTENT_READY
+            # plus render_extract_delay. Add a bounded shared-only settle delay.
+            from .page_readiness import _seconds, challenge_kind
+            self.render_extract_delay = (
+                (self.render_extract_delay or 0)
+                + _seconds('CLOAKBROWSER_PAGE_SETTLE_SECONDS', 2, 30)
+            )
+            result = await manager.run_fetch(kwargs.get('watch_uuid'), super().run, *args, **kwargs)
+            kind = challenge_kind(self.content, url=kwargs.get('url', ''))
+            if kind:
+                from changedetectionio.content_fetchers.exceptions import PageUnloadable
+                raise PageUnloadable(
+                    status_code=getattr(self, 'status_code', None),
+                    url=kwargs.get('url', ''),
+                    message=f'{kind} still displayed; monitoring result was not saved',
+                    screenshot=getattr(self, 'screenshot', None) or False,
+                )
+            return result
 
         @classmethod
         async def get_browsersteps_browser(cls, proxy=None, keepalive_ms=None):
