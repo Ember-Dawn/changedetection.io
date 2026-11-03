@@ -74,7 +74,7 @@ docker compose -f docker-compose.cloakbrowser.yml run --rm --no-deps \
 
 5. Start the app. Validate website login, screenshot and browsing steps. Old Chromium Profile formats may not be compatible with an older browser binary; do not downgrade blindly.
 
-The tool validates the archive and stages extraction before copying into the bind-mounted Profile. A failed file copy can leave a partial restore; on failure keep the preserved old copy, clear only files created by that failed restore, and retry when the underlying I/O issue is fixed. This is **not** a hot/atomic transaction across a Docker bind mount.
+The tool validates the archive and stages extraction before copying into the bind-mounted Profile. A failed file copy triggers rollback of paths created by that invocation, including a directory that was only partially copied. If rollback itself fails (for example, filesystem I/O errors), inspect the destination manually; never assume the previous Profile was restored automatically. This is **not** a hot/atomic transaction across a Docker bind mount.
 
 ## Local acceptance tests
 
@@ -94,6 +94,42 @@ python -m unittest discover -s tests/cloakbrowser_shared -v
 
 ## Observability and limitations
 
-`BrowserManager.status()` returns process-local state (`state`, `generation_id`, `active_jobs`, approximate `active_pages_estimate`, `restart_count`, `last_error`, `uptime_seconds`). Do not start a second container to query it: that would observe a fresh manager, not the running application's state. A production admin endpoint/UI has not been added. Logs remain the primary diagnostics.
+`BrowserManager.status()` returns process-local state (`state`, `generation_id`, `active_jobs`, `reserved_slots`, `active_pages`, `closing_pages`, `preview_operations`, `profile_lock_held`, `context_alive`, `restart_count`, `last_error`, `uptime_seconds`). Do not start a second container to query it: that would observe a fresh manager, not the running application's state. A production admin endpoint/UI has not been added. Logs remain the primary diagnostics.
 
 Any live WebUI preview session that spans a browser crash may need to be reopened. This round intentionally does not add automatic client-side session resurrection. Recovery is deliberately conservative: an unclosed former Chromium instance or ambiguous launch timeout results in FAILED rather than a second Chromium writing the same Profile.
+
+## Reliability hardening (post-round-3 patch)
+
+- All BrowserManager previews are registered while an operation runs; shutdown
+  waits for/cancels operations before closing the shared Context. Idle preview
+  browser-step sessions will be invalidated across generations and must be reopened.
+- Registration of watch Futures is protected against the fast-completion race.
+  Future cancellation is propagated to the manager event loop; the active task
+  registry tracks ongoing cleanup after caller cancellation.
+- A Page close that times out is still tracked as a background close; page permits
+  are returned only when closure or loss of the old browser is confirmed.
+- Docker shutdown now requests shared-manager drain *before* worker loops are
+  forcibly stopped. This is not a fully graceful shutdown of other (non-shared)
+  fetchers, which retain their upstream Worker Pool behavior.
+- An ambiguous Chromium launch failure retains the Profile lock until the
+  process exits. This is intentional to prevent unsafe concurrent Profile access.
+  Inspect and terminate stray Chromium processes before restarting a FAILED
+  container; do not delete Profile Singleton* lock artifacts blindly.
+- Profile restore is still not an atomic transaction across a bind mount.
+  Make an independent copy of an existing Profile before performing recovery.
+- Shared profile options are validated before a Page is created; incompatible
+  per-watch proxy/User-Agent values require the isolated backend.
+
+### Additional local regression checks
+
+1. Cancel a watch that has just been queued and one that is already running;
+   neither may leave a permanent `active_jobs` entry.
+2. Run browser-step preview while stopping the container. No new preview action
+   should reopen the browser after shutdown begins.
+3. Force a Page.close exception. Verify that it remains visible via
+   `closing_pages`/`reserved_slots` and the manager invalidates its generation.
+4. Use an intentionally interrupted *test* Profile restore (e.g. fill the
+   destination volume mid-copy). A partially created destination must be
+   removed when the filesystem permits rollback.
+5. Try a symlink `browser-profile` or `.changedetection.lock`; the management
+   tools must refuse rather than follow unsafe paths.

@@ -54,3 +54,20 @@ See README.md for deployment and runtime tests, and UPSTREAM.md for baseline sou
 ## Round 3 reliability changes
 
 The BrowserManager now distinguishes STOPPED / STARTING / RUNNING / RECOVERING / STOPPING / FAILED, tracks generations, validates connectivity before reusing the persistent Context, and refuses a second launch when an old context cannot be closed. Managed Page.close only releases a permit after it knows the Page is closed (or its generation was retired). The long-running job registry is removed from inside the underlying manager-loop task's finalizer, not immediately on cancellation of the worker-side concurrent Future. Shutdown first blocks work and cancels jobs, then closes the persistent Context and releases the advisory Profile lock. The lock sits **inside** the bind-mounted Profile so separate Docker processes can see it. This is not a replacement for Chromium's own lock. See OPERATIONS.md for cold backup and restore.
+
+## Reliability invariants (hardening patch)
+
+1. The manager event loop exclusively owns Chromium/Playwright objects. The
+   ordinary worker loop only awaits serialized output or cancellation.
+2. Every Page lease is bound to one browser generation. A stale preview cannot
+   add a new Page to a later generation.
+3. A slot is released exactly once and only after Page closure has been
+   confirmed, or the previous browser is known to be gone. Pending close tasks
+   remain in the manager's live-page registry.
+4. Both watch operations and live preview operations are visible to shutdown
+   and browser recovery; a timed-out preview request is cancelled.
+5. The Profile lock is held while the shared browser is running, and during
+   ambiguous launch failures. Never start a second writer after an uncertain
+   timeout.
+6. App shutdown drains BrowserManager before brutally stopping upstream worker
+   loops; full non-shared Worker Pool graceful shutdown remains out of scope.

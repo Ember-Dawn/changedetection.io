@@ -39,7 +39,11 @@ def _int_env(name: str, default: int) -> int:
 
 
 class _ManagedPage:
-    """A page wrapper that returns exactly one semaphore permit when closed."""
+    """Idempotent page lease. A slot is free only after close is confirmed.
+
+    A timed-out close remains tracked: an eventual close can safely release the
+    slot, but an unconfirmed close invalidates the current browser generation.
+    """
 
     def __init__(self, page, semaphore, manager=None, generation=None):
         self._page = page
@@ -47,46 +51,75 @@ class _ManagedPage:
         self._manager = manager
         self._generation = generation
         self._released = False
+        self._close_task = None
+        if manager is not None:
+            with manager._lock:
+                manager._live_pages.add(self)
 
     def __getattr__(self, name):
         return getattr(self._page, name)
 
-    async def close(self, *args, **kwargs):
-        if self._released:
-            return
-        error = None
-        cancelled = False
-        # Cancellation of a watch must not abort its own Page cleanup.
-        close_task = asyncio.create_task(self._close_underlying(*args, **kwargs))
+    def _confirmed_closed(self):
         try:
-            await asyncio.wait_for(asyncio.shield(close_task), timeout=8)
-        except asyncio.CancelledError:
-            cancelled = True
-            try:
-                await asyncio.wait_for(asyncio.shield(close_task), timeout=5)
-            except Exception as exc:
-                error = exc
-        except Exception as exc:
-            error = exc
-        closed = self._page.is_closed()
-        definitely_gone = (self._manager is not None and
-                           (self._manager._generation != self._generation or
-                            self._manager._browser_definitely_gone()))
-        if closed or definitely_gone:
+            return bool(self._page.is_closed())
+        except Exception:
+            return False
+
+    def _release_when_safe(self):
+        # The old semaphore stays with this lease even when a new generation
+        # starts. Releasing exactly once cannot inflate the new generation cap.
+        gone = (self._manager is not None and
+                (self._manager._generation != self._generation or
+                 (self._manager._context is not None and
+                  self._manager._browser_definitely_gone())))
+        if not self._released and (self._confirmed_closed() or gone):
             self._released = True
             self._semaphore.release()
-        else:
             if self._manager is not None:
-                self._manager.invalidate('Page close failed or did not finish')
-            if error is None:
-                error = RuntimeError('Page did not close; browser recovery required')
-        if error is not None and not closed and not definitely_gone:
-            raise error
-        if cancelled:
-            raise asyncio.CancelledError
+                with self._manager._lock:
+                    self._manager._live_pages.discard(self)
+        return self._released
+
+    def _on_close_done(self, task):
+        # Keep the closure callback independent from the caller's cancellation.
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            pass
+        except Exception as exc:
+            if self._manager is not None:
+                self._manager.invalidate(f'Page close failed: {exc}')
+        if not self._release_when_safe() and self._manager is not None:
+            self._manager.invalidate('Page close did not confirm closure')
+
+    async def close(self, *args, **kwargs):
+        if self._release_when_safe():
+            return
+        if self._close_task is None:
+            self._close_task = asyncio.create_task(self._close_underlying(*args, **kwargs))
+            self._close_task.add_done_callback(self._on_close_done)
+        try:
+            await asyncio.wait_for(asyncio.shield(self._close_task), timeout=8)
+        except asyncio.CancelledError:
+            # Keep the Page close running; shutdown/recovery tracks the task.
+            try:
+                await asyncio.wait_for(asyncio.shield(self._close_task), timeout=5)
+            except (Exception, asyncio.CancelledError):
+                pass
+            self._release_when_safe()
+            raise
+        except Exception:
+            self._release_when_safe()
+            if self._manager is not None:
+                self._manager.invalidate('Page did not close cleanly')
+            raise
+        if not self._release_when_safe():
+            if self._manager is not None:
+                self._manager.invalidate('Page close returned without closing page')
+            raise RuntimeError('Page closure not confirmed')
 
     async def _close_underlying(self, *args, **kwargs):
-        if not self._page.is_closed():
+        if not self._confirmed_closed():
             await self._page.close(*args, **kwargs)
 
 
@@ -97,9 +130,18 @@ class _ContextLease:
         self.manager = manager
         self.options = options
         self.pages = []
+        self.generation = manager._generation
 
     async def new_page(self):
+        # A preview opened under an old browser generation cannot reuse a
+        # fresh Context after the old browser has crashed or been restarted.
+        if self.manager._stopping or self.manager._generation != self.generation:
+            raise RuntimeError('Shared browser session expired; reopen the preview')
+        self.manager.validate_options(self.options)
         await self.manager._semaphore.acquire()
+        if self.manager._stopping or self.manager._generation != self.generation:
+            self.manager._semaphore.release()
+            raise RuntimeError('Shared browser session expired while waiting for a tab')
         try:
             page = await self.manager._context.new_page()
         except BaseException:
@@ -145,6 +187,9 @@ class _BrowserLease:
         self.contexts = []
 
     async def new_context(self, **kwargs):
+        self.manager.validate_options(kwargs)
+        if self.manager._stopping:
+            raise RuntimeError('Shared CloakBrowser manager is stopping')
         if self.manager._context is None:
             raise RuntimeError('Shared CloakBrowser context has been closed')
         context = _ContextLease(self.manager, kwargs)
@@ -177,6 +222,8 @@ class BrowserManager:
         self._started_at = None
         self._unhealthy = False
         self._active_tasks = set()
+        self._preview_tasks = set()
+        self._live_pages = set()
         self._profile_lock = None
         self._startup_error = None
         self._max_pages = _int_env('CLOAKBROWSER_MAX_PAGES', 3)
@@ -237,6 +284,18 @@ class BrowserManager:
             return False
         return False
 
+    def validate_options(self, options):
+        headers = options.get('extra_http_headers') or {}
+        header_ua = next((v for k, v in headers.items()
+                          if str(k).lower() == 'user-agent'), None)
+        if header_ua and header_ua != self._user_agent:
+            raise ValueError('Per-watch User-Agent header requires isolated CloakBrowser')
+        ua = options.get('user_agent')
+        if ua and ua != self._user_agent:
+            raise ValueError('Per-watch User-Agent requires isolated CloakBrowser')
+        if options.get('proxy'):
+            _proxy_compatibility_error(options['proxy'])
+
     def _context_alive(self):
         ctx = self._context
         if ctx is None or self._unhealthy:
@@ -261,7 +320,8 @@ class BrowserManager:
         if ctx is None:
             return
         current = asyncio.current_task()
-        others = [task for task in self._active_tasks if task is not current and not task.done()]
+        others = [task for task in (self._active_tasks | self._preview_tasks)
+                  if task is not current and not task.done()]
         for task in others:
             task.cancel()
         if others:
@@ -270,6 +330,17 @@ class BrowserManager:
             except asyncio.TimeoutError:
                 self._state = BrowserState.FAILED
                 raise RuntimeError('Old browser jobs did not stop; refusing to reopen same Profile')
+        # A close task that outlived its caller must be settled before a new
+        # Context may open the same Profile.
+        closing = [p._close_task for p in self._live_pages
+                   if p._generation == self._generation and p._close_task is not None
+                   and not p._close_task.done()]
+        if closing:
+            try:
+                await asyncio.wait_for(asyncio.gather(*closing, return_exceptions=True), 8)
+            except asyncio.TimeoutError as exc:
+                self._state = BrowserState.FAILED
+                raise RuntimeError('Page close still pending; refusing Profile reuse') from exc
         gone = self._browser_definitely_gone()
         try:
             await asyncio.wait_for(ctx.close(), 12)
@@ -280,6 +351,8 @@ class BrowserManager:
                 raise RuntimeError('Old browser context could not close; refusing concurrent Profile access') from exc
             logger.warning('Context was already disconnected during cleanup: {}', exc)
         self._context = None
+        for page in list(self._live_pages):
+            page._release_when_safe()
         self._semaphore = asyncio.Semaphore(self._max_pages)
 
     async def _ensure_context(self):
@@ -364,35 +437,32 @@ class BrowserManager:
 
     async def _execute(self, func, *args, **kwargs):
         task = asyncio.current_task()
-        self._active_tasks.add(task)
+        with self._lock:
+            self._active_tasks.add(task)
         token = _SHARED_FETCH.set(True)
         try:
             await self._ensure_context()
             return await func(*args, **kwargs)
         finally:
             _SHARED_FETCH.reset(token)
-            self._active_tasks.discard(task)
-
-    async def _run_registered(self, watch, run_id, func, args, kwargs):
-        try:
-            return await self._execute(func, *args, **kwargs)
-        finally:
-            # Removes the entry only AFTER the underlying page's finally
-            # cleanup has completed (not when client Future was cancelled).
             with self._lock:
-                runs = self._pending.get(watch)
-                if runs is not None:
-                    runs.pop(run_id, None)
-                    if not runs:
-                        self._pending.pop(watch, None)
+                self._active_tasks.discard(task)
+
+    async def _run_registered(self, func, args, kwargs):
+        return await self._execute(func, *args, **kwargs)
 
     def status(self):
         with self._lock:
             return {
                 'state': self._state.value,
                 'generation_id': self._generation,
-                'active_jobs': sum(len(v) for v in self._pending.values()),
-                'active_pages_estimate': max(0, self._max_pages - self._semaphore._value) if self._semaphore else 0,
+                'active_jobs': max(sum(len(v) for v in self._pending.values()), len(self._active_tasks)),
+                'reserved_slots': max(0, self._max_pages - self._semaphore._value) if self._semaphore else 0,
+                'active_pages': sum(1 for p in self._live_pages if not p._confirmed_closed()),
+                'closing_pages': sum(1 for p in self._live_pages if p._close_task is not None and not p._close_task.done()),
+                'preview_operations': len(self._preview_tasks),
+                'profile_lock_held': self._profile_lock is not None,
+                'context_alive': self._context_alive(),
                 'restart_count': self._restart_count,
                 'last_error': self._last_error,
                 'uptime_seconds': round(time.monotonic() - self._started_at, 1) if self._started_at else 0,
@@ -410,12 +480,24 @@ class BrowserManager:
         return asyncio.run_coroutine_threadsafe(coro, loop)
 
     async def run_fetch(self, job_watch_uuid, func, *args, **kwargs):
-        """Called on a worker's loop; returns only when original run completes."""
+        """Register before adding a done callback (safe for instant completion)."""
         watch = str(job_watch_uuid or '')
         run_id = uuid.uuid4().hex
-        future = self.submit(self._run_registered(watch, run_id, func, args, kwargs))
+        future = self.submit(self._run_registered(func, args, kwargs))
         with self._lock:
             self._pending[watch][run_id] = future
+
+        def unregister(_):
+            with self._lock:
+                runs = self._pending.get(watch)
+                if runs is not None:
+                    runs.pop(run_id, None)
+                    if not runs:
+                        self._pending.pop(watch, None)
+
+        # If the task completed before registration, add_done_callback runs
+        # immediately, AFTER its slot has been inserted.
+        future.add_done_callback(unregister)
         try:
             return await asyncio.wrap_future(future)
         except asyncio.CancelledError:
@@ -431,14 +513,31 @@ class BrowserManager:
         return len(futures)
 
     def call_sync(self, coroutine, timeout=None):
-        """For Flask browser-steps routes; must not be called from manager loop."""
+        """Preview operations belong to the manager loop and shutdown registry."""
         if timeout is None:
             timeout = _int_env('CLOAKBROWSER_PREVIEW_TIMEOUT', 180)
-        loop = self._ensure_loop()
         if threading.current_thread() is self._thread:
             coroutine.close()
             raise RuntimeError('Cannot call_sync from BrowserManager loop')
-        future = asyncio.run_coroutine_threadsafe(coroutine, loop)
+
+        async def tracked_preview():
+            task = asyncio.current_task()
+            with self._lock:
+                self._preview_tasks.add(task)
+            try:
+                if self._stopping:
+                    raise RuntimeError('Shared browser is stopping')
+                return await coroutine
+            finally:
+                with self._lock:
+                    self._preview_tasks.discard(task)
+
+        try:
+            loop = self._ensure_loop()
+            future = asyncio.run_coroutine_threadsafe(tracked_preview(), loop)
+        except BaseException:
+            coroutine.close()
+            raise
         try:
             return future.result(timeout=timeout)
         except concurrent.futures.TimeoutError:
@@ -448,12 +547,18 @@ class BrowserManager:
     def stop(self):
         """Stop admission, drain jobs, then flush the persistent Profile."""
         with self._lock:
+            was_failed = self._state is BrowserState.FAILED
             self._stopping = True
             self._state = BrowserState.STOPPING
             loop = self._loop
             thread = self._thread
         self.cancel_all()
         if not loop or not thread or not thread.is_alive():
+            # A dead manager loop does not prove an unclean Chromium launch
+            # has exited. Do not release a lock after an ambiguous failure.
+            if was_failed and self._profile_lock:
+                self._state = BrowserState.FAILED
+                return
             if self._profile_lock:
                 self._profile_lock.release()
                 self._profile_lock = None
@@ -461,7 +566,7 @@ class BrowserManager:
             return
 
         async def shutdown():
-            tasks = [t for t in self._active_tasks if not t.done()]
+            tasks = [t for t in (self._active_tasks | self._preview_tasks) if not t.done()]
             for t in tasks:
                 t.cancel()
             if tasks:
@@ -469,9 +574,14 @@ class BrowserManager:
                     await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), 10)
                 except asyncio.TimeoutError:
                     logger.warning('Browser jobs did not finish during shutdown')
+            closing = [p._close_task for p in self._live_pages if p._close_task and not p._close_task.done()]
+            if closing:
+                await asyncio.wait_for(asyncio.gather(*closing, return_exceptions=True), 8)
             if self._context is not None:
                 await asyncio.wait_for(self._context.close(), 15)
                 self._context = None
+            for page in list(self._live_pages):
+                page._release_when_safe()
 
         clean = False
         try:

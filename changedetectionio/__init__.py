@@ -132,27 +132,26 @@ def sigshutdown_handler(_signo, _stack_frame):
     except Exception as e:
         logger.warning(f"Could not retrieve memory stats: {str(e)}")
 
-    # Stop new worker activity first, then cancel and drain shared browser
-    # sessions before closing its persistent Profile. BrowserManager refuses
-    # new submissions once stop() is called.
+    # The shared browser must drain its tasks while Worker event loops are still
+    # alive to observe their cancellation. Stopping Worker loops first can
+    # prevent fetcher finally-blocks from completing.
     try:
         from changedetection_cloak_shared.manager import manager as cloak_manager
-        cloak_manager.cancel_all()
     except ImportError:
         cloak_manager = None
     except Exception as e:
-        logger.error(f'Error cancelling shared browser tasks: {e}')
+        logger.error(f'Error loading shared browser manager: {e}')
         cloak_manager = None
-    try:
-        from changedetectionio import worker_pool
-        worker_pool.shutdown_workers()
-    except Exception as e:
-        logger.error(f'Error shutting down workers: {e}')
     if cloak_manager is not None:
         try:
             cloak_manager.stop()
         except Exception as e:
             logger.error(f'Shared CloakBrowser shutdown error: {e}')
+    try:
+        from changedetectionio import worker_pool
+        worker_pool.shutdown_workers()
+    except Exception as e:
+        logger.error(f'Error shutting down workers: {e}')
 
     # Close janus queues properly
     try:

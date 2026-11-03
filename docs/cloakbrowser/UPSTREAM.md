@@ -39,3 +39,12 @@ No files were moved, renamed, or deleted in this round.
 ### Round 3 A+B
 
 No changes to original dgtlmoon `changedetection.io-cloak-browser` package or CloakHQ browser source. Local shared adapter adds state transitions, ProfileLock and offline backup. The extension still depends on the upstream 0.1.1 fetcher's `launch_async` import behavior. Do not assume advanced auto recovery is safe if the old Chromium cannot be confirmed shut down; conservative FAILED behavior is intentional. The user runs real Docker/Chromium tests locally.
+
+## Post-round-3 stability corrections
+
+The original dgtlmoon CloakBrowser plugin remains unchanged. Changes only
+harden the shared addon and two application integration paths. No new
+mandatory third-party runtime dependency was introduced. Keep the upstream
+`launch_async()` routing compatibility check on all future plugin upgrades.
+The shared manager's Future registration/close callback behavior and Profile
+cold restore rollback must be re-reviewed when changing asyncio or Chromium.

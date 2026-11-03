@@ -97,30 +97,47 @@ def backup(profile_dir, output_dir):
 def _safe_members(tar):
     members = tar.getmembers()
     total = 0
+    seen = set()
     for m in members:
         path = Path(m.name)
         if path.is_absolute() or '..' in path.parts or not path.parts or path.parts[0] not in ('profile', 'metadata.json'):
             raise ValueError(f'Invalid backup entry: {m.name}')
+        if path.parts[0] == 'metadata.json' and len(path.parts) != 1:
+            raise ValueError(f'Unexpected metadata subpath: {m.name}')
+        key = str(path)
+        if key in seen:
+            raise ValueError(f'Duplicate backup entry: {m.name}')
+        seen.add(key)
         if m.issym() or m.islnk() or not (m.isdir() or m.isfile()):
             raise ValueError(f'Unsupported backup entry: {m.name}')
+        if m.name == 'metadata.json' and not m.isfile():
+            raise ValueError('Invalid metadata entry')
         total += m.size
         if total > 20 * 1024 ** 3:
             raise ValueError('Backup uncompressed size exceeds 20 GiB safety limit')
-    if not any(m.name == 'profile' and m.isdir() for m in members):
+    if not any(m.name.rstrip('/') == 'profile' and m.isdir() for m in members):
         raise ValueError('Missing profile directory in archive')
     return members
 
 
 def restore(profile_dir, archive_path, expected_sha256):
-    profile = Path(profile_dir).resolve()
+    raw_profile = Path(profile_dir)
+    if raw_profile.is_symlink():
+        raise ValueError('Refusing to restore to a symlink Profile')
+    profile = raw_profile.resolve()
     if profile == Path('/'):
         raise ValueError('Refusing to restore to filesystem root')
+    if profile.exists() and not profile.is_dir():
+        raise ValueError('Restore destination must be a directory')
     archive_path = Path(archive_path).resolve()
     if not archive_path.is_file():
         raise FileNotFoundError(archive_path)
     digest = _sha256(archive_path)
     if digest.lower() != expected_sha256.lower():
         raise ValueError('Backup SHA-256 mismatch')
+    # Prevent recovery from placing archives/staging inside the destination.
+    if archive_path == profile or profile in archive_path.parents:
+        raise ValueError('Backup archive must be outside the Profile directory')
     profile.parent.mkdir(parents=True, exist_ok=True)
     with ProfileLock(profile):
         # Only restore into an empty/nonexistent directory; never overwrite
@@ -149,6 +166,10 @@ def restore(profile_dir, archive_path, expected_sha256):
                             shutil.copyfileobj(src, dst)
                         os.chmod(target, member.mode & 0o600)
             restored = staging_path / 'profile'
+            # Refuse a backup containing nested unexpected metadata or duplicate
+            # paths before altering the bind-mounted destination Profile.
+            if not restored.is_dir():
+                raise ValueError('Extracted archive has no Profile directory')
             # Profile may be a Docker bind mount and cannot be atomically
             # replaced. Copy only after complete validation/extraction.
             import shutil
@@ -158,17 +179,24 @@ def restore(profile_dir, archive_path, expected_sha256):
                     destination = profile / child.name
                     if destination.exists():
                         raise FileExistsError(destination)
+                    # Record the destination BEFORE copytree/copy2 so that
+                    # an interrupted copy is included in rollback.
+                    copied.append(destination)
                     if child.is_dir():
                         shutil.copytree(child, destination, symlinks=False)
+                        for root, dirs, files in os.walk(destination):
+                            os.chmod(root, 0o700)
+                            for name in files:
+                                os.chmod(Path(root) / name, 0o600)
                     else:
                         shutil.copy2(child, destination)
-                    copied.append(destination)
+                        os.chmod(destination, 0o600)
                 os.chmod(profile, 0o700)
             except Exception:
                 # Remove only files created by this restore, never preexisting
                 # user profile files or Chromium's lock file.
                 for child in reversed(copied):
-                    if child.is_dir():
+                    if child.is_dir() and not child.is_symlink():
                         shutil.rmtree(child)
                     else:
                         child.unlink(missing_ok=True)

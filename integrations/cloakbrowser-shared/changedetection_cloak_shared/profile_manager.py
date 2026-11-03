@@ -12,15 +12,26 @@ class ProfileLock:
     files manually, or force a second instance onto the same Profile.
     """
     def __init__(self, profile_dir):
-        self.profile_dir = Path(profile_dir).resolve()
+        raw = Path(profile_dir)
+        if raw.is_symlink():
+            raise ValueError('Profile path may not be a symlink')
+        self.profile_dir = raw.resolve()
         self.lock_path = self.profile_dir / '.changedetection.lock'
         self._fd = None
 
     def acquire(self):
         if self._fd is not None:
             return
+        if self.profile_dir.is_symlink():
+            raise ValueError('Profile directory may not be a symlink')
         self.profile_dir.mkdir(parents=True, exist_ok=True)
-        fd = os.open(self.lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+        flags = os.O_CREAT | os.O_RDWR
+        if hasattr(os, 'O_NOFOLLOW'):
+            flags |= os.O_NOFOLLOW
+        fd = os.open(self.lock_path, flags, 0o600)
+        if not os.path.isfile(self.lock_path):
+            os.close(fd)
+            raise ValueError('Profile lock is not a regular file')
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
