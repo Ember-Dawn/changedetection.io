@@ -73,3 +73,10 @@ For future source changes, append a new entry with date (if known), specific pat
 - Browsers and Product Extractors: use a shared accessible dropdown enhancement rather than raw native popup styling; native controls remain data sources and no UI library is introduced.
 - Define shared desktop viewport from Compose env (1366×900 default), used by scheduled shared Watch, Product Extractors live Dry Run and manual fixed mode. Fixed mode now sizes the screenshot container to its aspect ratio; follow-window still grows with the WebUI.
 - Add standalone registry lifecycle tests. Docker/real Chromium/manual-pixel testing must still be performed on deployment.
+
+### 2026-11 — Purchase-condition notification policy and Watch editor
+
+- Replace the legacy `restock_diff` mixed stock/price percentage filtering with three explicit purchase goals: stock-only, price-only, stock-and-price. A qualified price change **up or down** triggers; unchanged prices do not.
+- Preserve initial-check baseline behavior and existing Worker/Apprise notification gating. No first-check notifications. Unknown extraction data does not reset reliable qualification. Mode/target edits or extraction-rule revisions start a fresh baseline.
+- Save `purchase_alert_state` on Watch, update processor API schema and tests. Improve Watch editor radio alignment, show `name — id` with shared custom select, remove redundant top manual-operation button.
+- Add `docs/product-extraction/RESTOCK_AND_ALERTS.md` as the notification semantics source of truth.

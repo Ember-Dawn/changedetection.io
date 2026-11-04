@@ -16,7 +16,7 @@ Rules are loaded directly from the bind-mounted directory on each check, so upda
 
 1. Ask an AI to inspect the real product DOM, then generate a JSON rule following `schema/product-rule.schema.json`. The checked-in example uses placeholder selectors and should not be enabled unchanged.
 2. Visit **Product Extractors** in the sidebar, import/paste JSON, and test against a URL or pasted HTML.
-3. Save the rule, then open the Restock Watch's **Restock & Price Detection** tab. Set extraction mode to **Selected rule only**, or **Auto**. Refresh the Watch editor to see newly imported rules in the dropdown.
+3. Save the rule, then open the Restock Watch's **Product purchase alerts** tab. Set extraction mode to **Selected rule only**, or **Auto**. Refresh the Watch editor to see newly imported rules in the dropdown.
 4. When you change an active rule, the next check reprocesses even if the HTML is unchanged. The rule change is treated as a new extraction baseline, not a product-price alert.
 5. `git diff -- extractor-rules` and `git add extractor-rules` on the host; commits are manual. Back up `datastore/` separately from Git rules.
 
@@ -38,3 +38,7 @@ V2: JSON 条件语法、Pickup/Shipping、多场景测试及合成示例请参�
 Rule identity is the stable, Git-friendly `id` (`rules/<id>.json`), not a UUID. Import only loads content into the editor. Saving a duplicate ID with identical data is a no-op; changes require an explicit overwrite confirmation and matching last-seen content revision. If another editor or Git changed the rule, reload before retrying. Duplicate creates a new ID. Delete asks for confirmation and refuses a rule referenced by an explicit Restock Watch or by the auto-selection URL matching of a Restock Watch; first remove those dependencies. Deleting a file is a Git working-tree change; the WebUI does not execute `git commit`.
 
 `Copy data` copies just the normalized product fields; `Copy full JSON` includes field diagnostics but excludes any screenshot.
+
+## Watch purchase notification policy
+
+The JSON rule only extracts data; it does not decide whether a Watch should notify. Choose **Product purchase alerts** on the Watch editor: stock only, price strictly below a target (ignoring stock), or stock AND price strictly below target. In a qualified price goal, every price change (up or down) triggers an alert; an unchanged price does not. **The first valid check creates a baseline without notification.** See [`../docs/product-extraction/RESTOCK_AND_ALERTS.md`](../docs/product-extraction/RESTOCK_AND_ALERTS.md).

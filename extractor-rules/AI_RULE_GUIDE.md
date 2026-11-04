@@ -8,7 +8,7 @@
 2. 在 HTML 中定位能稳定唯一匹配主商品的 CSS / XPath / JSON-LD 字段；库存识别要分清有货、无货和未知。**不要只凭截图猜 CSS 类名。**
 3. 输出单个符合下文规范的完整 JSON。域名、路径和字段选择器必须来自真实依据；不确定的字段请说明，不要杜撰。
 4. 在 **Product Extractors → Import JSON → Dry run** 粘贴 HTML 或输入可访问的测试 URL，检查真实提取结果、匹配数量、字段来源。无误后点击 **Validate & save**。
-5. 把保存的规则绑定到 `Restock & Price Detection` Watch（`Auto` 或 `Selected rule only`）；规则存储在 Git 可追踪的 `extractor-rules/rules/<id>.json`。
+5. 把保存的规则绑定到 `Product purchase alerts` Watch（`Auto` 或 `Selected rule only`）；规则存储在 Git 可追踪的 `extractor-rules/rules/<id>.json`。
 
 **给 AI 的交付要求：** 提供 (a) 完整可解析 JSON，(b) 各选择器来自哪个 DOM 元素、为何不会选中分期/附加商品，(c) 库存判断的原始证据和适用条件，(d) 尚不能确定的字段、可能失效点，(e) Dry Run 预期结果及是否真的测试过。不要输出需要执行 Python/JavaScript 的规则。
 
@@ -188,3 +188,7 @@ Live Dry Run 使用同一次 Page 读取 HTML 并截取 JPEG 预览，截图仅�
 ### Rule identity, duplicates and safe updates
 
 `id` is the stable rule identifier and Git-tracked filename. It is **not** a UUID. Re-importing a file with the same ID does not create a new rule; saving unchanged content is a no-op. If the content differs, the WebUI requires explicit confirmation and a current revision match. If an AI wants a separate variant, it must choose a **new ID**. Delete is blocked while a Restock Watch explicitly references the ID or its automatic mode matches the rule.
+
+## 商品购买通知与提取规则分工
+
+JSON 提取规则只负责 `price`、`in_stock`、`pickup`、`shipping` 等字段；Watch 的 `alert_mode` 与 `target_price` 负责是否值得购买及何时通知。商品处于达标状态时，**价格上涨或下跌**都会通知（价格不变不重复通知）；第一次有效检测仅作为基准。详见 `docs/product-extraction/RESTOCK_AND_ALERTS.md`。

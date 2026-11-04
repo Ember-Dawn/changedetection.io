@@ -117,6 +117,12 @@ class Watch(BaseWatch):
         values = super().extra_notification_token_values()
         # Copy so the derived 'previous_price' token added below doesn't mutate the stored restock object
         values['restock'] = dict(self.get('restock', {}))
+        state = self.get('purchase_alert_state') or {}
+        values['purchase_alert'] = {
+            'reason': state.get('last_alert_reason'),
+            'mode': state.get('mode'),
+            'target_price': state.get('target_price'),
+        }
 
         values['restock']['previous_price'] = None
         if self.history_n >= 2:
@@ -144,6 +150,9 @@ class Watch(BaseWatch):
         values.append(('restock.in_stock', "In stock status"))
         values.append(('restock.last_price', "Price at the previous check"))
         values.append(('restock.previous_price', "Previous price in history"))
+        values.append(('purchase_alert.reason', "Why the purchase alert triggered (became_qualified or price_changed)"))
+        values.append(('purchase_alert.mode', "Configured product alert mode"))
+        values.append(('purchase_alert.target_price', "Configured target purchase price"))
 
         return values
 

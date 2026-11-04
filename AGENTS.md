@@ -55,7 +55,7 @@ The manual browser uses plain JS scripts in dependency order: `manual-core.js` -
 
 ## Product extraction rules (new)
 
-`extractor-rules/` is **Git tracked** and bind-mounted writable as `/extractor-rules`. It contains no secrets or user sessions. The `changedetectionio/product_extraction/` engine uses only declarative JSON rules. The `/product-extractors/` WebUI is authenticated; dry-run must not update Watch history, notification state or checksums. Restock comparison/alerts remain in `processors/restock_diff`. Never convert unmatched/unknown stock into an out-of-stock or in-stock assertion. Rule changes require a new extraction baseline, not a false price alert.
+`extractor-rules/` is **Git tracked** and bind-mounted writable as `/extractor-rules`. It contains no secrets or user sessions. The `changedetectionio/product_extraction/` engine uses only declarative JSON rules. The `/product-extractors/` WebUI is authenticated; dry-run must not update Watch history, notification state or checksums. Restock purchase alerts are implemented in `processors/restock_diff/purchase_alert.py` and integrated by `processor.py`; consult `docs/product-extraction/RESTOCK_AND_ALERTS.md` for the current three notification goals. Never convert unmatched/unknown stock into an out-of-stock or in-stock assertion. Rule changes require a new extraction baseline, not a false price alert.
 
 ## Asking another AI to author product rules
 
@@ -73,3 +73,7 @@ Product Extractors V2: consult `extractor-rules/AI_RULE_GUIDE.md` before prepari
 The Product Extractors UI now supports duplicate/delete, revision-protected overwrite, and explicit linked-Watch checks before deletion. `id` is the Git-tracked filename, not a random UUID. Do not bypass the `registry.py` `WRITE_LOCK`, current-revision checks, or the authenticated `/product-extractors/api/` routes. Shared dropdown behavior is in `changedetectionio/static/js/custom-select.js` and `changedetectionio/static/css/custom-select.css`; existing native select values/events remain authoritative.
 
 `CLOAKBROWSER_VIEWPORT_WIDTH` (default `1366`) and `CLOAKBROWSER_VIEWPORT_HEIGHT` (default `900`) define scheduled shared-Watch, online Dry Run, and manual fixed-viewport size. `changedetectionio/product_extraction/viewport.py` is the common parsing/validation code. Manual follow-window mode remains a per-Page exception; fixed mode uses screenshot aspect ratio rather than stretching to full page height. Changing env vars requires container recreation.
+
+## Current product purchase notification policy (2026-11)
+
+Read [`docs/product-extraction/RESTOCK_AND_ALERTS.md`](docs/product-extraction/RESTOCK_AND_ALERTS.md) before modifying product price/stock behavior. The first valid extraction creates a baseline (no initial alert); qualified price alerts trigger on **either** direction of price change while still under the target. Persisted `purchase_alert_state` is separate from display-oriented `restock` and is not reset on unknown extraction results. The legacy `follow_price_changes`, `in_stock_processing`, `price_change_min/max`, and percentage threshold are no longer used by the new policy. Do not change the Worker/Apprise initial-check gate without a separate requirement.

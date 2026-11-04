@@ -56,3 +56,7 @@ Manual browser frontend was split into focused local JS modules and CSS. This is
 ## Git-tracked product extraction rules
 
 The custom `Product Extractors` sidebar manages declarative JSON rules in the Docker bind mount `./extractor-rules:/extractor-rules`. Use `/product-extractors/` for JSON import/edit and dry-run; a Restock Watch can select `auto`, `rule` or `builtin`. Rule changes are detected by signature and reprocessed even when HTML is unchanged. See `extractor-rules/README.md`.
+
+## 商品购买提醒（当前行为）
+
+The `restock_diff` Watch now offers purchase-oriented modes `stock_only`, `price_only`, and `stock_and_price`; a qualifying price change in **either direction** notifies, but an initial check is only a baseline. This policy does not change CloakBrowser concurrency, Page ownership, or captcha handling. See [`../product-extraction/RESTOCK_AND_ALERTS.md`](../product-extraction/RESTOCK_AND_ALERTS.md) and the JSON authoring guide.
