@@ -29,7 +29,11 @@ class TemplateLibraryTests(unittest.TestCase):
             text = render(preset['body'], watch_url='https://example.test',
                           watch_title='Example', watch_open_url='https://example.test',
                           restock={'price': 1200, 'currency': 'USD', 'in_stock': True, 'title':'Example'},
-                          purchase_alert={'stock_text':'In stock','reason_text':'Price fell',
+                          purchase_alert={'show_price':True,'show_stock':True,
+                                          'display_price':'$1,200.00','display_change':'(−4%, ↓ $50.00)',
+                                          'display_stock':'✅ In stock','display_stock_current':'✅ In stock',
+                                          'display_reference_price':'$1,250.00',
+                                          'stock_text':'In stock','reason_text':'Price fell',
                                           'rule_text':'price below 1300', 'reference_price':1250,
                                           'price_change_amount':-50, 'percent_change':-4}, diff='changed')
             self.assertTrue(text)
@@ -37,15 +41,20 @@ class TemplateLibraryTests(unittest.TestCase):
     def test_create_update_delete_and_preset_protection(self):
         item = {'name': 'My Product', 'title': 'T {{ watch_title }}', 'body': 'B {{ restock.price }}', 'format':'text'}
         created = mutate_templates(self.store, 'create', item)
-        self.assertEqual(len(get_templates(self.store)), 4)
+        self.assertEqual(len(get_templates(self.store)), len(PRESETS) + 1)
         self.assertEqual(self.store.commits, 1)
         changed = mutate_templates(self.store, 'update', dict(item, id=created['id'], name='Renamed'))
         self.assertEqual(changed['name'], 'Renamed')
         with self.assertRaises(ValueError):
             mutate_templates(self.store, 'delete', {'id':'builtin-product'})
         mutate_templates(self.store, 'delete', {'id':created['id']})
-        self.assertEqual(len(get_templates(self.store)), 3)
+        self.assertEqual(len(get_templates(self.store)), len(PRESETS))
         self.assertEqual(self.store.commits, 3)
+
+    def test_unicode_template_names(self):
+        entry = mutate_templates(self.store,'create',
+            {'name':'显卡降价与补货提醒 ✅','title':'标题', 'body':'价格', 'format':'telegram_html'})
+        self.assertEqual(entry['name'], '显卡降价与补货提醒 ✅')
 
     def test_validation(self):
         with self.assertRaises(ValueError):

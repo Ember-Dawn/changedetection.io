@@ -20,8 +20,8 @@ class RichTemplateTitleContract(unittest.TestCase):
         self.assertIn("format === 'telegram_rich' ? richInternalTitle", src)
         self.assertIn("item.format === 'telegram_rich' ? richInternalTitle", src)
         self.assertIn("function mutate(action, item)", src)
-        self.assertIn("Object.assign({name:name.trim()},current())", src)
-        self.assertIn("Object.assign({id:item.id,name:name.trim()},current())", src)
+        self.assertIn("Object.assign({name:name},current())", src)
+        self.assertIn("Object.assign({id:item.id,name:name},current())", src)
 
 if __name__ == '__main__':
     unittest.main()

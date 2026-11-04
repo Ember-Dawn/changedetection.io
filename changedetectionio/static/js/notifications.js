@@ -16,9 +16,11 @@ function setupNotificationTemplateLibrary() {
     // underlying title input enabled and populated for ordinary formats and
     // existing form validation; never discard it when hiding the field.
     function syncRichTitleVisibility() {
-        $('#notification-title-field').toggle($format.val() !== 'telegram_rich');
+        $('#notification-title-field').toggle($format.val() !== 'telegram_rich' &&
+            !($format.val() === 'telegram_html' && $title.val() === '{{ "" }}'));
     }
     $format.on('change', syncRichTitleVisibility);
+    $title.on('change', syncRichTitleVisibility);
     syncRichTitleVisibility();
     var $message = $('#notification-template-message');
     var $result = $('#notification-template-preview-result');
@@ -30,6 +32,21 @@ function setupNotificationTemplateLibrary() {
         return {title: format === 'telegram_rich' ? richInternalTitle : ($title.val() || ''),
                 body: $body.val() || '', format: format};
     }
+    var $dialog = $('#notification-template-dialog');
+    var $dialogName = $('#notification-template-dialog-name');
+    var dialogAction = null;
+    var dialogReturnFocus = null;
+    var applyingTemplate = false;
+    var pendingTemplateId = '';
+    function setFormat(value) {
+        // Keep the native select authoritative for validation and custom-select wrappers.
+        if ($format.val() !== value) $format.val(value).trigger('change');
+    }
+    function setPending(id) {
+        pendingTemplateId = id || '';
+        $('.notification-template-library').attr('data-pending-template', pendingTemplateId);
+        $('#notification-template-pending').toggle(!!pendingTemplateId);
+    }
     function refresh(items, selectId) {
         templates = items || [];
         $select.empty().append($('<option>').val('').text('Choose a preset or saved template...'));
@@ -37,6 +54,8 @@ function setupNotificationTemplateLibrary() {
             $select.append($('<option>').val(t.id).text((t.builtin ? 'Preset: ' : 'My template: ') + t.name));
         });
         $select.val(selectId || '');
+        // Preserve edited form values when a template is saved/reloaded.
+        if (pendingTemplateId && pendingTemplateId !== $select.val()) setPending('');
         updateButtons();
     }
     function updateButtons() {
@@ -51,48 +70,141 @@ function setupNotificationTemplateLibrary() {
     function mutate(action, item) {
         return $.ajax({url:endpoint, type:'POST', contentType:'application/json', headers:headers,
             data:JSON.stringify({action:action,template:item})}).done(function(data) {
+                setPending('');
                 refresh(data.templates, data.template ? data.template.id : '');
                 say(action === 'delete' ? 'Template deleted.' : 'Template saved.');
             }).fail(function(xhr) {
                 say((xhr.responseJSON && xhr.responseJSON.error) || 'Template operation failed.');
             });
     }
-    $select.on('change', updateButtons);
+    function closeDialog() {
+        $dialog.prop('hidden', true);
+        dialogAction = null;
+        if (dialogReturnFocus && document.contains(dialogReturnFocus)) dialogReturnFocus.focus();
+        dialogReturnFocus = null;
+    }
+    function openDialog(options) {
+        if (!$dialog.length) return;
+        dialogReturnFocus = document.activeElement;
+        dialogAction = options.onConfirm;
+        $('#notification-template-dialog-title').text(options.title);
+        $('#notification-template-dialog-description').text(options.description || '');
+        $('#notification-template-dialog-error').text('');
+        $dialogName.val(options.name || '').toggle(!!options.input);
+        $('#notification-template-dialog-name-label').toggle(!!options.input);
+        $dialog.data('has-name', !!options.input);
+        $('#notification-template-dialog-confirm').prop('disabled', false).text(options.confirm || 'Confirm');
+        $dialog.prop('hidden', false);
+        if (options.input) $dialogName.trigger('focus').trigger('select');
+        else $('#notification-template-dialog-confirm').trigger('focus');
+    }
+    function confirmDialog() {
+        if (!dialogAction || $('#notification-template-dialog-confirm').prop('disabled')) return;
+        var name = ($dialogName.val() || '').trim();
+        if ($dialog.data('has-name') && !name) {
+            $('#notification-template-dialog-error').text('Template name is required.');
+            $dialogName.trigger('focus');
+            return;
+        }
+        var action = dialogAction;
+        var result = action(name);
+        if (result && typeof result.done === 'function' && typeof result.fail === 'function') {
+            var $confirm = $('#notification-template-dialog-confirm');
+            $confirm.prop('disabled', true);
+            result.done(function() { closeDialog(); }).fail(function(xhr) {
+                $('#notification-template-dialog-error').text(
+                    (xhr.responseJSON && xhr.responseJSON.error) || 'Template operation failed.');
+            }).always(function() { $confirm.prop('disabled', false); });
+        } else closeDialog();
+    }
+    $('#notification-template-dialog-confirm').on('click', confirmDialog);
+    $('#notification-template-dialog-cancel').on('click', closeDialog);
+    $dialog.on('click', function(e) { if (e.target === this) closeDialog(); });
+    $dialog.on('keydown', function(e) {
+        if (e.key === 'Escape') {e.preventDefault(); e.stopPropagation(); closeDialog(); return;}
+        if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
+            e.preventDefault(); e.stopPropagation(); confirmDialog(); return;
+        }
+        if (e.key === 'Tab') {
+            var focusable = $dialog.find('input:visible, button:visible').filter(':enabled');
+            if (!focusable.length) return;
+            var first = focusable[0], last = focusable[focusable.length-1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+    });
+    function applyTemplate(item) {
+        applyingTemplate = true;
+        $title.val(item.format === 'telegram_rich' ? richInternalTitle : item.title).trigger('change');
+        $body.val(item.body).trigger('change');
+        setFormat(item.format);
+        applyingTemplate = false;
+        setPending('');
+        $result.hide();
+        say('Copied title, body and format to editor. Click the page Save button to apply.');
+    }
+    $select.on('change', function() {
+        updateButtons();
+        var item = selected();
+        if (item) {
+            setFormat(item.format);
+            setPending(item.id);
+            say('Format updated for the selected template. Click Apply to editor to update its body.');
+        } else {
+            setPending('');
+        }
+    });
     $('#notification-template-apply').on('click', function() {
         var item = selected(); if (!item) return;
         var edited = current();
         if ((edited.title.trim() || edited.body.trim()) &&
-            (edited.title !== item.title || edited.body !== item.body || edited.format !== item.format) &&
-            !window.confirm('Replace the current unsaved notification title, body and format?')) return;
-        $title.val(item.format === 'telegram_rich' ? richInternalTitle : item.title).trigger('change');
-        $body.val(item.body).trigger('change');
-        $format.val(item.format).trigger('change');
-        if (item.format === 'telegram_rich') say('Rich Message templates require Telegram tgram:// destinations.');
-        $result.hide();
-        say('Copied title, body and format to editor. Click the page Save button to apply.');
+            (edited.title !== item.title || edited.body !== item.body)) {
+            openDialog({title:'Apply notification template',
+                description:'Replace the current notification title and body with the selected template?',
+                confirm:'Apply', onConfirm:function(){applyTemplate(item);}});
+        } else applyTemplate(item);
     });
     $('#notification-template-save').on('click', function() {
-        var name = window.prompt('New template name:'); if (!name || !name.trim()) return;
-        mutate('create', Object.assign({name:name.trim()},current()));
+        if (pendingTemplateId) {say('Apply the selected template before saving its content.'); return;}
+        openDialog({title:'Save notification template', description:'Save the current title, body and format as a new template.',
+            input:true, confirm:'Save', onConfirm:function(name){return mutate('create',Object.assign({name:name},current()));}});
     });
     $('#notification-template-update').on('click', function() {
         var item=selected(); if (!item || item.builtin) return;
-        var name=window.prompt('Template name:',item.name); if (!name || !name.trim()) return;
-        if (!window.confirm('Update this saved template? Already configured watches will not change.')) return;
-        mutate('update',Object.assign({id:item.id,name:name.trim()},current()));
+        if (pendingTemplateId) {say('Apply the selected template before updating its content.'); return;}
+        openDialog({title:'Update notification template',
+            description:'This will update the saved template. Existing watches will not change.',
+            input:true,name:item.name,confirm:'Update',
+            onConfirm:function(name){return mutate('update',Object.assign({id:item.id,name:name},current()));}});
     });
     $('#notification-template-delete').on('click', function() {
         var item=selected(); if (!item || item.builtin) return;
-        if (window.confirm('Delete saved template "'+item.name+'"? Existing watch settings will not change.'))
-            mutate('delete',{id:item.id});
+        openDialog({title:'Delete notification template',
+            description:'Delete saved template "'+item.name+'"? Existing watch settings will not change.',
+            confirm:'Delete',onConfirm:function(){return mutate('delete',{id:item.id});}});
+    });
+    // Prevent a format/body mismatch when a user selects a template but skips Apply.
+    // Cancel the original submit and let the user apply deliberately, rather than
+    // silently rewriting the Watch body or saving the wrong Telegram format.
+    $select.closest('form').on('submit.notificationTemplateGuard', function(e) {
+        if (!pendingTemplateId || applyingTemplate) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        var item = selected();
+        openDialog({title:'Apply the selected template first',
+            description:'Notification Format changed, but Notification Body still contains the previous message. Apply the selected template before saving.',
+            confirm:'Apply to editor',onConfirm:function(){if(item)applyTemplate(item);}});
+        return false;
     });
     $('#notification-template-copy').on('click', function() {
+        if (pendingTemplateId) {say('Apply the selected template before copying this format.'); return;}
         var item=current(), content='Title:\n'+item.title+'\n\nBody:\n'+item.body+'\n\nFormat: '+item.format;
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(content).then(function(){say('Template copied.');},function(){say('Clipboard permission denied.');});
         } else { say('Clipboard API unavailable in this browser.'); }
     });
     $('#notification-template-preview').on('click', function() {
+        if (pendingTemplateId) {say('Apply the selected template before previewing this format.'); return;}
         var item=current();
         if (!item.title.trim() || !item.body.trim()) {
             say('Enter a title and body before previewing.'); return;
@@ -270,6 +382,10 @@ $(document).ready(function () {
 
     $('#send-test-notification').click(function (e) {
         e.preventDefault();
+        if ($('.notification-template-library').attr('data-pending-template')) {
+            $('#notification-template-message').text('Apply the selected template before sending a test.');
+            return;
+        }
 
         data = {
             notification_urls: $('textarea.notification-urls').val(),

@@ -10,18 +10,33 @@ from changedetectionio.notification import (
 )
 from changedetectionio.jinja2_custom import create_jinja_env
 
-PRODUCT_HTML = '{% if test_notification %}🧪 TEST · {% endif %}{{ watch_title|e }}\n<b>💰 {{ purchase_alert.display_price|e }}</b>{% if purchase_alert.display_change %} {{ purchase_alert.display_change|e }}{% endif %}\n📦 {{ purchase_alert.stock_text|e }}\n<a href="{{ (watch_open_url or watch_url)|e }}">🔗 View product</a>\n<blockquote expandable>🎯 {{ purchase_alert.rule_text|e }}\n🔔 {% if test_notification %}Test only — no monitoring condition asserted{% else %}{{ purchase_alert.reason_text|e }}{% endif %}{% if purchase_alert.reference_price is not none %}\n📊 Reference: {{ purchase_alert.reference_price|e }}{% endif %}</blockquote>'
+PRODUCT_HTML = '<a href="{{ (watch_open_url or watch_url)|e }}"><b>{{ watch_title|e }}</b></a>\n{% if purchase_alert.show_price %}💰 {{ purchase_alert.display_price|e }}{% if purchase_alert.display_change and not test_notification %} {{ purchase_alert.display_change|e }}{% endif %}\n{% endif %}{% if purchase_alert.show_stock %}{{ (purchase_alert.display_stock_current if test_notification else purchase_alert.display_stock)|e }}\n{% endif %}<blockquote expandable>🎯 {{ purchase_alert.rule_text|e }}\n🔔 {% if test_notification %}Test notification — no monitoring condition asserted{% else %}{{ purchase_alert.reason_text|e }}{% endif %}{% if purchase_alert.display_reference_price and not test_notification %}\n📊 Reference: {{ purchase_alert.display_reference_price|e }}{% endif %}</blockquote>'
+PRODUCT_HTML_EXPANDED = '<a href="{{ (watch_open_url or watch_url)|e }}"><b>{{ watch_title|e }}</b></a>\n{% if purchase_alert.show_price %}💰 {{ purchase_alert.display_price|e }}{% if purchase_alert.display_change and not test_notification %} {{ purchase_alert.display_change|e }}{% endif %}\n{% endif %}{% if purchase_alert.show_stock %}{{ (purchase_alert.display_stock_current if test_notification else purchase_alert.display_stock)|e }}\n{% endif %}🎯 {{ purchase_alert.rule_text|e }}\n🔔 {% if test_notification %}Test notification — no monitoring condition asserted{% else %}{{ purchase_alert.reason_text|e }}{% endif %}{% if purchase_alert.display_reference_price and not test_notification %}\n📊 Reference: {{ purchase_alert.display_reference_price|e }}{% endif %}'
+PRODUCT_HTML_COMPACT = '<a href="{{ (watch_open_url or watch_url)|e }}"><b>{{ watch_title|e }}</b></a>\n{% if purchase_alert.show_price %}💰 {{ purchase_alert.display_price|e }}{% if purchase_alert.display_change and not test_notification %} {{ purchase_alert.display_change|e }}{% endif %}\n{% endif %}{% if purchase_alert.show_stock %}{{ (purchase_alert.display_stock_current if test_notification else purchase_alert.display_stock)|e }}{% endif %}'
+PRODUCT_TEXT = '{% if purchase_alert.show_price %}💰 {{ purchase_alert.display_price }}{% if purchase_alert.display_change and not test_notification %} {{ purchase_alert.display_change }}{% endif %}\n{% endif %}{% if purchase_alert.show_stock %}{{ purchase_alert.display_stock_current if test_notification else purchase_alert.display_stock }}\n{% endif %}🎯 {{ purchase_alert.rule_text }}\n🔔 {% if test_notification %}Test notification — no monitoring condition asserted{% else %}{{ purchase_alert.reason_text }}{% endif %}{% if purchase_alert.display_reference_price and not test_notification %}\n📊 Reference: {{ purchase_alert.display_reference_price }}{% endif %}\n{{ watch_open_url or watch_url }}'
 PRODUCT_RICH = '{"blocks":[{"type":"heading","text":{% if watch_open_url or watch_url %}{"type":"url","text":{{ (watch_title or "")|tojson }},"url":{{ (watch_open_url or watch_url)|tojson }}}{% else %}{{ (watch_title or "")|tojson }}{% endif %},"size":5}{% if purchase_alert.show_price %},{"type":"paragraph","text":{{ ("💰 " + purchase_alert.display_price + (" " + purchase_alert.display_change if purchase_alert.display_change and not test_notification else ""))|tojson }}}{% endif %}{% if purchase_alert.show_stock %},{"type":"paragraph","text":{{ (purchase_alert.display_stock_current if test_notification else purchase_alert.display_stock or purchase_alert.stock_text)|tojson }}}{% endif %},{"type":"details","summary":"Details","blocks":[{"type":"paragraph","text":{{ ("🎯 " + (purchase_alert.rule_text or "No active rule"))|tojson }}},{"type":"paragraph","text":{{ ("🔔 " + ("Test notification — no monitoring condition asserted" if test_notification else (purchase_alert.reason_text or "Monitoring event")))|tojson }}}{% if purchase_alert.display_reference_price and not test_notification %},{"type":"paragraph","text":{{ ("📊 Reference: " + purchase_alert.display_reference_price)|tojson }}}{% endif %}]}]}'
 
 RICH_INTERNAL_TITLE = '{{ watch_title }}'
+# Keep the Apprise title empty. HTML product bodies own their linked title,
+# avoiding duplicate titles and any service-specific title escaping.
+PRODUCT_HTML_TITLE = '{{ "" }}'
 
 PRESETS = (
     dict(id='builtin-general', name='General webpage change',
          title=default_notification_title, body=default_notification_body,
          format=default_notification_format, builtin=True),
     dict(id='builtin-product-html', name='Telegram product · HTML (foldable)',
-         title='🛒 {{ watch_title }}', body=PRODUCT_HTML,
+         title=PRODUCT_HTML_TITLE, body=PRODUCT_HTML,
          format='telegram_html', builtin=True),
+    dict(id='builtin-product-html-expanded', name='Telegram product · HTML (all details)',
+         title=PRODUCT_HTML_TITLE, body=PRODUCT_HTML_EXPANDED,
+         format='telegram_html', builtin=True),
+    dict(id='builtin-product-html-compact', name='Telegram product · HTML (compact)',
+         title=PRODUCT_HTML_TITLE, body=PRODUCT_HTML_COMPACT,
+         format='telegram_html', builtin=True),
+    dict(id='builtin-product-text', name='Product · Plain Text',
+         title='{{ watch_title }}', body=PRODUCT_TEXT,
+         format='text', builtin=True),
     dict(id='builtin-product-rich', name='Telegram product · Rich details',
          title=RICH_INTERNAL_TITLE, body=PRODUCT_RICH,
          format='telegram_rich', builtin=True),
@@ -30,6 +45,7 @@ PRESETS = (
          body='{{ watch_title or watch_url }}\n{{ diff }}\n{{ watch_open_url or watch_url }}',
          format='text', builtin=True),
 )
+
 MAX_TEMPLATES = 50
 
 

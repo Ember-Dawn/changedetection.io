@@ -8,6 +8,14 @@
 - Extra rule, reason and formatted reference appear in `Details`, while test notifications suppress historical change claims. Existing stored custom templates and Watch body values are unchanged until users apply the updated preset.
 
 
+### Template format selection, inline dialogs and dynamic Telegram HTML/Text presets (2026-11-04)
+
+- Selecting a saved or built-in notification template now changes the Notification Format immediately, but leaves Title/Body untouched until **Apply to editor**. A guarded page Save prevents accidentally storing a format with an un-applied old body.
+- Replaced template-library browser prompt/confirm interactions with one keyboard-accessible app-styled dialog. Enter confirms (except during IME composition), Escape cancels, and asynchronous template errors stay visible in the dialog. Existing UTF-8/Chinese template names remain supported (maximum 100 Unicode code points).
+- Retained the foldable Telegram HTML preset and added **HTML (all details)** (expanded inline), **HTML (compact)** (only linked title, price and stock, with no rules/reason/details), and dynamic **Product · Plain Text** presets.
+- All product format presets use the `purchase_alert` presentation tokens for price-only, stock-only, percentage and combined modes. HTML product bodies render an escaped clickable title (`watch_open_url`/`watch_url`), with a deliberately empty rendered Notification Title to prevent Apprise duplicating or escaping the link; plain text includes the raw URL. Test notifications avoid reporting stale historical deltas as current events.
+- Built-in preset changes do not overwrite Watch/Tag/Global notification bodies or saved custom templates. Reapply the chosen preset and save the form to use it. Live Telegram/Apprise delivery and interactive browser acceptance still need verification on the user's deployment.
+
 ## 2026-11 — Notification templates and product alert messages
 
 - Added a copy-on-select notification template library (three presets and named custom templates) to existing global, Tag, and Watch editors. Saved templates hold only title/body/format; they never store destinations or change existing Watches until the normal Save action.

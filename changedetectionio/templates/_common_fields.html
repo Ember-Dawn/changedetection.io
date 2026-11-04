@@ -241,6 +241,31 @@
             <button type="button" class="pure-button button-secondary button-xsmall" id="notification-template-preview">Preview</button>
         </div>
         <div id="notification-template-message" class="pure-form-message-inline" role="status" aria-live="polite"></div>
+        <div id="notification-template-pending" class="pure-form-message-inline" role="status" style="display:none">Selected format is shown. Click Apply to editor before saving this page.</div>
+        <div id="notification-template-dialog" class="notification-template-dialog" role="dialog" aria-modal="true" aria-labelledby="notification-template-dialog-title" aria-describedby="notification-template-dialog-description" hidden>
+            <div class="notification-template-dialog-panel" role="document">
+                <h3 id="notification-template-dialog-title"></h3>
+                <p id="notification-template-dialog-description"></p>
+                <label for="notification-template-dialog-name" id="notification-template-dialog-name-label">Template name</label>
+                <input id="notification-template-dialog-name" type="text" maxlength="100" autocomplete="off" />
+                <div id="notification-template-dialog-error" role="alert"></div>
+                <div class="notification-template-dialog-actions">
+                    <button type="button" id="notification-template-dialog-cancel" class="pure-button button-secondary">Cancel</button>
+                    <button type="button" id="notification-template-dialog-confirm" class="pure-button pure-button-primary">Confirm</button>
+                </div>
+            </div>
+        </div>
+        <style>
+          .notification-template-dialog[hidden] {display:none!important}
+          .notification-template-dialog {position:fixed;inset:0;z-index:15000;background:rgba(0,0,0,.52);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
+          .notification-template-dialog-panel {background:var(--color-background,Canvas);color:var(--color-text,CanvasText);border:1px solid #9996;border-radius:10px;box-shadow:0 15px 60px #0005;max-width:440px;width:100%;box-sizing:border-box;padding:20px}
+          .notification-template-dialog-panel h3 {margin:0 0 12px;font-size:1.1rem}
+          .notification-template-dialog-panel p {margin:0 0 14px;line-height:1.5;overflow-wrap:anywhere}
+          .notification-template-dialog-panel label {display:block;margin-bottom:6px}
+          .notification-template-dialog-panel input {width:100%;box-sizing:border-box;max-width:none;margin-bottom:8px}
+          .notification-template-dialog-actions {display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+          #notification-template-dialog-error {color:#c53a3a;font-size:.875rem}
+        </style>
         <div id="notification-template-preview-result" style="display:none;margin-top:10px;border:1px solid #aaa;border-radius:5px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere">
             <strong>Preview (no notification sent)</strong>
             <div id="notification-template-preview-source" class="pure-form-message-inline"></div>
