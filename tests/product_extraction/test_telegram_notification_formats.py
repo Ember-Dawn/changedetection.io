@@ -41,6 +41,41 @@ class TelegramFormatsTest(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 fmt.validate_rich_message(value)
 
+    def test_rich_product_preset_has_short_link_and_no_test_heading(self):
+        import ast
+        from jinja2 import Environment
+        source = (ROOT / 'changedetectionio/notification/templates.py').read_text(encoding='utf8')
+        module = ast.parse(source)
+        template = next(ast.literal_eval(node.value) for node in module.body
+                        if isinstance(node, ast.Assign)
+                        and any(isinstance(t, ast.Name) and t.id == 'PRODUCT_RICH'
+                                for t in node.targets))
+        context = {
+            'watch_title': 'MC 5070 <Ti>',
+            'watch_url': 'https://example.com/product?x=1&y=2',
+            'watch_open_url': 'https://example.com/product?x=1&y=2',
+            'test_notification': True,
+            'purchase_alert': {'display_price': '$1,449.99', 'display_change': '',
+                               'stock_text': 'Out of stock', 'rule_text': 'Below $1300',
+                               'reason_text': 'Rule matched', 'reference_price': None},
+        }
+        rich = fmt.validate_rich_message(Environment().from_string(template).render(**context))
+        blocks = rich['blocks']
+        self.assertEqual(blocks[0]['text'], '🛒 MC 5070 <Ti>')
+        self.assertEqual(blocks[3]['text'], {'type': 'url',
+                                               'text': '🔗 View product',
+                                               'url': context['watch_open_url']})
+        self.assertIn('Test only', blocks[4]['blocks'][1]['text'])
+        self.assertNotIn('TEST', blocks[0]['text'])
+
+    def test_rich_title_field_hides_without_disabling(self):
+        js = (ROOT / 'changedetectionio/static/js/notifications.js').read_text(encoding='utf8')
+        html = (ROOT / 'changedetectionio/templates/_common_fields.html').read_text(encoding='utf8')
+        self.assertIn('id="notification-title-field"', html)
+        self.assertIn("$format.val() !== 'telegram_rich'", js)
+        self.assertIn("$format.on('change', syncRichTitleVisibility)", js)
+        self.assertNotIn("$title.prop('disabled'", js)
+
     def test_ui_and_dispatch_contract(self):
         notifications = (ROOT / 'changedetectionio/notification/__init__.py').read_text()
         sender = (ROOT / 'changedetectionio/notification/handler.py').read_text()

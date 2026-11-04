@@ -11,6 +11,14 @@ function setupNotificationTemplateLibrary() {
     var $title = $('input.notification-title');
     var $body = $('textarea.notification-body');
     var $format = $('select.notification-format');
+    // Rich messages render their own heading from the JSON body. Keep the
+    // underlying title input enabled and populated for ordinary formats and
+    // existing form validation; never discard it when hiding the field.
+    function syncRichTitleVisibility() {
+        $('#notification-title-field').toggle($format.val() !== 'telegram_rich');
+    }
+    $format.on('change', syncRichTitleVisibility);
+    syncRichTitleVisibility();
     var $message = $('#notification-template-message');
     var $result = $('#notification-template-preview-result');
     var watchMatch = (typeof notification_base_url === 'string' ? notification_base_url : '').match(/\/notification\/send-test\/([^/?]+)/);

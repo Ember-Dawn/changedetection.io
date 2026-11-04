@@ -85,3 +85,9 @@ The notification template library (`changedetectionio/notification/templates.py`
 ## Telegram notification formats (2026-11)
 
 The Notification template library saves the message format with each template. Applying a preset copies title, body, and format to the existing fields; it does not save the Watch by itself. Telegram-specific formats are `telegram_html`, `telegram_markdownv2`, and `telegram_rich`; they require `tgram://` destinations. Rich JSON messages are validated and written to mode-0600 temporary files used by Apprise's `template` URL option, then removed in a `finally` block. Do not expose arbitrary server file paths or send JSON blocks as a regular HTML/text notification. The built-in Telegram product presets display watch title, price, stock, and link first, with rules and event reasons in details. Confirm actual Apprise and mobile Telegram compatibility before describing Rich support as production-verified.
+
+Telegram Rich UI: `telegram_rich` hides only the visible Notification Title
+form group; do not disable or clear the underlying input, which still belongs
+to saved template data and is required for normal formats. The Rich heading
+is inside the one-line Body JSON; the built-in product preset uses the Watch
+title and a typed RichText `url` object for the short product link.
