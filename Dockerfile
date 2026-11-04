@@ -163,6 +163,8 @@ RUN pybabel compile -d /app/changedetectionio/translations
 # Also for OpenAPI validation wrapper - needs the YML
 RUN [ ! -d "/app/docs" ] && mkdir /app/docs
 COPY docs/api-spec.yaml /app/docs/api-spec.yaml
+# Stock & Price editor reads the canonical Markdown help at runtime.
+COPY docs/product-extraction/STOCK_PRICE_RULES.md /app/docs/product-extraction/STOCK_PRICE_RULES.md
 
 # Starting wrapper
 COPY changedetection.py /app/changedetection.py

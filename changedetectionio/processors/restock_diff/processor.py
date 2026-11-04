@@ -428,7 +428,8 @@ class perform_site_check(difference_detection_processor):
         from changedetectionio.product_extraction import choose, signature, evaluate, RuleError
         _extra_config = self.get_extra_watch_config('restock_diff.json')
         restock_settings = _extra_config.get('restock_diff') or {
-            'alert_mode': 'stock_only', 'target_price': None,
+            'price_mode': 'none', 'stock_mode': 'restock',
+            'combine_mode': 'and', 'price_follow_changes': True, 'price_threshold': None,
             'extraction_mode': 'auto', 'extraction_rule_id': '',
         }
         for tag_uuid in watch.get('tags', []):
@@ -446,6 +447,14 @@ class perform_site_check(difference_detection_processor):
                 screenshot=self.fetcher.screenshot, xpath_data=self.fetcher.xpath_data) from exc
         active_signature = signature(active_rule)
         rule_changed = active_signature != watch.get('product_rule_signature')
+        # Group Tag overrides can change without setting watch.was_edited; they
+        # must also bypass the unchanged-HTML fast path.
+        from .purchase_alert import policy_signature, PurchaseAlertConfigurationError
+        try:
+            policy_changed = (policy_signature(restock_settings) !=
+                              (watch.get('purchase_alert_state') or {}).get('signature'))
+        except PurchaseAlertConfigurationError:
+            policy_changed = True  # Let the usual evaluator report configuration errors.
         # Skip processing only if BOTH conditions are true:
         # 1. HTML content unchanged (checksum matches last saved checksum)
         # 2. Watch configuration was not edited (including trigger_text, filters, etc.)
@@ -454,6 +463,7 @@ class perform_site_check(difference_detection_processor):
         if (not force_reprocess and
             not watch.was_edited and
             not rule_changed and
+            not policy_changed and
             (watch.get('purchase_alert_state') or {}).get('status') != 'unknown' and
             self.last_raw_content_checksum and
             not raw_changed):
@@ -632,7 +642,8 @@ class perform_site_check(difference_detection_processor):
             # but there's still nothing here to track at all - that's always worth raising on.
             # Just don't blame "restock"/stock data for it when the user turned stock checking
             # off; the actual failure in that case is that no price could be found either.
-            if restock_settings.get('alert_mode', 'stock_only') == 'price_only':
+            if (restock_settings.get('price_mode', 'none') != 'none' and
+                    restock_settings.get('stock_mode', 'restock') == 'none'):
                 message = f"Unable to extract price data for this page unfortunately. (Got code {self.fetcher.get_last_status_code()} from server), no embedded price information was found and nothing interesting in the text, try using this watch with Chrome."
             else:
                 message = f"Unable to extract restock data for this page unfortunately. (Got code {self.fetcher.get_last_status_code()} from server), no embedded stock information was found and nothing interesting in the text, try using this watch with Chrome."
@@ -667,9 +678,9 @@ class perform_site_check(difference_detection_processor):
         # Main detection method
         fetched_md5 = hashlib.md5(snapshot_content.encode('utf-8')).hexdigest()
 
-        # Evaluate the shopping condition on *every successful extraction*, not
-        # just when the price changed.  A price increase below the target is a
-        # valid event; price changes while out-of-stock are not.
+        # Evaluate independent stock and price rules on every successful extraction.
+        # A threshold-qualified price can change in either direction; unknown
+        # extraction fields do not invent stock or price events.
         from .purchase_alert import evaluate_purchase_alert, PurchaseAlertConfigurationError
         try:
             changed_detected, purchase_state, alert_reason = evaluate_purchase_alert(

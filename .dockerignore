@@ -35,6 +35,8 @@ test-datastore/
 tests/
 *.md
 !README.md
+# The Stock & Price WebUI copies this single canonical help document at build time.
+!docs/product-extraction/STOCK_PRICE_RULES.md
 
 # Temporary and log files
 *.log

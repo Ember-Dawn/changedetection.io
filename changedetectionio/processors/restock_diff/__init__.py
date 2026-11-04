@@ -120,8 +120,12 @@ class Watch(BaseWatch):
         state = self.get('purchase_alert_state') or {}
         values['purchase_alert'] = {
             'reason': state.get('last_alert_reason'),
-            'mode': state.get('mode'),
-            'target_price': state.get('target_price'),
+            'price_mode': state.get('price_mode'),
+            'stock_mode': state.get('stock_mode'),
+            'combine_mode': state.get('combine_mode'),
+            'price_threshold': state.get('price_threshold'),
+            'percent_change': state.get('last_alert_percent_change'),
+            'price_direction': state.get('last_alert_price_direction'),
         }
 
         values['restock']['previous_price'] = None
@@ -150,9 +154,13 @@ class Watch(BaseWatch):
         values.append(('restock.in_stock', "In stock status"))
         values.append(('restock.last_price', "Price at the previous check"))
         values.append(('restock.previous_price', "Previous price in history"))
-        values.append(('purchase_alert.reason', "Why the purchase alert triggered (became_qualified or price_changed)"))
-        values.append(('purchase_alert.mode', "Configured product alert mode"))
-        values.append(('purchase_alert.target_price', "Configured target purchase price"))
+        values.append(('purchase_alert.reason', "Reason(s) for the latest stock/price alert"))
+        values.append(('purchase_alert.price_mode', "Configured price monitoring mode"))
+        values.append(('purchase_alert.stock_mode', "Configured stock monitoring mode"))
+        values.append(('purchase_alert.combine_mode', "Configured stock/price combination"))
+        values.append(('purchase_alert.price_threshold', "Configured price or percentage threshold"))
+        values.append(('purchase_alert.percent_change', "Percent change on the latest stock/price alert"))
+        values.append(('purchase_alert.price_direction', "Price movement direction on latest alert"))
 
         return values
 

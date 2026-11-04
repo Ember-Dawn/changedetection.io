@@ -21,17 +21,18 @@ class PurchaseWiringContract(unittest.TestCase):
         self.assertIn('if watch.history_n >= 2:', worker)
         self.assertIn('if changed_detected or not watch.history_n:', worker)
 
-    def test_purchase_form_declares_three_modes_and_target(self):
+    def test_purchase_form_declares_new_price_stock_modes_and_rules(self):
         source = (ROOT / 'changedetectionio/processors/restock_diff/forms.py').read_text()
-        for mode in ('stock_and_price', 'stock_only', 'price_only'):
+        for mode in ('percent_down', 'percent_up', 'percent_any', 'any_change',
+                     'in_stock', 'out_of_stock', 'restock', 'sold_out'):
             self.assertIn("'" + mode + "'", source)
-        self.assertIn('target_price = FloatField(', source)
+        self.assertIn('price_threshold = FloatField(', source)
+        self.assertIn('price_follow_changes = BooleanField(', source)
+        self.assertIn("default='and'", source)
+        self.assertIn('purchase-copy-rules', source)
+        self.assertIn('STOCK_PRICE_RULES.md', source)
         self.assertIn('data-custom-select', source)
         self.assertIn("r['name'], r['id']", source)
-        self.assertIn('purchase-radio li', source)
-        self.assertNotIn('price_change_threshold_percent', source)
-        # The extra_form_content fragment is rendered through a plain Jinja2 Environment
-        # (not Flask's), so static asset URLs must live in edit.html instead.
         self.assertNotIn("{{ url_for('static'", source)
 
     def test_editor_no_duplicate_manual_button(self):
@@ -41,11 +42,13 @@ class PurchaseWiringContract(unittest.TestCase):
 
     def test_api_and_docs_reference_new_modes(self):
         schema = (ROOT / 'changedetectionio/processors/restock_diff/api.yaml').read_text()
-        doc = (ROOT / 'docs/product-extraction/RESTOCK_AND_ALERTS.md').read_text()
-        for mode in ('stock_and_price', 'stock_only', 'price_only'):
+        doc = (ROOT / 'docs/product-extraction/STOCK_PRICE_RULES.md').read_text()
+        for mode in ('percent_down', 'percent_up', 'percent_any', 'sold_out', 'in_stock'):
             self.assertIn(mode, schema)
             self.assertIn(mode, doc)
-        self.assertIn('price change', doc.lower())
+        self.assertIn('price_follow_changes', schema)
+        self.assertIn('AND', doc)
+        self.assertIn('OR', doc)
 
     def test_watch_model_persists_purchase_state(self):
         source = (ROOT / 'changedetectionio/model/__init__.py').read_text()

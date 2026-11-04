@@ -1,5 +1,7 @@
-"""Settings for condition-driven product purchase notifications."""
-from wtforms import validators, FloatField
+"""Settings for stock and price event monitoring."""
+from pathlib import Path
+from html import escape
+from wtforms import validators, FloatField, BooleanField
 from wtforms.fields.choices import RadioField, SelectField
 from wtforms import Form, FormField
 from flask_babel import lazy_gettext as _l
@@ -7,14 +9,31 @@ from changedetectionio.forms import processor_text_json_diff_form
 
 
 class RestockSettingsForm(Form):
-    alert_mode = RadioField(_l('Product alert goal'), choices=[
-        ('stock_and_price', _l('In stock AND price below target')),
-        ('stock_only', _l('In stock only')),
-        ('price_only', _l('Price below target (ignore stock)')),
-    ], default='stock_only')
-    target_price = FloatField(_l('Target price (strictly below)'), validators=[
+    price_mode = RadioField(_l('1. Price monitoring'), choices=[
+        ('none', _l('Do not monitor price')),
+        ('below', _l('Below a target price')),
+        ('above', _l('Above a target price')),
+        ('any_change', _l('Any price change')),
+        ('percent_down', _l('Cumulative price decrease (%)')),
+        ('percent_up', _l('Cumulative price increase (%)')),
+        ('percent_any', _l('Cumulative price change in either direction (%)')),
+    ], default='none')
+    price_threshold = FloatField(_l('Price / percentage threshold'), validators=[
         validators.Optional(), validators.NumberRange(min=0),
-    ], render_kw={'placeholder': 'e.g. 1300', 'min': '0', 'step': 'any'})
+    ], render_kw={'placeholder': 'e.g. 1300 or 10', 'min': '0', 'step': 'any'})
+    price_follow_changes = BooleanField(_l('Continue alerting on price changes while target is met'), default=True)
+    stock_mode = RadioField(_l('2. Stock monitoring'), choices=[
+        ('none', _l('Do not monitor stock')),
+        ('in_stock', _l('Currently in stock (price filter)')),
+        ('out_of_stock', _l('Currently out of stock (price filter)')),
+        ('restock', _l('Back in stock')),
+        ('sold_out', _l('Sold out')),
+        ('any_change', _l('Any stock status change')),
+    ], default='restock')
+    combine_mode = RadioField(_l('3. Combine stock and price'), choices=[
+        ('and', _l('AND — both conditions must match (default)')),
+        ('or', _l('OR — either condition may trigger')),
+    ], default='and')
     extraction_mode = RadioField(_l('Product extraction mode'), choices=[
         ('auto', _l('Auto: matching custom rule, otherwise built-in')),
         ('rule', _l('Selected rule only (error on failure)')),
@@ -25,8 +44,17 @@ class RestockSettingsForm(Form):
 
     def validate(self, extra_validators=None):
         valid = super().validate(extra_validators)
-        if self.alert_mode.data in ('stock_and_price', 'price_only') and self.target_price.data is None:
-            self.target_price.errors.append(_l('A target price is required for this monitoring goal.'))
+        from .purchase_alert import normalize_settings, PurchaseAlertConfigurationError
+        try:
+            normalize_settings({
+                'price_mode': self.price_mode.data,
+                'stock_mode': self.stock_mode.data,
+                'combine_mode': self.combine_mode.data,
+                'price_threshold': self.price_threshold.data,
+                'price_follow_changes': bool(self.price_follow_changes.data),
+            })
+        except PurchaseAlertConfigurationError as exc:
+            self.price_mode.errors.append(str(exc))
             valid = False
         return valid
 
@@ -46,7 +74,7 @@ class processor_settings_form(processor_text_json_diff_form):
             pass
 
     def extra_tab_content(self):
-        return _l('Product purchase alerts')
+        return _l('Stock & Price alerts')
 
     def extra_form_content(self):
         output = ''
@@ -57,6 +85,9 @@ class processor_settings_form(processor_text_json_diff_form):
                     output += '<p><strong>Note: A Group tag overrides product alert settings on this Watch.</strong></p>'
                     break
 
+        # The same Markdown source is used by the WebUI's copy action and AI handoff.
+        docs_path = Path(__file__).resolve().parents[3] / 'docs/product-extraction/STOCK_PRICE_RULES.md'
+        documentation = escape(docs_path.read_text(encoding='utf-8'))
         output += r"""
         {% from '_helpers.html' import render_field %}
         <style>
@@ -64,22 +95,42 @@ class processor_settings_form(processor_text_json_diff_form):
           #purchase-alert-settings .purchase-radio li {display:flex!important; align-items:center!important; gap:9px; margin:8px 0!important; padding:0!important; list-style:none!important}
           #purchase-alert-settings .purchase-radio li input[type=radio] {flex:0 0 auto; margin:0!important; width:16px; height:16px}
           #purchase-alert-settings .purchase-radio li label {display:inline!important; width:auto!important; margin:0!important; padding:0!important; line-height:1.5; cursor:pointer}
-          #purchase-alert-settings .purchase-rule-select {max-width:520px; min-width:260px; width:100%;}
-          #purchase-alert-settings .purchase-rule-select select {width:100%; max-width:100%;}
+          #purchase-alert-settings .purchase-rule-select {max-width:520px; min-width:260px; width:100%}
+          #purchase-alert-settings .purchase-rule-select select {width:100%;max-width:100%}
           #purchase-alert-settings .purchase-note {display:block; color:#8394ab; max-width:720px; margin:7px 0 14px; line-height:1.55}
-          #purchase-target-price[hidden] {display:none!important}
-          #purchase-alert-settings .purchase-price {margin:14px 0;}
-          #purchase-alert-settings .purchase-price input {max-width:240px;}
+          #purchase-alert-settings .purchase-price {margin:14px 0}
+          #purchase-alert-settings .purchase-price input {max-width:240px}
+          #purchase-alert-settings [hidden] {display:none!important}
+          #purchase-alert-settings .purchase-doc {max-width:800px; margin:15px 0}
+          #purchase-alert-settings .purchase-doc summary {cursor:pointer; font-weight:600; padding:8px 0}
+          #purchase-alert-settings .purchase-doc pre {white-space:pre-wrap; word-break:break-word; max-height:340px; overflow:auto; font-size:12px; padding:12px; border:1px solid #8394ab55; border-radius:6px}
         </style>
         <fieldset id="purchase-alert-settings">
           <fieldset class="pure-group purchase-radio">
-            {{ render_field(form.processor_config_restock_diff.alert_mode) }}
-            <span class="purchase-note">The first valid check establishes a baseline. When qualified, every price change (up or down) triggers a new alert; unchanged price does not.</span>
+            {{ render_field(form.processor_config_restock_diff.price_mode) }}
           </fieldset>
-          <fieldset id="purchase-target-price" class="pure-group purchase-price">
-            {{ render_field(form.processor_config_restock_diff.target_price) }}
-            <span class="purchase-note">Strictly below the target, not equal. Stock-and-price requires both conditions; price-only ignores stock.</span>
+          <fieldset id="purchase-price-threshold" class="pure-group purchase-price">
+            {{ render_field(form.processor_config_restock_diff.price_threshold) }}
+            <span class="purchase-note">Prices use strict thresholds. Percentages use a cumulative anchor since the last qualifying percentage alert (positive; decreases at most 100%).</span>
           </fieldset>
+          <fieldset id="purchase-follow-changes" class="pure-group">
+            {{ render_field(form.processor_config_restock_diff.price_follow_changes) }}
+            <span class="purchase-note">Enabled by default: continue notifying of either price direction while the target remains satisfied.</span>
+          </fieldset>
+          <fieldset class="pure-group purchase-radio">
+            {{ render_field(form.processor_config_restock_diff.stock_mode) }}
+            <span id="purchase-stock-note" class="purchase-note">Current stock filters are available only while price monitoring is on.</span>
+          </fieldset>
+          <fieldset id="purchase-combine-mode" class="pure-group purchase-radio">
+            {{ render_field(form.processor_config_restock_diff.combine_mode) }}
+            <span class="purchase-note">AND is the default. For a stock event plus a fixed price threshold, AND requires the stock event and the current price to meet the threshold.</span>
+          </fieldset>
+          <details class="purchase-doc">
+            <summary>Monitoring rules — expand / copy Markdown for AI</summary>
+            <button type="button" class="pure-button" id="purchase-copy-rules">Copy Markdown</button>
+            <span id="purchase-copy-status" role="status" aria-live="polite"></span>
+            <pre id="purchase-rules-markdown">__RULES_MARKDOWN__</pre>
+          </details>
           <fieldset class="pure-group purchase-radio">
             {{ render_field(form.processor_config_restock_diff.extraction_mode) }}
           </fieldset>
@@ -90,17 +141,59 @@ class processor_settings_form(processor_text_json_diff_form):
         </fieldset>
         <script>
           (function(){
-            function syncPurchaseMode(){
-              const radio = document.querySelector('input[name="processor_config_restock_diff-alert_mode"]:checked');
-              const group = document.getElementById('purchase-target-price');
-              if(group) group.hidden = !!radio && radio.value === 'stock_only';
+            const prefix = 'processor_config_restock_diff-';
+            function selected(name) {
+              const active = document.querySelector('input[name="' + prefix + name + '"]:checked');
+              return active ? active.value : 'none';
             }
-            document.addEventListener('change', function(event){
-              if(event.target.name === 'processor_config_restock_diff-alert_mode') syncPurchaseMode();
+            function syncPurchaseMode() {
+              const root = document.getElementById('purchase-alert-settings');
+              if (!root) return;
+              const price = selected('price_mode');
+              const stock = selected('stock_mode');
+              const enabled = price !== 'none';
+              root.querySelector('#purchase-price-threshold').hidden = ['none', 'any_change'].includes(price);
+              root.querySelector('#purchase-follow-changes').hidden = !['below','above'].includes(price);
+              root.querySelectorAll('input[name="'+prefix+'stock_mode"]').forEach(input => {
+                const isFilter = ['in_stock','out_of_stock'].includes(input.value);
+                const row = input.closest('li');
+                if (row && isFilter) row.hidden = !enabled;
+                input.disabled = isFilter && !enabled;
+              });
+              if (!enabled && ['in_stock','out_of_stock'].includes(stock)) {
+                const alternative = root.querySelector('input[name="'+prefix+'stock_mode"][value="none"]');
+                if (alternative) alternative.checked = true;
+              }
+              const currentStock = selected('stock_mode');
+              if (['in_stock','out_of_stock'].includes(currentStock)) {
+                const andMode = root.querySelector('input[name="'+prefix+'combine_mode"][value="and"]');
+                if (andMode) andMode.checked = true;
+              }
+              root.querySelector('#purchase-combine-mode').hidden = !enabled || !['restock','sold_out','any_change'].includes(currentStock);
+              const threshold = root.querySelector('input[name="'+prefix+'price_threshold"]');
+              if (threshold) threshold.required = !['none','any_change'].includes(price);
+            }
+            document.addEventListener('change', function(event) {
+              if (event.target.name && event.target.name.startsWith(prefix)) syncPurchaseMode();
             });
-            if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncPurchaseMode);
+            document.addEventListener('click', function(event) {
+              if (event.target.id !== 'purchase-copy-rules') return;
+              const rules = document.getElementById('purchase-rules-markdown').textContent;
+              const status = document.getElementById('purchase-copy-status');
+              const fallback = () => {
+                const input = document.createElement('textarea');
+                input.value = rules; input.style.position = 'fixed'; input.style.left = '-9999px';
+                document.body.appendChild(input); input.select();
+                const success = document.execCommand('copy'); input.remove();
+                status.textContent = success ? 'Copied' : 'Copy failed; select and copy the text below.';
+              };
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(rules).then(() => status.textContent = 'Copied', fallback);
+              } else fallback();
+            });
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncPurchaseMode);
             else syncPurchaseMode();
           })();
         </script>
-        """
+        """.replace('__RULES_MARKDOWN__', documentation)
         return output

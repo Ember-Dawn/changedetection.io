@@ -2,66 +2,73 @@ components:
   schemas:
     processor_config_restock_diff:
       type: object
-      description: |
-        Purchase-oriented notification policy. First valid check creates a baseline
-        without a notification. An alert fires when the product becomes qualified,
-        or its price changes in either direction while it remains qualified.
+      description: | 
+        Independent stock/price monitoring. The initial valid observation and any
+        policy or extraction-rule change establish a baseline without alerting.
+        Current stock filters are available only when price monitoring is enabled.
       properties:
-        alert_mode:
+        price_mode:
           type: string
-          enum: [stock_and_price, stock_only, price_only]
-          default: stock_only
-          description: |
-            stock_and_price: stock must be true AND price strictly below target.
-            stock_only: notify when the product becomes in-stock.
-            price_only: notify for price below target, regardless of stock.
-        target_price:
+          enum: [none, below, above, any_change, percent_down, percent_up, percent_any]
+          default: none
+        price_threshold:
           type: [number, 'null']
           minimum: 0
-          description: Required in stock_and_price/price_only; strict less-than, not less-or-equal.
+          description: Required for threshold/percent modes. Percent must be positive; decreases cannot exceed 100%.
+        price_follow_changes:
+          type: boolean
+          default: true
+          description: For below/above, continue alerting for price changes within target range.
+        stock_mode:
+          type: string
+          enum: [none, in_stock, out_of_stock, restock, sold_out, any_change]
+          default: restock
+        combine_mode:
+          type: string
+          enum: [and, or]
+          default: and
+          description: Used when both price monitoring and stock event monitoring are enabled.
         extraction_mode:
           type: string
           enum: [auto, rule, builtin]
           default: auto
-          description: Automatic Git-tracked product rules, one selected rule, or built-in extraction.
         extraction_rule_id:
           type: string
-          description: Rule file ID from extractor-rules/rules (required in rule mode).
-
+          description: Product extraction rule ID when extraction_mode is rule.
 paths:
   /watch:
     post:
       x-code-samples:
         - lang: 'curl'
-          label: 'Watch a product only when available below $1300'
+          label: 'Only notify when available below $1300'
           source: |
             curl -X POST 'http://localhost:5000/api/v1/watch' \
               -H 'x-api-key: YOUR_API_KEY' -H 'Content-Type: application/json' \
-              -d '{"url":"https://example.com/product", "processor":"restock_diff", "processor_config_restock_diff":{"alert_mode":"stock_and_price", "target_price":1300, "extraction_mode":"auto"}}'
+              -d '{"url":"https://example.com/product", "processor":"restock_diff", "processor_config_restock_diff":{"price_mode":"below", "price_threshold":1300, "stock_mode":"in_stock", "price_follow_changes":true}}'
         - lang: 'Python'
-          label: 'Track stock only'
+          label: 'Track any stock status change'
           source: |
             import requests
             response = requests.post('http://localhost:5000/api/v1/watch',
                 headers={'x-api-key': 'YOUR_API_KEY'},
                 json={'url': 'https://example.com/product', 'processor': 'restock_diff',
-                      'processor_config_restock_diff': {'alert_mode': 'stock_only'}})
+                      'processor_config_restock_diff': {'price_mode': 'none', 'stock_mode': 'any_change'}})
             print(response.json())
   /watch/{uuid}:
     put:
       x-code-samples:
         - lang: 'curl'
-          label: 'Change the target price'
+          label: 'Notify on restock OR price decrease 10%'
           source: |
             curl -X PUT 'http://localhost:5000/api/v1/watch/YOUR-UUID' \
               -H 'x-api-key: YOUR_API_KEY' -H 'Content-Type: application/json' \
-              -d '{"processor_config_restock_diff":{"alert_mode":"price_only", "target_price":1200}}'
+              -d '{"processor_config_restock_diff":{"stock_mode":"restock", "price_mode":"percent_down", "price_threshold":10, "combine_mode":"or"}}'
   /tag/{uuid}:
     put:
       x-code-samples:
         - lang: 'curl'
-          label: 'Override a tag with purchase conditions'
+          label: 'Group override: high price and sold out'
           source: |
             curl -X PUT 'http://localhost:5000/api/v1/tag/YOUR-TAG-UUID' \
               -H 'x-api-key: YOUR_API_KEY' -H 'Content-Type: application/json' \
-              -d '{"overrides_watch":true,"processor_config_restock_diff":{"alert_mode":"stock_and_price", "target_price":1300}}'
+              -d '{"overrides_watch":true, "processor_config_restock_diff":{"price_mode":"above", "price_threshold":1500, "stock_mode":"sold_out", "combine_mode":"and"}}'
