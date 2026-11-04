@@ -218,6 +218,27 @@
                         </div>
 <details  class="form-wrapper" id="edit-advanced">
     <summary>{{ _('Customise notifications') }}</summary>
+    <div class="notification-template-library" data-list-url="{{ url_for('ui.ui_notification.notification_templates_api') }}" data-preview-url="{{ url_for('ui.ui_notification.notification_template_preview') }}" style="padding:12px 0;max-width:700px">
+        <label for="notification-template-select">Notification template</label>
+        <select id="notification-template-select" class="notification-template-select" style="max-width:370px;width:100%">
+            <option value="">Choose a preset or saved template...</option>
+        </select>
+        <div style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap">
+            <button type="button" class="pure-button button-secondary button-xsmall" id="notification-template-apply">Apply to editor</button>
+            <button type="button" class="pure-button button-secondary button-xsmall" id="notification-template-save">Save as template</button>
+            <button type="button" class="pure-button button-secondary button-xsmall" id="notification-template-update">Update template</button>
+            <button type="button" class="pure-button button-secondary button-xsmall" id="notification-template-delete">Delete template</button>
+            <button type="button" class="pure-button button-secondary button-xsmall" id="notification-template-copy">Copy</button>
+            <button type="button" class="pure-button button-secondary button-xsmall" id="notification-template-preview">Preview</button>
+        </div>
+        <div id="notification-template-message" class="pure-form-message-inline" role="status" aria-live="polite"></div>
+        <div id="notification-template-preview-result" style="display:none;margin-top:10px;border:1px solid #aaa;border-radius:5px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere">
+            <strong>Preview (no notification sent)</strong>
+            <div id="notification-template-preview-source" class="pure-form-message-inline"></div>
+            <h4 id="notification-template-preview-title"></h4>
+            <div id="notification-template-preview-body"></div>
+        </div>
+    </div>
 
                         <div class="pure-control-group grey-form-border">
                             <div class="pure-control-group">

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, make_response
+from flask import Blueprint, request, make_response, jsonify
 import random
 from loguru import logger
 
@@ -8,6 +8,88 @@ from changedetectionio.auth_decorator import login_optionally_required
 def construct_blueprint(datastore: ChangeDetectionStore):
     notification_blueprint = Blueprint('ui_notification', __name__, template_folder="../ui/templates")
     
+    @notification_blueprint.route('/notification/templates', methods=['GET', 'POST'])
+    @login_optionally_required
+    def notification_templates_api():
+        from changedetectionio.notification.templates import get_templates, mutate_templates
+        if request.method == 'GET':
+            return jsonify({'templates': get_templates(datastore)})
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({'error': 'JSON object required'}), 400
+        try:
+            result = mutate_templates(datastore, payload.get('action'), payload.get('template') or {})
+        except (ValueError, TypeError) as exc:
+            return jsonify({'error': str(exc)}), 400
+        except Exception:
+            return jsonify({'error': 'Invalid template syntax or storage failure.'}), 400
+        return jsonify({'template': result, 'templates': get_templates(datastore)})
+
+    @notification_blueprint.route('/notification/template-preview', methods=['POST'])
+    @login_optionally_required
+    def notification_template_preview():
+        """Render submitted (unsaved) text, without invoking Apprise or mutating watches."""
+        from changedetectionio.notification_service import NotificationContextData, set_basic_notification_vars
+        from changedetectionio.jinja2_custom import render as render_jinja
+        from changedetectionio.notification.templates import validate_template
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({'error': 'JSON object required'}), 400
+        try:
+            template = validate_template(dict(payload, name='Preview'))
+            watch_uuid = payload.get('watch_uuid')
+            watch = datastore.data.get('watching', {}).get(watch_uuid) if isinstance(watch_uuid, str) else None
+            context = NotificationContextData({
+                'watch_title': 'Example product', 'watch_url': 'https://example.com/product/123',
+                'watch_open_url': 'https://example.com/product/123',
+                'diff': 'Example price changed: 1249.99 -> 1199.99',
+                'current_snapshot': 'In Stock: True - Price: 1199.99',
+                'prev_snapshot': 'In Stock: True - Price: 1249.99',
+                'restock': {'title': 'Example product', 'price': '1199.99', 'currency': 'USD', 'in_stock': True},
+                'purchase_alert': {
+                    'stock_text': 'In stock', 'rule_text': 'price below 1300 USD AND currently in stock',
+                    'reason_text': 'Price fell and meets target', 'reference_price': '1249.99',
+                    'price_change_amount': '-50.00', 'percent_change': '-4.0',
+                    'reason': 'price', 'price_mode': 'below', 'stock_mode': 'in_stock',
+                    'price_threshold': '1300', 'price_direction': 'down',
+                },
+            })
+            # Only an explicitly selected Watch supplies actual data; Tag/Global previews
+            # never pick a random Watch or accidentally disclose another Watch's content.
+            if watch is not None:
+                # Do not mix sample product fields into real non-product watches.
+                context['restock'] = {}
+                context['purchase_alert'] = {}
+                # Load saved watch tokens, and optionally the two latest snapshots.
+                # Never read or modify the watch's active processor or event state.
+                snapshots = []
+                try:
+                    for timestamp in sorted(watch.history.keys(), key=int)[-2:]:
+                        snapshots.append(watch.get_history_snapshot(timestamp=timestamp) or '')
+                except Exception:
+                    snapshots = []
+                previous, current = (snapshots[-2], snapshots[-1]) if len(snapshots) >= 2 else ('', snapshots[-1] if snapshots else '')
+                context.update(set_basic_notification_vars(current, previous, watch, '', None))
+                from changedetectionio.notification_service import add_rendered_diff_to_notification_vars
+                context.update(add_rendered_diff_to_notification_vars(
+                    prev_snapshot=previous, current_snapshot=current,
+                    notification_scan_text=template['title'] + template['body'],
+                    word_diff=template['format'] != 'text',
+                    escape_output=template['format'].startswith('html'),
+                ))
+                context['watch_title'] = watch.label
+                source = 'watch'
+            else:
+                source = 'example'
+            result = {
+                'title': render_jinja(template_str=template['title'], **context),
+                'body': render_jinja(template_str=template['body'], **context),
+                'format': template['format'], 'source': source,
+            }
+            return jsonify(result)
+        except Exception:
+            return jsonify({'error': 'Template could not be rendered. Check the syntax and variables.'}), 400
+
     # AJAX endpoint for sending a test
     @notification_blueprint.route("/notification/send-test/<string:watch_uuid>", methods=['POST'])
     @notification_blueprint.route("/notification/send-test", methods=['POST'])

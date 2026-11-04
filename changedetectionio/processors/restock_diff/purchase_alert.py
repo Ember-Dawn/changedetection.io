@@ -200,6 +200,9 @@ def evaluate_purchase_alert(settings, product, previous_state=None, reset_baseli
         else:
             result['last_alert_percent_change'] = None
             result['last_alert_price_direction'] = None
+        result['last_alert_reference_price'] = str(change_base) if change_base is not None and not conflict else None
+        result['last_alert_previous_stock'] = old_stock
+        result['last_alert_price_change_amount'] = str(price - change_base) if price is not None and change_base is not None and price != change_base and not conflict else None
         result['last_alert_reason'] = reason
         result['last_alert_price'] = str(price) if price is not None else None
     elif conflict:

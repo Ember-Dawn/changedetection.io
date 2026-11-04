@@ -103,6 +103,59 @@ def get_price_from_history_str(history_str):
         return None
 
 
+
+
+def _rule_description(state, currency):
+    pm = state.get('price_mode') or 'none'
+    sm = state.get('stock_mode') or 'none'
+    value = state.get('price_threshold')
+    unit = (' ' + currency) if currency else ''
+    price_map = {
+        'none': '', 'below': f'price below {value}{unit}',
+        'above': f'price above {value}{unit}', 'any_change': 'any price change',
+        'percent_down': f'price down at least {value}%',
+        'percent_up': f'price up at least {value}%',
+        'percent_any': f'price change at least {value}%',
+    }
+    stock_map = {
+        'none': '', 'in_stock': 'currently in stock',
+        'out_of_stock': 'currently out of stock', 'restock': 'restocked',
+        'sold_out': 'sold out', 'any_change': 'any stock change',
+    }
+    price_text, stock_text = price_map.get(pm, ''), stock_map.get(sm, '')
+    if price_text and stock_text:
+        join = ' AND ' if sm in ('in_stock', 'out_of_stock') or state.get('combine_mode') != 'or' else ' OR '
+        return price_text + join + stock_text
+    return price_text or stock_text or 'No active rule'
+
+
+def _reason_description(state):
+    reason = state.get('last_alert_reason') or ''
+    direction = state.get('last_alert_price_direction')
+    pm = state.get('price_mode')
+    sm = state.get('stock_mode')
+    parts = []
+    if 'stock_filter' in reason:
+        parts.append('Current stock filter is satisfied')
+    elif 'stock' in reason:
+        old = state.get('last_alert_previous_stock')
+        new = state.get('last_stock')
+        if old is False and new is True:
+            parts.append('Restocked (out of stock to in stock)')
+        elif old is True and new is False:
+            parts.append('Sold out (in stock to out of stock)')
+        else:
+            parts.append('Stock condition met' if sm in ('in_stock', 'out_of_stock') else 'Stock changed')
+    if 'price' in reason:
+        if pm in ('percent_down', 'percent_up', 'percent_any'):
+            parts.append('Cumulative price change reached threshold')
+        elif pm in ('below', 'above'):
+            parts.append('Price ' + ('rose' if direction == 'up' else 'fell' if direction == 'down' else 'qualified') + ' and meets target')
+        else:
+            parts.append('Price ' + ('rose' if direction == 'up' else 'fell' if direction == 'down' else 'changed'))
+    return '; '.join(parts) or 'Stock/price rule matched'
+
+
 class Watch(BaseWatch):
     def __init__(self, *arg, **kw):
         super().__init__(*arg, **kw)
@@ -128,6 +181,16 @@ class Watch(BaseWatch):
             'price_direction': state.get('last_alert_price_direction'),
         }
 
+        stock = values['restock'].get('in_stock')
+        alert = values['purchase_alert']
+        alert.update({
+            'stock_text': 'In stock' if stock is True else 'Out of stock' if stock is False else 'Unknown',
+            'stock_previous': state.get('last_alert_previous_stock'),
+            'rule_text': _rule_description(state, values['restock'].get('currency') or ''),
+            'reason_text': _reason_description(state),
+            'reference_price': state.get('last_alert_reference_price'),
+            'price_change_amount': state.get('last_alert_price_change_amount'),
+        })
         values['restock']['previous_price'] = None
         if self.history_n >= 2:
             history = self.history
@@ -160,6 +223,12 @@ class Watch(BaseWatch):
         values.append(('purchase_alert.combine_mode', "Configured stock/price combination"))
         values.append(('purchase_alert.price_threshold', "Configured price or percentage threshold"))
         values.append(('purchase_alert.percent_change', "Percent change on the latest stock/price alert"))
+        values.append(('purchase_alert.reason_text', 'Human-readable reason for latest stock/price alert'))
+        values.append(('purchase_alert.rule_text', 'Human-readable active stock/price rule'))
+        values.append(('purchase_alert.stock_text', 'In stock / Out of stock / Unknown'))
+        values.append(('purchase_alert.stock_previous', 'Previous reliable stock state at alert'))
+        values.append(('purchase_alert.reference_price', 'Price reference used for the alert'))
+        values.append(('purchase_alert.price_change_amount', 'Signed price change since reference'))
         values.append(('purchase_alert.price_direction', "Price movement direction on latest alert"))
 
         return values

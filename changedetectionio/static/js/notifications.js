@@ -1,3 +1,107 @@
+// The template library is a copy-on-select editor helper. Applying a template
+// never saves Watch/Tag/Global settings; users still click the page's Save.
+function setupNotificationTemplateLibrary() {
+    var $select = $('#notification-template-select');
+    if (!$select.length) return;
+    var templates = [];
+    var endpoint = $('.notification-template-library').attr('data-list-url');
+    var previewEndpoint = $('.notification-template-library').attr('data-preview-url');
+    var csrf = $('input[name="csrf_token"]').first().val();
+    var headers = csrf ? {'X-CSRFToken': csrf} : {};
+    var $title = $('input.notification-title');
+    var $body = $('textarea.notification-body');
+    var $format = $('select.notification-format');
+    var $message = $('#notification-template-message');
+    var $result = $('#notification-template-preview-result');
+    var watchMatch = (typeof notification_base_url === 'string' ? notification_base_url : '').match(/\/notification\/send-test\/([^/?]+)/);
+    function say(value) { $message.text(value || ''); }
+    function selected() { return templates.find(function(t) { return t.id === $select.val(); }); }
+    function current() { return {title: $title.val() || '', body: $body.val() || '', format: $format.val() || 'text'}; }
+    function refresh(items, selectId) {
+        templates = items || [];
+        $select.empty().append($('<option>').val('').text('Choose a preset or saved template...'));
+        templates.forEach(function(t) {
+            $select.append($('<option>').val(t.id).text((t.builtin ? 'Preset: ' : 'My template: ') + t.name));
+        });
+        $select.val(selectId || '');
+        updateButtons();
+    }
+    function updateButtons() {
+        var item = selected(), editable = !!(item && !item.builtin);
+        $('#notification-template-update, #notification-template-delete').prop('disabled', !editable);
+        $('#notification-template-apply').prop('disabled', !item);
+    }
+    function reload() {
+        $.getJSON(endpoint).done(function(data) { refresh(data.templates, $select.val()); })
+            .fail(function() { say('Could not load notification templates.'); });
+    }
+    function mutate(action, item) {
+        return $.ajax({url:endpoint, type:'POST', contentType:'application/json', headers:headers,
+            data:JSON.stringify({action:action,template:item})}).done(function(data) {
+                refresh(data.templates, data.template ? data.template.id : '');
+                say(action === 'delete' ? 'Template deleted.' : 'Template saved.');
+            }).fail(function(xhr) {
+                say((xhr.responseJSON && xhr.responseJSON.error) || 'Template operation failed.');
+            });
+    }
+    $select.on('change', updateButtons);
+    $('#notification-template-apply').on('click', function() {
+        var item = selected(); if (!item) return;
+        var edited = current();
+        if ((edited.title.trim() || edited.body.trim()) &&
+            (edited.title !== item.title || edited.body !== item.body || edited.format !== item.format) &&
+            !window.confirm('Replace the current unsaved notification title, body and format?')) return;
+        $title.val(item.title).trigger('change');
+        $body.val(item.body).trigger('change');
+        $format.val(item.format).trigger('change');
+        $result.hide();
+        say('Copied to editor. Click the page Save button to apply these notification settings.');
+    });
+    $('#notification-template-save').on('click', function() {
+        var name = window.prompt('New template name:'); if (!name || !name.trim()) return;
+        mutate('create', Object.assign({name:name.trim()},current()));
+    });
+    $('#notification-template-update').on('click', function() {
+        var item=selected(); if (!item || item.builtin) return;
+        var name=window.prompt('Template name:',item.name); if (!name || !name.trim()) return;
+        if (!window.confirm('Update this saved template? Already configured watches will not change.')) return;
+        mutate('update',Object.assign({id:item.id,name:name.trim()},current()));
+    });
+    $('#notification-template-delete').on('click', function() {
+        var item=selected(); if (!item || item.builtin) return;
+        if (window.confirm('Delete saved template "'+item.name+'"? Existing watch settings will not change.'))
+            mutate('delete',{id:item.id});
+    });
+    $('#notification-template-copy').on('click', function() {
+        var item=current(), content='Title:\n'+item.title+'\n\nBody:\n'+item.body+'\n\nFormat: '+item.format;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(content).then(function(){say('Template copied.');},function(){say('Clipboard permission denied.');});
+        } else { say('Clipboard API unavailable in this browser.'); }
+    });
+    $('#notification-template-preview').on('click', function() {
+        var item=current();
+        if (!item.title.trim() || !item.body.trim()) {
+            say('Enter a title and body before previewing.'); return;
+        }
+        $result.hide(); say('Rendering preview (nothing will be sent)...');
+        $.ajax({url:previewEndpoint,type:'POST',contentType:'application/json',headers:headers,
+            data:JSON.stringify(Object.assign({},item, {watch_uuid:watchMatch ? watchMatch[1] : null}))})
+            .done(function(data) {
+                // Do NOT insert rendered template HTML into the DOM. Page-provided
+                // title/price/description can contain untrusted markup.
+                $('#notification-template-preview-title').text(data.title);
+                $('#notification-template-preview-body').text(data.body);
+                $('#notification-template-preview-source').text(data.source === 'watch'
+                    ? 'Using current Watch data; no notification sent.'
+                    : 'Using example data; no notification sent.');
+                $result.show(); say('');
+            }).fail(function(xhr) {
+                say((xhr.responseJSON && xhr.responseJSON.error) || 'Preview failed.');
+            });
+    });
+    reload();
+}
+
 function checkDiscordHtmlWarning() {
     var urls = $('textarea.notification-urls').val() || '';
     var format = $('select.notification-format').val() || '';
@@ -103,6 +207,7 @@ function removeNotificationLine(line) {
 }
 
 $(document).ready(function () {
+    setupNotificationTemplateLibrary();
 
     $('textarea.notification-urls, select.notification-format').on('change input', checkDiscordHtmlWarning);
     checkDiscordHtmlWarning();
