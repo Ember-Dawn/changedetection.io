@@ -56,3 +56,11 @@ The manual browser uses plain JS scripts in dependency order: `manual-core.js` -
 ## Product extraction rules (new)
 
 `extractor-rules/` is **Git tracked** and bind-mounted writable as `/extractor-rules`. It contains no secrets or user sessions. The `changedetectionio/product_extraction/` engine uses only declarative JSON rules. The `/product-extractors/` WebUI is authenticated; dry-run must not update Watch history, notification state or checksums. Restock comparison/alerts remain in `processors/restock_diff`. Never convert unmatched/unknown stock into an out-of-stock or in-stock assertion. Rule changes require a new extraction baseline, not a false price alert.
+
+## Asking another AI to author product rules
+
+Start with `extractor-rules/AI_RULE_GUIDE.md` (self-contained rule-writing instructions). The schema is `extractor-rules/schema/product-rule.schema.json`; the offline HTML/JSON pair in `extractor-rules/examples/sample-product.*` demonstrates tested selector behavior. Rules generated for real websites require real DOM evidence and Dry Run testing, not screenshot-based guessed selectors. Keep rules in the Git-tracked `extractor-rules/rules/` tree; WebUI saves do not create Git commits.
+
+## Browsers UI styling
+
+The manual browser template and `manual-browser.css` use the compact Product Extractors visual language but prioritize the full-height interactive screenshot. Do not inflate header or toolbar height, break the existing `manual-*` element IDs, or change the five JS modules' dependency order when making visual-only improvements. Keep text input and technical details in collapsible areas when possible.

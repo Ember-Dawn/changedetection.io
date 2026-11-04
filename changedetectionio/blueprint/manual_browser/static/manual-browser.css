@@ -1,22 +1,62 @@
-#manual-browser-root{width:100%;max-width:none;margin:0;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;min-height:420px}
-#manual-browser-root .manual-heading{flex:0 0 auto}
-#manual-browser-root .manual-view{flex:1 1 auto;min-height:180px;height:0;max-height:none}
-#manual-browser-root .manual-controls{flex:0 0 auto}
-#manual-browser-root .manual-tips{margin:4px 0;font-size:.85em}
-#manual-browser-root .manual-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0}
-#manual-browser-root .manual-row .pure-button{height:34px;box-sizing:border-box;padding:6px 12px}
-#manual-browser-root .manual-row input.manual-address{height:34px;box-sizing:border-box}
-#manual-browser-root .manual-status{flex:0 0 auto}
-#manual-browser-root .manual-address{flex:1 1 360px;min-width:180px}
-#manual-browser-root .manual-view{background:#161b24;width:100%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;touch-action:none}
-#manual-browser-root .manual-view img{max-width:100%;max-height:100%;width:auto;height:auto;display:block;user-select:none;cursor:crosshair}
-#manual-browser-root .manual-row .manual-icon{height:34px;width:34px;min-width:34px;display:inline-flex;align-items:center;justify-content:center;padding:0}
-#manual-browser-root .manual-icon svg{width:16px;height:16px}
-#manual-browser-root .manual-view:focus{outline:none}
-#manual-browser-root .manual-view:focus-visible{outline:2px solid #4b9bff;outline-offset:2px}
-#manual-browser-root .manual-cover{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#eee;pointer-events:none;background:#161b24;text-align:center;padding:16px}
-#manual-browser-root .manual-session-notice{padding:12px;border:1px solid #999;border-radius:6px;margin:10px 0}
+/* Browsers shares the Product Extractors visual language, but reserves height for the live Page. */
+#manual-browser-root{--mb-ink:#f3f5fc;--mb-muted:#bdc9e3;--mb-line:rgba(186,205,245,.19);--mb-panel:rgba(10,20,43,.28);--mb-field:rgba(11,24,50,.66);--mb-accent:#1590ed;width:100%;max-width:none;margin:0;display:flex;flex-direction:column;box-sizing:border-box;min-height:420px;overflow:hidden;padding:clamp(10px,1.15vw,18px);gap:9px;color:var(--mb-ink);background:transparent}
+#manual-browser-root *,#manual-browser-root *::before,#manual-browser-root *::after{box-sizing:border-box}
 #manual-browser-root [hidden]{display:none!important}
-#manual-browser-root button:disabled{opacity:.5}
-#manual-browser-root .manual-status{display:flex;flex-wrap:wrap;gap:16px;font-size:.9em;margin:12px 0}
-@media(max-width:680px) { #manual-browser-root .manual-address{flex-basis:100%} }
+#manual-browser-root .manual-header{display:flex;flex:0 0 auto;justify-content:space-between;align-items:center;gap:16px;min-width:0}
+#manual-browser-root .manual-header-copy{min-width:0}
+#manual-browser-root h1,#manual-browser-root p{margin:0;color:inherit}
+#manual-browser-root h1{font-weight:700;font-size:clamp(21px,1.85vw,28px);line-height:1.2;margin:2px 0}
+#manual-browser-root .manual-header p{font-size:12px;line-height:1.45;color:var(--mb-muted)}
+#manual-browser-root .manual-eyebrow{display:flex;gap:6px;align-items:center;color:#a2d0fb;font-size:10px;letter-spacing:.09em;font-weight:750}
+#manual-browser-root .manual-eyebrow svg{height:13px;width:13px}
+#manual-browser-root .manual-connection{display:inline-flex;align-items:center;white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis;border:1px solid var(--mb-line);background:rgba(111,140,185,.12);color:#d4e1f6;border-radius:18px;padding:6px 11px;font-size:12px;font-weight:650}
+#manual-browser-root .manual-browser-shell{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;overflow:hidden;background:var(--mb-panel);border:1px solid var(--mb-line);border-radius:12px}
+#manual-browser-root .manual-browser-toolbar{flex:0 0 auto;padding:9px 11px 7px;border-bottom:1px solid var(--mb-line);background:rgba(8,17,38,.19)}
+#manual-browser-root .manual-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0}
+#manual-browser-root .manual-navigation{flex-wrap:nowrap;min-width:0}
+#manual-browser-root .manual-actionbar{margin-top:8px;min-width:0}
+#manual-browser-root .manual-action-caption{display:inline-flex;align-items:center;gap:6px;color:#b3d1f3;font-size:12px;font-weight:650;white-space:nowrap}
+#manual-browser-root .manual-action-caption svg{width:14px;height:14px}
+#manual-browser-root .manual-action-spacer{flex:1 1 8px}
+#manual-browser-root .manual-state{min-width:0;max-width:44%;font-size:12px;line-height:1.4;color:var(--mb-muted);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#manual-browser-root .manual-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid rgba(182,209,250,.26);border-radius:7px;background:rgba(170,194,237,.11);color:var(--mb-ink);font:inherit;font-size:12px;line-height:1.1;font-weight:650;min-height:34px;padding:8px 11px;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s}
+#manual-browser-root .manual-btn svg{width:15px;height:15px;flex-shrink:0}
+#manual-browser-root .manual-btn:not(:disabled):hover{background:rgba(170,194,237,.23);border-color:rgba(206,223,255,.5)}
+#manual-browser-root .manual-btn-primary{color:#fff;background:#0b83e4;border-color:#248fe8}
+#manual-browser-root .manual-btn-primary:not(:disabled):hover{background:#0675cc;border-color:#309cf4}
+#manual-browser-root .manual-btn-danger:not(:disabled):hover{background:rgba(187,67,82,.23);border-color:rgba(250,133,144,.48)}
+#manual-browser-root button:disabled{opacity:.48;cursor:not-allowed}
+#manual-browser-root .manual-icon{flex:0 0 34px;width:34px;padding:0}
+#manual-browser-root .manual-address,#manual-browser-root #manual-text{border:1px solid rgba(184,208,244,.25);border-radius:7px;background:var(--mb-field);color:var(--mb-ink);font:inherit;font-size:13px;outline:none;min-height:34px;padding:6px 11px;min-width:0}
+#manual-browser-root .manual-address{flex:1 1 210px;width:100%}
+#manual-browser-root #manual-text{flex:1 1 300px}
+#manual-browser-root .manual-address::placeholder,#manual-browser-root #manual-text::placeholder{color:#a5b4ce}
+#manual-browser-root .manual-address:focus,#manual-browser-root #manual-text:focus{border-color:#57b4ff;box-shadow:0 0 0 3px rgba(40,149,255,.18)}
+#manual-browser-root .manual-btn:focus-visible,#manual-browser-root summary:focus-visible,#manual-browser-root .manual-view:focus-visible{outline:2px solid #62b8ff;outline-offset:2px}
+#manual-browser-root .manual-viewport-shell{flex:1 1 auto;min-height:150px;padding:8px;overflow:hidden;display:flex}
+#manual-browser-root .manual-view{flex:1 1 auto;min-height:0;width:100%;background:#111827;border:1px solid rgba(172,200,241,.17);border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;touch-action:none}
+#manual-browser-root .manual-view img{max-width:100%;max-height:100%;width:auto;height:auto;display:block;user-select:none;cursor:crosshair}
+#manual-browser-root .manual-view:focus{outline:none}
+#manual-browser-root .manual-cover{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#111827;color:#c5d5ed;text-align:center;padding:15px;pointer-events:none;font-size:13px}
+#manual-browser-root .manual-cover svg{width:34px;height:34px;opacity:.55}
+#manual-browser-root .manual-footer{flex:0 0 auto;border-top:1px solid var(--mb-line);padding:6px 11px 7px;display:flex;flex-wrap:wrap;align-items:center;gap:7px 16px}
+#manual-browser-root .manual-status{display:flex;align-items:center;gap:13px;flex-wrap:wrap;color:var(--mb-muted);font-size:11px;line-height:1.5}
+#manual-browser-root .manual-status:empty{display:none}
+#manual-browser-root .manual-details{position:relative;font-size:11px;color:var(--mb-muted)}
+#manual-browser-root .manual-details summary{display:inline-flex;align-items:center;gap:6px;color:#b8d9fc;cursor:pointer;list-style:none;font-size:11px;font-weight:600}
+#manual-browser-root .manual-details summary::-webkit-details-marker{display:none}
+#manual-browser-root .manual-details summary svg{width:13px;height:13px}
+#manual-browser-root .manual-details .manual-chevron{transition:transform .2s}
+#manual-browser-root .manual-details[open] .manual-chevron{transform:rotate(180deg)}
+#manual-browser-root .manual-details[open]{flex:1 1 100%}
+#manual-browser-root .manual-controls,#manual-browser-root .manual-details-copy{margin-top:9px;padding:10px;background:rgba(8,19,40,.37);border-radius:8px;border:1px solid var(--mb-line)}
+#manual-browser-root .manual-details-copy p{line-height:1.55;font-size:12px;overflow-wrap:anywhere;margin-bottom:8px}
+#manual-browser-root .manual-details-copy p:last-child{margin-bottom:0}
+#manual-browser-root .manual-session-notice{flex:0 0 auto;border:1px solid rgba(239,185,99,.35);background:rgba(164,110,32,.13);border-radius:10px;padding:10px 12px;color:#f3e7cc}
+#manual-browser-root .manual-session-heading{display:flex;align-items:center;gap:9px;font-size:13px}
+#manual-browser-root .manual-session-heading svg{height:16px;width:16px}
+#manual-browser-root #manual-existing-description{font-size:12px;line-height:1.5;margin:5px 0 8px;overflow-wrap:anywhere;color:#d9d1bb}
+#manual-browser-root .manual-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+@media(max-width:900px){#manual-browser-root .manual-navigation{flex-wrap:wrap}#manual-browser-root .manual-navigation .manual-address{order:0;flex:1 1 calc(100% - 210px)}#manual-browser-root .manual-header p{display:none}#manual-browser-root .manual-state{max-width:35%}}
+@media(max-width:560px){#manual-browser-root{padding:8px;gap:6px}#manual-browser-root .manual-header{align-items:flex-start}#manual-browser-root .manual-connection{max-width:155px}#manual-browser-root .manual-browser-toolbar{padding:7px}#manual-browser-root .manual-navigation .manual-address{order:1;flex-basis:100%}#manual-browser-root .manual-actionbar{gap:5px}#manual-browser-root .manual-action-caption{display:none}#manual-browser-root .manual-state{max-width:none;flex:1 1 100%}#manual-browser-root .manual-viewport-shell{padding:5px}#manual-browser-root .manual-footer{padding:7px}#manual-browser-root .manual-session-actions .manual-btn{flex:1 1 auto}}
+@media(prefers-reduced-motion:reduce){#manual-browser-root *{transition:none!important}}

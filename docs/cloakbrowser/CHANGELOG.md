@@ -43,3 +43,11 @@ For future source changes, append a new entry with date (if known), specific pat
 - Group rule management, JSON editing, dry run, and results in separate responsive panels.
 - Add consistent controls, accessible import trigger, unsaved-change confirmation, busy/error states, result copy, and inline validation feedback.
 - Preserve existing rule save/list/test endpoints and original control IDs.
+
+## 2026-11-03: Product rule authoring guide and Browsers visual refinement
+
+- Added `extractor-rules/AI_RULE_GUIDE.md`: standalone instructions for another AI to generate schema-v1 JSON rules from real rendered HTML/DOM, including limits of the implementation, price and stock disambiguation, expected response format and Dry Run procedure.
+- Added a non-sensitive, offline-testable demonstration pair in `extractor-rules/examples/sample-product.html` and `sample-product-rule.json`. Real retailer selectors are intentionally **not** fabricated.
+- Updated `extractor-rules/README.md` and `AGENTS.md` with navigation to the guide.
+- Restyled Browsers into a compact workspace aligned with Product Extractors. It preserves viewport fill, existing control IDs and the current five-module JavaScript interaction engine. Additional controls are collapsible to maximize the browser frame.
+- Added checks for template contract, selector example and guide links. No new browser protocol, container, backend API or JS build tool.

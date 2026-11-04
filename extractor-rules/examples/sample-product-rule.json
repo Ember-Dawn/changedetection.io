@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "sample-product",
+  "name": "Offline sample product (demo only)",
+  "enabled": true,
+  "match": {
+    "domains": ["demo.example.com"],
+    "path_patterns": ["/product/*"]
+  },
+  "fields": {
+    "price": {"selectors": [{"type": "css", "value": "#product-detail [data-testid='sale-price']", "extract": "text"}]},
+    "currency": {"selectors": [{"type": "css", "value": "#product-detail meta[itemprop='priceCurrency']", "extract": "attr", "attribute": "content"}]},
+    "in_stock": {
+      "selectors": [{"type": "css", "value": "#product-detail [data-testid='availability']", "extract": "text"}],
+      "mapping": {"in_stock": ["In Stock"], "out_of_stock": ["Out of Stock", "Sold Out"]}
+    },
+    "stock_quantity": {"selectors": [{"type": "css", "value": "#product-detail [data-testid='inventory-count']", "extract": "text"}]},
+    "title": {"selectors": [{"type": "css", "value": "#product-detail [data-testid='product-title']", "extract": "text"}]},
+    "sku": {"selectors": [{"type": "css", "value": "#product-detail", "extract": "attr", "attribute": "data-sku"}]}
+  }
+}

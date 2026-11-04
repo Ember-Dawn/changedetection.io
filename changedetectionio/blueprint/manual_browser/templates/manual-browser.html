@@ -1,61 +1,87 @@
 {% extends 'base.html' %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=2) }}">
-<div class="box" id="manual-browser-root">
-  <div class="manual-heading"><h3 style="margin:0 0 4px">人工操作 · 共享 CloakBrowser</h3>
-  <p class="manual-tips">共享 Persistent Context · 关闭人工会话不会删除 Cookie</p></div>
+<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=3) }}">
+<main id="manual-browser-root" class="box manual-workspace">
+  <header class="manual-header">
+    <div class="manual-header-copy">
+      <div class="manual-eyebrow"><i data-feather="monitor"></i> SHARED BROWSER</div>
+      <h1>Browsers</h1>
+      <p>操作共享 CloakBrowser 的真实网页，使用同一 Persistent Context 和 Cookie。</p>
+    </div>
+    <div class="manual-header-meta">
+      <span id="manual-connection" class="manual-connection" role="status" aria-live="polite">○ 未连接</span>
+    </div>
+  </header>
+
   <input type="hidden" id="manual-csrf" value="{{ csrf_token() }}">
   <input type="hidden" id="manual-watch-uuid" value="{{ watch_uuid }}">
-  <div id="manual-existing" class="manual-session-notice" hidden>
-    <strong id="manual-existing-title">已有人工会话</strong>
-    <p id="manual-existing-description" style="overflow-wrap:anywhere"></p>
-    <div class="manual-row">
-      <button id="manual-resume" type="button" class="pure-button pure-button-primary" hidden>恢复已有会话</button>
-      <button id="manual-switch" type="button" class="pure-button" hidden>关闭旧会话并打开当前网站</button>
-      <button id="manual-check" type="button" class="pure-button">刷新状态</button>
+
+  <section id="manual-existing" class="manual-session-notice" aria-label="已有人工会话" hidden>
+    <div class="manual-session-heading"><i data-feather="info"></i><strong id="manual-existing-title">已有人工会话</strong></div>
+    <p id="manual-existing-description"></p>
+    <div class="manual-row manual-session-actions">
+      <button id="manual-resume" type="button" class="manual-btn manual-btn-primary" hidden><i data-feather="play"></i> 恢复会话</button>
+      <button id="manual-switch" type="button" class="manual-btn" hidden><i data-feather="refresh-cw"></i> 关闭旧会话并切换</button>
+      <button id="manual-check" type="button" class="manual-btn"><i data-feather="rotate-cw"></i> 刷新状态</button>
     </div>
-  </div>
-  <div class="manual-row">
-    <button id="manual-back" type="button" class="pure-button manual-icon" disabled aria-label="后退" title="后退"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></button>
-    <button id="manual-forward" type="button" class="pure-button manual-icon" disabled aria-label="前进" title="前进"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-    <input id="manual-url" class="pure-input-1 manual-address" value="{{ initial_url }}" maxlength="2048" spellcheck="false" placeholder="输入网址，按 Enter 前往" aria-label="浏览器地址栏">
-    <button id="manual-open" type="button" class="pure-button pure-button-primary">连接浏览器</button>
-    <button id="manual-go" type="button" class="pure-button" disabled>前往</button>
-    <button id="manual-refresh" type="button" class="pure-button" disabled>刷新</button>
-  </div>
-  <div class="manual-row">
-    <button id="manual-finish" type="button" class="pure-button pure-button-primary" disabled>完成并重新检查</button>
-    <button id="manual-close" type="button" class="pure-button" disabled>关闭会话</button>
-    <strong id="manual-state" role="status" aria-live="polite">未连接</strong>
-  </div>
-  <div id="manual-frame-wrap" class="manual-view" tabindex="0" aria-label="实时浏览器控制区域">
-    <img id="manual-frame" alt="实时浏览器画面" draggable="false" hidden>
-    <div id="manual-cover" class="manual-cover">点击「连接浏览器」开始操作。</div>
-  </div>
-  <div class="manual-status">
-    <span id="manual-connection">○ 未连接</span>
-    <span id="manual-site-data"></span>
-    <span id="manual-remaining"></span>
-  </div>
-  <details>
-    <summary>浏览器详情</summary>
-    <p id="manual-detail" style="overflow-wrap:anywhere"></p>
-  </details>
-  <div class="manual-row manual-controls">
-    <label for="manual-text">输入文字</label>
-    <input id="manual-text" type="text" maxlength="512" placeholder="先点击画面中的输入框" style="flex:1;min-width:170px">
-    <button id="manual-type" type="button" class="pure-button" disabled>发送文字</button>
-    <button id="manual-enter" type="button" class="pure-button" disabled>Enter</button>
-    <button id="manual-backspace" type="button" class="pure-button" disabled>Backspace</button>
-  </div>
-  <details class="manual-tips"><summary>使用说明</summary>
-    点击画面进行鼠标操作或滚动，画面获得焦点后支持键盘。空闲 15 分钟自动关闭；关闭网页标签页后仍可恢复该会话。
-  </details>
-</div>
+  </section>
+
+  <section class="manual-browser-shell" aria-label="浏览器操作台">
+    <div class="manual-browser-toolbar">
+      <div class="manual-row manual-navigation">
+        <button id="manual-back" type="button" class="manual-btn manual-icon" disabled aria-label="后退" title="后退"><i data-feather="arrow-left"></i></button>
+        <button id="manual-forward" type="button" class="manual-btn manual-icon" disabled aria-label="前进" title="前进"><i data-feather="arrow-right"></i></button>
+        <button id="manual-refresh" type="button" class="manual-btn manual-icon" disabled aria-label="刷新当前网页" title="刷新"><i data-feather="refresh-cw"></i></button>
+        <label for="manual-url" class="manual-sr-only">浏览器地址栏</label>
+        <input id="manual-url" class="manual-address" type="url" value="{{ initial_url }}" maxlength="2048" spellcheck="false" placeholder="https://example.com" autocomplete="url" aria-label="浏览器地址栏，按 Enter 前往">
+        <button id="manual-go" type="button" class="manual-btn" disabled><i data-feather="arrow-right-circle"></i> 前往</button>
+        <button id="manual-open" type="button" class="manual-btn manual-btn-primary"><i data-feather="link"></i> 连接浏览器</button>
+      </div>
+      <div class="manual-row manual-actionbar">
+        <span class="manual-action-caption"><i data-feather="mouse-pointer"></i> 实时交互画面</span>
+        <strong id="manual-state" role="status" aria-live="polite" class="manual-state">未连接</strong>
+        <span class="manual-action-spacer"></span>
+        <button id="manual-finish" type="button" class="manual-btn manual-btn-primary" disabled><i data-feather="check-circle"></i> 完成并重新检查</button>
+        <button id="manual-close" type="button" class="manual-btn manual-btn-danger" disabled><i data-feather="x"></i> 关闭会话</button>
+      </div>
+    </div>
+
+    <div class="manual-viewport-shell">
+      <div id="manual-frame-wrap" class="manual-view" tabindex="0" aria-label="实时浏览器控制区域">
+        <img id="manual-frame" alt="实时浏览器画面" draggable="false" hidden>
+        <div id="manual-cover" class="manual-cover"><i data-feather="monitor"></i><span class="manual-cover-label">点击「连接浏览器」开始操作。</span></div>
+      </div>
+    </div>
+
+    <div class="manual-footer">
+      <div class="manual-status" aria-label="浏览器状态">
+        <span id="manual-site-data"></span>
+        <span id="manual-remaining"></span>
+      </div>
+      <details class="manual-details">
+        <summary><i data-feather="keyboard"></i> 文字输入 <i data-feather="chevron-down" class="manual-chevron"></i></summary>
+        <div class="manual-row manual-controls">
+          <label for="manual-text" class="manual-sr-only">输入文字</label>
+          <input id="manual-text" type="text" maxlength="512" placeholder="先点击浏览器中的输入框，再输入文字">
+          <button id="manual-type" type="button" class="manual-btn" disabled>发送文字</button>
+          <button id="manual-enter" type="button" class="manual-btn" disabled>Enter</button>
+          <button id="manual-backspace" type="button" class="manual-btn" disabled>Backspace</button>
+        </div>
+      </details>
+      <details class="manual-details">
+        <summary><i data-feather="info"></i> 会话详情与使用说明 <i data-feather="chevron-down" class="manual-chevron"></i></summary>
+        <div class="manual-details-copy">
+          <p id="manual-detail"></p>
+          <p>点击画面进行鼠标操作或滚动；画面获得焦点后支持键盘。15 分钟无人工操作会自动关闭会话，关闭浏览器标签页后可以恢复同一会话。此页面显示的是连续更新的 JPEG 截图，不是原生视频流。</p>
+        </div>
+      </details>
+    </div>
+  </section>
+</main>
 <script>
 window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token()} | tojson }};
 </script>
 {% for script in ['manual-core.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js'] %}
-<script defer src="{{ url_for('manual_browser.static', filename=script, v=2) }}"></script>
+<script defer src="{{ url_for('manual_browser.static', filename=script, v=3) }}"></script>
 {% endfor %}
 {% endblock %}

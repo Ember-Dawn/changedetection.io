@@ -15,7 +15,10 @@
 
     function message(text) { state.textContent = text; }
     function coverFrame(text) {
-      cover.textContent = text;
+      // Keep the empty-state icon and its styling when the frame is hidden.
+      const label = typeof cover.querySelector === 'function' ? cover.querySelector('.manual-cover-label') : null;
+      if (label) label.textContent = text;
+      else cover.textContent = text; // lightweight DOM mocks and older markup
       cover.hidden = false;
       img.hidden = true;
     }

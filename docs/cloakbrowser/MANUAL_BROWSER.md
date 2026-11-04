@@ -61,3 +61,14 @@ node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs
 ```
 
 These tests use a simulated DOM and mocked same-origin HTTP API; they cannot substitute for real CloakBrowser tests. On the Docker host, validate initial connection, navigation/refresh, frame recovery after a temporary error, manual Page resizing, mouse drag release, URL synchronization, recovery/switch from a second tab, login ownership and authentication checks, and the watch-bound **完成并重新检查** action.
+
+## Browser workspace UI (Product Extractors-aligned)
+
+The Browsers page uses a compact dark interface with a unified header, status badge, address/navigation toolbar, action toolbar, large interactive viewport, and collapsible **文字输入** / **会话详情与使用说明** panels. Session recovery is displayed in a separate notice only when necessary. The visual language is aligned with Product Extractors while the screenshot remains the dominant, flexible-height area.
+
+- The server API and five JavaScript module responsibilities are unchanged. The template retains the existing element IDs consumed by `manual-core`, `manual-stream`, `manual-layout`, `manual-input`, and the entrypoint.
+- `manual-layout.js` still measures the actual root offset and sizes the Page viewport to the screenshot container; compact headers and collapsed details leave more room for the interactive Page.
+- The typing controls are collapsed by default under **文字输入**; keyboard events in the focused screenshot continue to work. Expanding a detail panel resizes the viewport when `ResizeObserver` is available.
+- Styles remain scoped to `#manual-browser-root` in `static/manual-browser.css`. Feather icons already bundled with changedetection.io are used; no CDN or remote UI dependencies were added.
+
+The existing JPEG screenshot transport, authentication, ownership checks, BrowserManager quotas, URL validation, 15-minute session expiration and watch recheck behavior have not changed. Test the UI with different screen heights, especially after expanding/collapsing the controls, resizing, navigating, and resuming a session.
