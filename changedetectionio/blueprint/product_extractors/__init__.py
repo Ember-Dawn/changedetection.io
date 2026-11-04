@@ -21,7 +21,7 @@ def _operator(func):
 
 
 def construct_blueprint(datastore):
-    bp=Blueprint('product_extractors',__name__,template_folder='templates')
+    bp=Blueprint('product_extractors',__name__,template_folder='templates',static_folder='static')
 
     @bp.route('/',methods=['GET'])
     @_operator

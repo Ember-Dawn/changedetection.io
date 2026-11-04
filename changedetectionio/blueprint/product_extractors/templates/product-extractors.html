@@ -1,65 +1,107 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="box" style="max-width:1100px;margin:auto;padding:18px">
-  <h2>Product Extractors</h2>
-  <p>Import or edit Git-tracked JSON product extraction rules. Test does not save Watch history or send alerts.</p>
-  <p><a href="{{ url_for('watchlist.index') }}">Back to Watches</a></p>
-  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-    <select id="product-rule-list" class="pure-input"><option value="">New rule / import JSON</option>{% for rule in rules %}<option value="{{ rule.id }}">{{ rule.name }} — {{ rule.id }}{% if not rule.enabled %} (disabled){% endif %}</option>{% endfor %}</select>
-    <input type="file" id="product-rule-import" accept=".json,application/json" aria-label="Import JSON rule">
-    <button class="pure-button" type="button" id="product-rule-save">Validate and save</button>
-  </div>
-  <label for="product-rule-json"><strong>Rule JSON</strong></label>
-  <textarea id="product-rule-json" rows="18" spellcheck="false" style="width:100%;box-sizing:border-box;font-family:monospace"></textarea>
-  <h3>Dry Run (no alerts, no history writes)</h3>
-  <label for="product-rule-backend">Browser for live fetch (use Shared CloakBrowser to reuse login cookies)</label>
-  <select id="product-rule-backend" class="pure-input" style="max-width:100%">
-    {% for backend, label in browser_choices %}<option value="{{ backend }}" {% if backend == default_backend %}selected{% endif %}>{{ label }}</option>{% endfor %}
-  </select>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <input id="product-rule-url" type="url" placeholder="https://example.com/product/123" style="flex:1;min-width:240px">
-    <button class="pure-button pure-button-primary" type="button" id="product-rule-test">Fetch and test</button>
-  </div>
-  <details><summary>Or test against pasted HTML (no network request)</summary>
-    <textarea id="product-rule-html" rows="5" placeholder="Paste page HTML here. Leave empty to fetch the URL." style="width:100%;box-sizing:border-box"></textarea>
-  </details>
-  <pre id="product-rule-result" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:500px;overflow:auto"></pre>
-</div>
-<script>
-(() => {
-  const $ = id => document.getElementById(id);
-  const csrf = '{{ csrf_token() }}';
-  const base = '{{ url_for("product_extractors.index") }}';
-  const output = value => $('product-rule-result').textContent = typeof value === 'string' ? value : JSON.stringify(value,null,2);
-  const read = () => JSON.parse($('product-rule-json').value);
-  async function request(url,data) {
-    const res = await fetch(url,{method:data?'POST':'GET',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrf},body:data?JSON.stringify(data):undefined});
-    const value=await res.json();if (!res.ok) throw new Error(value.error || `HTTP ${res.status}`);return value;
-  }
-  $('product-rule-list').addEventListener('change',async () => {
-    const id=$('product-rule-list').value;if(!id)return;
-    try { $('product-rule-json').value=JSON.stringify(await request(base+'api/'+encodeURIComponent(id)),null,2);output('Loaded '+id); }
-    catch(e){output(e.message)}
-  });
-  $('product-rule-import').addEventListener('change',async e => {
-    const file=e.target.files[0];if(!file)return;
-    if(file.size>131072){output('JSON rule is too large');return;}
-    $('product-rule-json').value=await file.text();output('Imported locally. Test before saving.');
-  });
-  $('product-rule-save').addEventListener('click',async () => {
-    try {const response=await request(base+'api/save',read());
-      const listing=await request(base+'api/list');const list=$('product-rule-list');
-      list.replaceChildren(new Option('New rule / import JSON',''));
-      listing.rules.forEach(r => list.add(new Option(r.name+' — '+r.id+(r.enabled?'':' (disabled)'),r.id)));
-      list.value=response.rule.id;
-      output('Saved '+response.rule.id+' to mounted Git-tracked rules directory');}
-    catch(e){output('Save failed: '+e.message)}
-  });
-  $('product-rule-test').addEventListener('click',async () => {
-    try {let payload={rule:read(),url:$('product-rule-url').value.trim(),fetch_backend:$('product-rule-backend').value};const html=$('product-rule-html').value;if(html)payload.html=html;
-      output('Extracting...');output(await request(base+'api/test',payload));
-    }catch(e){output('Test failed: '+e.message)}
-  });
-})();
-</script>
+<link rel="stylesheet" href="{{ url_for('product_extractors.static', filename='product-extractors.css') }}">
+<main class="px-page" id="px-root"
+      data-api-base="{{ url_for('product_extractors.index') }}"
+      data-csrf="{{ csrf_token() }}">
+  <header class="px-heading">
+    <div>
+      <div class="px-eyebrow"><i data-feather="package"></i> PRODUCT RULES</div>
+      <h1>Product Extractors</h1>
+      <p>Manage reusable JSON rules to extract prices and availability from product pages.</p>
+    </div>
+    <a class="px-link" href="{{ url_for('watchlist.index') }}"><i data-feather="arrow-left"></i> Back to Watches</a>
+  </header>
+
+  <section class="px-panel px-management" aria-labelledby="px-rules-title">
+    <div class="px-panel-head">
+      <div class="px-head-copy">
+        <div class="px-panel-icon"><i data-feather="layers"></i></div>
+        <div><h2 id="px-rules-title">Rule management</h2><p>Choose an existing rule, start fresh, or import a JSON file.</p></div>
+      </div>
+      <span class="px-pill" id="px-rule-count">{{ rules|length }} saved</span>
+    </div>
+    <div class="px-management-controls">
+      <div class="px-field px-rule-chooser">
+        <label for="product-rule-list">Current rule</label>
+        <div class="px-select-wrap">
+          <select id="product-rule-list" class="px-control">
+            <option value="">New rule / import JSON</option>
+            {% for rule in rules %}<option value="{{ rule.id }}">{{ rule.name }} — {{ rule.id }}{% if not rule.enabled %} (disabled){% endif %}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="px-actions">
+        <button type="button" id="product-rule-new" class="px-button px-button-quiet"><i data-feather="plus"></i> New rule</button>
+        <button type="button" id="product-rule-import-trigger" class="px-button px-button-quiet"><i data-feather="upload"></i> Import JSON</button>
+        <input type="file" id="product-rule-import" class="px-file-hidden" accept=".json,application/json" aria-label="Import JSON rule">
+        <button type="button" id="product-rule-save" class="px-button px-button-primary"><i data-feather="save"></i> Validate &amp; save</button>
+      </div>
+    </div>
+    <div class="px-inline-meta" id="product-rule-filename" aria-live="polite">No file selected</div>
+  </section>
+
+  <section class="px-panel" aria-labelledby="px-editor-title">
+    <div class="px-panel-head">
+      <div class="px-head-copy">
+        <div class="px-panel-icon"><i data-feather="code"></i></div>
+        <div><h2 id="px-editor-title">Rule editor</h2><p>Edit the JSON definition before validating, saving, or testing.</p></div>
+      </div>
+      <span id="product-rule-dirty" class="px-pill px-pill-muted" aria-live="polite">No changes</span>
+    </div>
+    <label class="px-sr-only" for="product-rule-json">Rule JSON</label>
+    <textarea id="product-rule-json" class="px-editor" rows="15" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder='{
+  "schema_version": 1,
+  "id": "example-store",
+  "fields": {}
+}'></textarea>
+    <div class="px-panel-foot"><i data-feather="info"></i> JSON rules are saved to your Git-tracked <code>extractor-rules/rules/</code> directory.</div>
+  </section>
+
+  <section class="px-panel" aria-labelledby="px-dry-run-title">
+    <div class="px-panel-head">
+      <div class="px-head-copy">
+        <div class="px-panel-icon"><i data-feather="play-circle"></i></div>
+        <div><h2 id="px-dry-run-title">Dry run</h2><p>Test the unsaved editor content against a live page or pasted HTML.</p></div>
+      </div>
+      <span class="px-pill px-safe"><i data-feather="shield-check"></i> No alerts or history writes</span>
+    </div>
+    <div class="px-field">
+      <label for="product-rule-backend">Browser for live fetch</label>
+      <div class="px-select-wrap">
+        <select id="product-rule-backend" class="px-control">
+          {% for backend, label in browser_choices %}<option value="{{ backend }}" {% if backend == default_backend %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <small>Shared CloakBrowser can reuse your existing login cookies.</small>
+    </div>
+    <div class="px-field">
+      <label for="product-rule-url">Product URL</label>
+      <div class="px-test-row">
+        <input id="product-rule-url" class="px-control" type="url" placeholder="https://example.com/product/123" autocomplete="url" spellcheck="false">
+        <button type="button" id="product-rule-test" class="px-button px-button-primary"><i data-feather="play"></i> Fetch &amp; test</button>
+      </div>
+    </div>
+    <details class="px-details" id="product-rule-html-details">
+      <summary><i data-feather="file-text"></i> Test with pasted HTML instead (no network request) <i data-feather="chevron-down" class="px-chevron"></i></summary>
+      <div class="px-details-content">
+        <label for="product-rule-html">Page HTML</label>
+        <textarea id="product-rule-html" class="px-control px-html-editor" rows="6" placeholder="Paste your HTML here. If not empty, no URL fetch is made." spellcheck="false"></textarea>
+      </div>
+    </details>
+  </section>
+
+  <section class="px-panel px-results" aria-labelledby="px-result-title">
+    <div class="px-panel-head">
+      <div class="px-head-copy">
+        <div class="px-panel-icon"><i data-feather="terminal"></i></div>
+        <div><h2 id="px-result-title">Activity &amp; results</h2><p>Validation and extraction responses are displayed here.</p></div>
+      </div>
+      <button type="button" id="product-rule-copy-result" class="px-button px-button-quiet px-button-small" disabled><i data-feather="copy"></i> Copy</button>
+    </div>
+    <div class="px-message" id="product-rule-message" role="status" aria-live="polite">Select a saved rule or import a JSON file to begin.</div>
+    <pre id="product-rule-result" class="px-result-output" aria-live="polite" hidden></pre>
+  </section>
+</main>
+<script src="{{ url_for('product_extractors.static', filename='product-extractors.js') }}" defer></script>
 {% endblock %}

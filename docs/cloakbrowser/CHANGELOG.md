@@ -35,3 +35,11 @@ For future source changes, append a new entry with date (if known), specific pat
 - Rule SHA-256 participates in restock reprocessing; changes to rules do not themselves trigger a price-change notification.
 - Fixed Watch notification test display and aligned inherited test URLs with normal notification fallback.
 - No previous watch data migrations are supplied; this repository is in development with test data.
+
+## Product Extractors UI refinement
+
+- Use the supported Feather `package` icon in both desktop and mobile navigation.
+- Split Product Extractors UI into a Jinja template, scoped CSS, and vanilla JavaScript; no new runtime dependencies or backend API changes.
+- Group rule management, JSON editing, dry run, and results in separate responsive panels.
+- Add consistent controls, accessible import trigger, unsaved-change confirmation, busy/error states, result copy, and inline validation feedback.
+- Preserve existing rule save/list/test endpoints and original control IDs.
