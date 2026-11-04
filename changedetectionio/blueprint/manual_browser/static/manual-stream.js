@@ -7,7 +7,10 @@
     let run = 0, frameTimer = null, statusTimer = null;
     let frameFailures = 0, statusFailures = 0;
     let shown = null, pending = null;
-    let paused = false;
+    let paused = false, frameRequest = null, refreshPending = false;
+    let lastHumanAt = Date.now(), lastRefreshRequested = 0;
+    let previousDisplayAt = 0;
+    const $safe = (id, value) => { const node = $(id); if (node) node.textContent = value; };
     const $ = id => document.getElementById(id);
     const img = $('manual-frame');
     const cover = $('manual-cover');
@@ -30,6 +33,11 @@
       clearTimeout(frameTimer); clearTimeout(statusTimer);
       frameTimer = null; statusTimer = null;
       frameFailures = 0; statusFailures = 0;
+      refreshPending = false; frameRequest = null;
+      lastHumanAt = Date.now(); lastRefreshRequested = 0; previousDisplayAt = 0;
+      $safe('manual-frame-latency', '—');
+      $safe('manual-fps', '—');
+      $safe('manual-action-latency', '—');
       img.onload = null; img.onerror = null;
       if (shown) { URL.revokeObjectURL(shown); shown = null; }
       disposePending();
@@ -37,9 +45,19 @@
       $('manual-connection').textContent = '○ 未连接';
       $('manual-site-data').textContent = '';
       $('manual-remaining').textContent = '';
+      $safe('manual-profile-status', 'Profile 状态待连接');
+      $safe('manual-profile-lock', '—');
+      $safe('manual-generation', '—');
+      $safe('manual-cookies', '—');
+      $safe('manual-local-storage', '—');
+      $safe('manual-detail', '—');
       coverFrame(reason);
     }
-    function nextFrame(ms = 400) {
+    function defaultFrameDelay() {
+      const idleMs = Date.now() - lastHumanAt;
+      return idleMs < 3500 ? 180 : idleMs < 15000 ? 450 : 1000;
+    }
+    function nextFrame(ms = defaultFrameDelay()) {
       clearTimeout(frameTimer);
       if (core.active() && active && !paused) frameTimer = setTimeout(frame, ms);
     }
@@ -48,19 +66,29 @@
       if (core.active() && active) statusTimer = setTimeout(status, ms);
     }
     async function frame() {
-      if (!core.active() || !active || paused) return;
+      if (!core.active() || !active || paused || frameRequest) return;
       const ticket = core.snapshot();
       const cycle = run;
+      const requestTag = {cycle};
+      frameRequest = requestTag;
+      const started = Date.now();
+      let retryDelay = null;
       try {
         const response = await core.request('frame?session=' + encodeURIComponent(ticket.token));
         const blob = await response.blob();
-        if (cycle !== run || !core.valid(ticket) || paused) return;
+        if (cycle !== run || !core.valid(ticket) || paused || !active) return;
         frameFailures = 0;
+        $safe('manual-frame-latency', `${Date.now() - started} ms`);
         const url = URL.createObjectURL(blob);
         disposePending();
         pending = url;
         img.onload = () => {
           if (cycle !== run || !core.valid(ticket) || pending !== url) return;
+          const now = Date.now();
+          if (previousDisplayAt && now > previousDisplayAt) {
+            $safe('manual-fps', `${(1000 / (now - previousDisplayAt)).toFixed(1)} FPS`);
+          }
+          previousDisplayAt = now;
           if (shown) URL.revokeObjectURL(shown);
           shown = url;
           pending = null;
@@ -76,10 +104,37 @@
         if (core.terminal(error)) { core.disconnect('画面会话已失效：' + error.message); return; }
         frameFailures++;
         message(`画面暂时不可用，正在重试 (${frameFailures})：${error.message}`);
-        nextFrame(Math.min(5000, 800 * frameFailures));
+        retryDelay = Math.min(5000, 800 * frameFailures);
+      } finally {
+        if (frameRequest !== requestTag) return;
+        frameRequest = null;
+        if (cycle === run && core.valid(ticket) && !paused && active) {
+          // One in-flight frame at most. A human action promotes the next frame.
+          const delay = retryDelay === null ? (refreshPending ? 100 : defaultFrameDelay()) : retryDelay;
+          refreshPending = false;
+          nextFrame(delay);
+        }
+      }
+    }
+    function interaction() { lastHumanAt = Date.now(); }
+    function requestRefresh() {
+      interaction();
+      if (!core.active() || !active || paused) return;
+      // Coalesce drag/wheel/key bursts; never start a concurrent HTTP frame request.
+      const now = Date.now();
+      if (now - lastRefreshRequested < 110) {
+        refreshPending = true;
         return;
       }
-      nextFrame();
+      lastRefreshRequested = now;
+      if (frameRequest) refreshPending = true;
+      else nextFrame(100);
+    }
+    function actionCompleted(elapsed) {
+      if (typeof elapsed === 'number' && Number.isFinite(elapsed)) {
+        $safe('manual-action-latency', `${Math.max(0, Math.round(elapsed))} ms`);
+      }
+      requestRefresh();
     }
     async function status() {
       if (!core.active() || !active) return;
@@ -93,8 +148,13 @@
         statusFailures = 0;
         $('manual-connection').textContent = data.challenge ? `● 验证页面：${data.challenge}` : '● 已连接';
         $('manual-site-data').textContent = `Cookie：${data.cookie_count} | LocalStorage：${data.local_storage_keys ?? '未知'}`;
+        $safe('manual-profile-status', data.profile_lock_held ? 'Profile 已加载' : 'Profile 状态异常');
+        $safe('manual-profile-lock', data.profile_lock_held ? '已持有' : '未持有');
+        $safe('manual-generation', String(data.generation ?? '—'));
+        $safe('manual-cookies', String(data.cookie_count ?? '—'));
+        $safe('manual-local-storage', String(data.local_storage_keys ?? '未知'));
         $('manual-remaining').textContent = `空闲剩余 ${Math.floor(data.seconds_remaining / 60)}:${String(data.seconds_remaining % 60).padStart(2, '0')}`;
-        $('manual-detail').textContent = `实际网址：${data.url} | Profile 锁：${data.profile_lock_held ? '持有' : '未持有'} | 浏览器代次：${data.generation}`;
+        $safe('manual-detail', data.url || '—');
         if (hooks.status) hooks.status(data);
         if (!paused) message(data.challenge ? '页面仍要求验证，可继续人工操作' : '浏览器已连接');
       } catch (error) {
@@ -127,7 +187,7 @@
       active = !document.hidden;
       if (!active) {
         // Retire in-flight frame/status responses from the now-hidden tab.
-        run++;
+        run++; frameRequest = null; refreshPending = false;
         clearTimeout(frameTimer); clearTimeout(statusTimer);
       } else if (core.active()) { nextFrame(0); nextStatus(0); }
     }
@@ -135,7 +195,7 @@
       stop();
       active = false;
     }
-    return {start,stop,suspend,resumeFrames,visibilityChanged,shutdown,coverFrame};
+    return {start,stop,suspend,resumeFrames,visibilityChanged,shutdown,coverFrame,interaction,requestRefresh,actionCompleted};
   }
   window.ManualBrowser.createStream = createStream;
 })();

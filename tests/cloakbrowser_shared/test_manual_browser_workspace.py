@@ -38,3 +38,21 @@ class ManualBrowserWorkspaceTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+# The typing bar is intentionally always visible and the details remain optional.
+class ManualBrowserCompactToolbarTests(unittest.TestCase):
+    def test_typing_toolbar_precedes_viewport_and_is_not_collapsible(self):
+        html = (BASE / 'templates/manual-browser.html').read_text(encoding='utf-8')
+        self.assertEqual(html.count('id="manual-text"'), 1)
+        self.assertLess(html.index('class="manual-typing-toolbar"'), html.index('class="manual-viewport-shell"'))
+        self.assertNotIn('<summary><i data-feather="keyboard"', html)
+        self.assertIn('id="manual-session-details"', html)
+        for part in ('manual-profile-lock', 'manual-generation', 'manual-cookies',
+                     'manual-local-storage', 'manual-frame-latency', 'manual-action-latency', 'manual-fps'):
+            self.assertEqual(html.count('id="' + part + '"'), 1)
+
+    def test_old_concatenated_status_removed(self):
+        js = (BASE / 'static/manual-stream.js').read_text(encoding='utf-8')
+        self.assertNotIn(' | Profile 锁：', js)
+        self.assertIn('requestRefresh()', js)
+        self.assertIn('frameRequest', js)

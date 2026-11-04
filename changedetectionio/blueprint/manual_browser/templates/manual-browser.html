@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=3) }}">
+<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=4) }}">
 <main id="manual-browser-root" class="box manual-workspace">
   <header class="manual-header">
     <div class="manual-header-copy">
@@ -46,6 +46,14 @@
       </div>
     </div>
 
+    <div class="manual-typing-toolbar" role="group" aria-label="浏览器文字输入">
+      <label for="manual-text" class="manual-typing-label"><i data-feather="keyboard"></i> 文字输入</label>
+      <input id="manual-text" type="text" maxlength="512" placeholder="先在画面中选中输入框，再输入文字" autocomplete="off">
+      <button id="manual-type" type="button" class="manual-btn manual-btn-primary" disabled><i data-feather="send"></i> 发送</button>
+      <button id="manual-enter" type="button" class="manual-btn" disabled>Enter</button>
+      <button id="manual-backspace" type="button" class="manual-btn manual-icon" disabled aria-label="Backspace 退格" title="Backspace 退格"><i data-feather="delete"></i></button>
+    </div>
+
     <div class="manual-viewport-shell">
       <div id="manual-frame-wrap" class="manual-view" tabindex="0" aria-label="实时浏览器控制区域">
         <img id="manual-frame" alt="实时浏览器画面" draggable="false" hidden>
@@ -55,24 +63,31 @@
 
     <div class="manual-footer">
       <div class="manual-status" aria-label="浏览器状态">
-        <span id="manual-site-data"></span>
+        <span id="manual-site-data" hidden></span>
         <span id="manual-remaining"></span>
+        <span id="manual-profile-status" class="manual-status-profile">Profile 状态待连接</span>
       </div>
-      <details class="manual-details">
-        <summary><i data-feather="keyboard"></i> 文字输入 <i data-feather="chevron-down" class="manual-chevron"></i></summary>
-        <div class="manual-row manual-controls">
-          <label for="manual-text" class="manual-sr-only">输入文字</label>
-          <input id="manual-text" type="text" maxlength="512" placeholder="先点击浏览器中的输入框，再输入文字">
-          <button id="manual-type" type="button" class="manual-btn" disabled>发送文字</button>
-          <button id="manual-enter" type="button" class="manual-btn" disabled>Enter</button>
-          <button id="manual-backspace" type="button" class="manual-btn" disabled>Backspace</button>
-        </div>
-      </details>
-      <details class="manual-details">
-        <summary><i data-feather="info"></i> 会话详情与使用说明 <i data-feather="chevron-down" class="manual-chevron"></i></summary>
+      <details class="manual-details" id="manual-session-details">
+        <summary><i data-feather="info"></i> 会话详情 <i data-feather="chevron-down" class="manual-chevron"></i></summary>
         <div class="manual-details-copy">
-          <p id="manual-detail"></p>
-          <p>点击画面进行鼠标操作或滚动；画面获得焦点后支持键盘。15 分钟无人工操作会自动关闭会话，关闭浏览器标签页后可以恢复同一会话。此页面显示的是连续更新的 JPEG 截图，不是原生视频流。</p>
+          <div class="manual-detail-grid">
+            <div class="manual-detail-item"><span>Profile 锁</span><strong id="manual-profile-lock">—</strong></div>
+            <div class="manual-detail-item"><span>浏览器代次</span><strong id="manual-generation">—</strong></div>
+            <div class="manual-detail-item"><span>Cookie（当前网站）</span><strong id="manual-cookies">—</strong></div>
+            <div class="manual-detail-item"><span>LocalStorage 键数</span><strong id="manual-local-storage">—</strong></div>
+          </div>
+          <div class="manual-detail-url"><span>当前实际网址</span><code id="manual-detail">—</code></div>
+          <div class="manual-detail-performance" aria-label="画面性能">
+            <span>画面响应：<strong id="manual-frame-latency">—</strong></span>
+            <span>操作响应：<strong id="manual-action-latency">—</strong></span>
+            <span>显示帧率：<strong id="manual-fps">—</strong></span>
+          </div>
+          <div class="manual-usage-notes">
+            <strong>使用说明</strong>
+            <p>点击画面可操作鼠标，滚轮用于页面滚动；画面获得焦点后可以使用键盘。也可以通过上方的文字输入栏发送内容。</p>
+            <p>15 分钟无人工操作后会话自动结束。关闭当前网页标签后，仍可在有效期内恢复会话。</p>
+            <p>画面来自 JPEG 截图轮询，不是原生视频流。延迟数值是当前网页测得的请求往返时间，不等于目标网站的渲染耗时。</p>
+          </div>
         </div>
       </details>
     </div>
@@ -82,6 +97,6 @@
 window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token()} | tojson }};
 </script>
 {% for script in ['manual-core.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js'] %}
-<script defer src="{{ url_for('manual_browser.static', filename=script, v=3) }}"></script>
+<script defer src="{{ url_for('manual_browser.static', filename=script, v=4) }}"></script>
 {% endfor %}
 {% endblock %}

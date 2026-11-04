@@ -197,3 +197,59 @@ test('all frontend modules initialize in template load order without a bundler',
   assert.equal(sim.element('manual-existing').hidden,true);
   sim.handlers['window:pagehide']();
 });
+
+test('interaction refresh coalesces while a screenshot HTTP request is pending',async()=>{
+  const held=deferred();
+  let frames=0;
+  const sim=setup(async url=>{
+    if(url.endsWith('/open')) return ok({session:'connected',generation:1});
+    if(url.includes('/frame?')) { frames++; return frames===1 ? held.promise : ok(); }
+    return ok({generation:1,url:'https://example.net',seconds_remaining:900,profile_lock_held:true});
+  });
+  sim.load('manual-core.js'); sim.load('manual-stream.js');
+  const core=sim.ctx.window.ManualBrowser.createCore({api:'/manual-browser/'});
+  const stream=sim.ctx.window.ManualBrowser.createStream(core,{});
+  await core.connect('https://example.net','');
+  stream.start();
+  stream.requestRefresh(); stream.requestRefresh();
+  assert.equal(frames,1,'requests must remain single-flight');
+  held.resolve(ok());
+  await new Promise(resolve=>setImmediate(resolve));
+  const frameTimer=Array.from(sim.timers.values()).find(x=>x.ms===100);
+  assert.ok(frameTimer,'interaction must advance next frame to 100ms');
+  stream.stop();
+});
+
+test('input actions tell frame scheduler after remote command completes',async()=>{
+  const sim=setup(async()=>ok()); sim.load('manual-input.js');
+  const order=[];
+  const core={active:()=>true,send:async()=>{order.push('remote');},snapshot:()=>({token:'t'}),valid:()=>true};
+  const stream={interaction:()=>order.push('input'),actionCompleted:()=>order.push('refresh')};
+  const input=sim.ctx.window.ManualBrowser.createInput(core,stream,{viewport:()=>({width:800,height:560})});
+  input.init();
+  sim.element('manual-enter').listeners.click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(order,['input','remote','refresh']);
+});
+
+test('old frame cannot block fresh screenshot after stream restart',async()=>{
+  const held=deferred();
+  let frames=0;
+  const sim=setup(async url=>{
+    if(url.endsWith('/open')) return ok({session:'ready',generation:1});
+    if(url.includes('/frame?')){frames++;return frames===1?held.promise:ok();}
+    return ok({generation:1,url:'https://example.org',seconds_remaining:900});
+  });
+  sim.load('manual-core.js');sim.load('manual-stream.js');
+  const core=sim.ctx.window.ManualBrowser.createCore({api:'/manual-browser/'});
+  const stream=sim.ctx.window.ManualBrowser.createStream(core,{});
+  await core.connect('https://example.org','');
+  stream.start();
+  stream.stop();
+  stream.start();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(frames,2,'stale request cannot block a new stream');
+  held.resolve(ok());
+  await new Promise(resolve=>setImmediate(resolve));
+  stream.shutdown();
+});

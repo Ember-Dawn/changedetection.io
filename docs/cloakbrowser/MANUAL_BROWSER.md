@@ -68,7 +68,16 @@ The Browsers page uses a compact dark interface with a unified header, status ba
 
 - The server API and five JavaScript module responsibilities are unchanged. The template retains the existing element IDs consumed by `manual-core`, `manual-stream`, `manual-layout`, `manual-input`, and the entrypoint.
 - `manual-layout.js` still measures the actual root offset and sizes the Page viewport to the screenshot container; compact headers and collapsed details leave more room for the interactive Page.
-- The typing controls are collapsed by default under **文字输入**; keyboard events in the focused screenshot continue to work. Expanding a detail panel resizes the viewport when `ResizeObserver` is available.
+- The typing controls sit in a compact **always-visible single-row toolbar above the viewport**, with a deliberately width-limited text field. Keyboard events in the focused screenshot continue to work. Opening the session detail panel resizes the viewport when `ResizeObserver` is available.
 - Styles remain scoped to `#manual-browser-root` in `static/manual-browser.css`. Feather icons already bundled with changedetection.io are used; no CDN or remote UI dependencies were added.
 
 The existing JPEG screenshot transport, authentication, ownership checks, BrowserManager quotas, URL validation, 15-minute session expiration and watch recheck behavior have not changed. Test the UI with different screen heights, especially after expanding/collapsing the controls, resizing, navigating, and resuming a session.
+
+## 2026-11: Browser input and frame responsiveness
+
+- The **文字输入** toolbar is now a single non-collapsible row between navigation and the browser viewport. It has a bounded input width and quick Send, Enter and Backspace buttons. The viewport still fills all remaining available height.
+- The footer keeps a lightweight Profile/idle indication; the collapsible **会话详情** presents browser generation, Profile lock, Cookie count for the current site, LocalStorage key count for the current origin, a separately wrapped URL, and split usage notes. Neither number is a count of accounts or storage size.
+- `manual-input.js` notifies `manual-stream.js` once a remote action has completed. The stream prioritizes one screenshot after interaction, coalescing rapid operations and keeping at most one screenshot request outstanding in a given session. Navigation still suspends frames until the action completes.
+- JPEG polling now adapts its delay: about **180ms** after recent interaction, **450ms** in normal use and **1000ms** after prolonged inactivity, *plus* network/screenshot/decode time. Browser tabs that are hidden still suspend polling. Transient errors preserve the earlier retry/backoff rules.
+- The detail panel displays approximate frame HTTP round-trip, command completion time (including local queue wait), and observed frame display rate. These are diagnostic client-side observations, not guaranteed network or browser FPS benchmarks.
+- Tests: `node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs` and `python -m unittest discover -s tests/cloakbrowser_shared -p test_manual_browser_workspace.py`. Check a real container to verify end-user latency and resource usage; faster polling can increase screenshot/CPU load.

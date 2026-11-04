@@ -51,3 +51,10 @@ For future source changes, append a new entry with date (if known), specific pat
 - Updated `extractor-rules/README.md` and `AGENTS.md` with navigation to the guide.
 - Restyled Browsers into a compact workspace aligned with Product Extractors. It preserves viewport fill, existing control IDs and the current five-module JavaScript interaction engine. Additional controls are collapsible to maximize the browser frame.
 - Added checks for template contract, selector example and guide links. No new browser protocol, container, backend API or JS build tool.
+
+## 2026-11-03: Browsers typing toolbar, session detail and interaction responsiveness
+
+- Move text input above the remote browser viewport, keep it single-row and always visible; limit input width without shrinking the remaining-height viewport unnecessarily.
+- Replace the concatenated technical status with a collapsible grid and per-line URL/usage notes; move per-site Cookie/LocalStorage counts into details.
+- Prompt a coalesced screenshot after remote input succeeds, use adaptive JPEG frame intervals, and expose request/frame diagnostics; retain HTTP JPEG transport and single-flight/stale-session safeguards.
+- Add mock-based interaction/stream tests and template UI assertions. No server-side browser lifecycle, Profile, Watch history, or notification API changes. Real Docker/Chromium latency measurements remain to be verified.

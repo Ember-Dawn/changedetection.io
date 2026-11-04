@@ -10,6 +10,16 @@
     let dirty = false;
     let inFlight = null;
     function message(text) { if (hooks.message) hooks.message(text); }
+    // Refresh after the remote action completes, rather than only waiting for
+    // the passive screenshot timer. Stream keeps requests single-flight.
+    function sendAndRefresh(action, args = {}) {
+      if (typeof stream.interaction === 'function') stream.interaction();
+      const started = Date.now();
+      return Promise.resolve(core.send(action, args)).then(result => {
+        if (typeof stream.actionCompleted === 'function') stream.actionCompleted(Date.now() - started);
+        return result;
+      });
+    }
     function reset() { dragging = false; pendingMove = null; lastPointer = null; moving = false; navigating = false; dirty = false; }
     function point(event) {
       const rect = img.getBoundingClientRect();
@@ -27,7 +37,7 @@
         while (core.active() && dragging && pendingMove) {
           const latest = pendingMove;
           pendingMove = null;
-          await core.send('move', latest);
+          await sendAndRefresh('move', latest);
         }
       } finally { moving = false; }
     }
@@ -36,7 +46,7 @@
       dragging = false;
       const p = point(event) || pendingMove || lastPointer;
       pendingMove = null; lastPointer = null;
-      if (p && core.active()) core.send('up', p);
+      if (p && core.active()) sendAndRefresh('up', p);
       if (wrap.hasPointerCapture && wrap.hasPointerCapture(event.pointerId)) wrap.releasePointerCapture(event.pointerId);
     }
     async function navigate(action, args = {}) {
@@ -44,11 +54,13 @@
       navigating = true;
       stream.suspend(action === 'navigate' ? '正在导航…' : '页面加载中…');
       const ticket = core.snapshot();
+      const started = Date.now();
       try {
         await core.send(action, args, true);
         if (core.valid(ticket)) {
           if (action === 'navigate') dirty = false;
           message(action === 'navigate' ? '导航完成' : '页面已更新');
+          if (typeof stream.actionCompleted === 'function') stream.actionCompleted(Date.now() - started);
         }
       } catch (error) {
         if (core.valid(ticket)) message('页面操作失败：' + error.message);
@@ -72,7 +84,7 @@
         const p = point(event); if (!p) return;
         event.preventDefault(); wrap.focus(); dragging = true; lastPointer = p;
         wrap.setPointerCapture(event.pointerId);
-        core.send('down', p);
+        sendAndRefresh('down', p);
       });
       wrap.addEventListener('pointermove', event => {
         if (!core.active() || !dragging) return;
@@ -86,21 +98,21 @@
         dragging = false;
         const p = pendingMove || lastPointer;
         pendingMove = null; lastPointer = null;
-        if (p && core.active()) core.send('up', p);
+        if (p && core.active()) sendAndRefresh('up', p);
       });
       wrap.addEventListener('wheel', event => {
         if (!core.active()) return;
         const p = point(event);
         if (!p) return;
         event.preventDefault();
-        core.send('scroll', {...p, dx:event.deltaX, dy:event.deltaY});
+        sendAndRefresh('scroll', {...p, dx:event.deltaX, dy:event.deltaY});
       }, {passive:false});
       wrap.addEventListener('keydown', event => {
         if (!core.active() || event.ctrlKey || event.altKey || event.metaKey) return;
         const allowed = ['Enter','Tab','Escape','Backspace','Delete',' ','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'];
         if (allowed.includes(event.key) || event.key.length === 1) {
           event.preventDefault();
-          core.send('key', {key:event.key === ' ' ? 'Space' : event.key});
+          sendAndRefresh('key', {key:event.key === ' ' ? 'Space' : event.key});
         }
       });
       $('manual-url').addEventListener('input', () => { dirty = true; });
@@ -111,14 +123,14 @@
       $('manual-refresh').addEventListener('click', () => navigate('refresh'));
       $('manual-back').addEventListener('click', () => navigate('back'));
       $('manual-forward').addEventListener('click', () => navigate('forward'));
-      $('manual-enter').addEventListener('click', () => core.send('key', {key:'Enter'}));
-      $('manual-backspace').addEventListener('click', () => core.send('key', {key:'Backspace'}));
+      $('manual-enter').addEventListener('click', () => sendAndRefresh('key', {key:'Enter'}));
+      $('manual-backspace').addEventListener('click', () => sendAndRefresh('key', {key:'Backspace'}));
       $('manual-type').addEventListener('click', async () => {
         const input = $('manual-text');
         const text = input.value;
         if (!text || !core.active()) return;
         const ticket = core.snapshot();
-        await core.send('text', {text});
+        await sendAndRefresh('text', {text});
         if (core.valid(ticket) && input.value === text) input.value = '';
       });
     }
