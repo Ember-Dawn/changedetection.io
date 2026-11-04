@@ -58,6 +58,7 @@ class processor_settings_form(processor_text_json_diff_form):
                     break
 
         output += r"""
+        {% from '_helpers.html' import render_field %}
         <style>
           #purchase-alert-settings .purchase-radio ul {list-style:none!important; margin:8px 0!important; padding:0!important}
           #purchase-alert-settings .purchase-radio li {display:flex!important; align-items:center!important; gap:9px; margin:8px 0!important; padding:0!important; list-style:none!important}
