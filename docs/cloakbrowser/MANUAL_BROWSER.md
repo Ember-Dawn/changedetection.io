@@ -81,3 +81,8 @@ The existing JPEG screenshot transport, authentication, ownership checks, Browse
 - JPEG polling now adapts its delay: about **180ms** after recent interaction, **450ms** in normal use and **1000ms** after prolonged inactivity, *plus* network/screenshot/decode time. Browser tabs that are hidden still suspend polling. Transient errors preserve the earlier retry/backoff rules.
 - The detail panel displays approximate frame HTTP round-trip, command completion time (including local queue wait), and observed frame display rate. These are diagnostic client-side observations, not guaranteed network or browser FPS benchmarks.
 - Tests: `node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs` and `python -m unittest discover -s tests/cloakbrowser_shared -p test_manual_browser_workspace.py`. Check a real container to verify end-user latency and resource usage; faster polling can increase screenshot/CPU load.
+
+
+## Viewport modes
+
+The manual browser offers **fixed 1366×768** and **follow-window** modes; the selection is stored only in the operator browser localStorage (no session token). Fixed mode scales screenshots visually rather than resizing the remote Page on window resize. Follow-window resizes only the manual Page, not other Watch tabs.

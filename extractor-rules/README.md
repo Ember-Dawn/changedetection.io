@@ -29,3 +29,6 @@ Rules default to enabled; set `"enabled": false` in the JSON (then Save) to disa
 **Start with [`AI_RULE_GUIDE.md`](AI_RULE_GUIDE.md)** when asking another AI to generate rules from a real website's rendered HTML/DOM. The guide is self-contained: supported selector types, JSON fields, price/stock pitfalls, standard AI response format, and Dry Run workflow.
 
 A complete, offline-testable pair is included in [`examples/sample-product.html`](examples/sample-product.html) and [`examples/sample-product-rule.json`](examples/sample-product-rule.json). These represent a **fictional demonstration website**, not selectors verified against any real retailer. Paste the HTML into WebUI's Dry Run and load the example rule to see the expected output. The basic `example-product.json` is a minimal structure only; do not deploy it against a real store without inspecting the real DOM.
+
+
+V2: JSON 条件语法、Pickup/Shipping、多场景测试及合成示例请参阅 `AI_RULE_GUIDE.md`。

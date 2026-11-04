@@ -163,6 +163,11 @@ class _ContextLease:
             raise RuntimeError('Shared browser session expired while waiting for a tab')
         try:
             page = await self.manager._context.new_page()
+            try:
+                await page.set_viewport_size({'width': 1366, 'height': 768})
+            except BaseException:
+                await page.close()
+                raise
         except BaseException:
             self.manager._semaphore.release()
             raise

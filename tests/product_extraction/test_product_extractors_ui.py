@@ -43,3 +43,24 @@ class ProductExtractorFrontendContracts(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class ProductExtractorV2Contracts(unittest.TestCase):
+    def test_compact_editor_and_visual_summary_controls(self):
+        html=(ROOT/'changedetectionio/blueprint/product_extractors/templates/product-extractors.html').read_text()
+        for control in ('product-rule-editor-toggle','product-rule-summary','product-rule-summary-grid',
+                        'product-rule-image','product-rule-diagnostics','product-rule-raw-details'):
+            self.assertEqual(html.count('id="'+control+'"'),1)
+        js=(ROOT/'changedetectionio/blueprint/product_extractors/static/product-extractors.js').read_text()
+        self.assertIn('textContent =',js)
+        self.assertIn('showPreview(data)',js)
+        css=(ROOT/'changedetectionio/blueprint/product_extractors/static/product-extractors.css').read_text()
+        self.assertIn('scrollbar-color:',css)
+        self.assertIn('grid-template-columns:minmax(0,1fr) auto',css)
+
+    def test_dry_run_uses_one_page_and_does_not_write_history(self):
+        code=(ROOT/'changedetectionio/blueprint/product_extractors/__init__.py').read_text()
+        self.assertIn("await stepper.page.screenshot(type='jpeg'",code)
+        self.assertIn('html_result=await stepper.page.content()',code)
+        self.assertIn('return html_result, image_data',code)
+        self.assertIn("{'width': 1366, 'height': 768}",code)
+        self.assertNotIn('send_content_changed_notification(',code)

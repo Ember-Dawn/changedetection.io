@@ -505,6 +505,8 @@ class perform_site_check(difference_detection_processor):
                     'currency': product.currency,
                     'in_stock': product.in_stock,
                     'stock_quantity': product.stock_quantity,
+                    'pickup': product.pickup,
+                    'shipping': product.shipping,
                     'title': product.title,
                     'sku': product.sku,
                     'rule_id': product.rule_id,

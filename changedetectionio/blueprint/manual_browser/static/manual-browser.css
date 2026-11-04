@@ -85,3 +85,10 @@
 #manual-browser-root .manual-usage-notes p{margin:0 0 5px;line-height:1.6;color:var(--mb-muted)}
 @media(max-width:780px){#manual-browser-root .manual-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#manual-browser-root .manual-typing-toolbar{gap:6px;flex-wrap:wrap}#manual-browser-root .manual-typing-toolbar #manual-text{flex:1 1 160px;max-width:none;width:auto}}
 @media(max-width:430px){#manual-browser-root .manual-typing-label{flex:1 1 100%}#manual-browser-root .manual-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#manual-browser-root .manual-typing-toolbar .manual-btn{padding:7px 8px}}
+
+/* Viewport mode is a Page-local display preference, not a Watch setting. */
+#manual-browser-root .manual-mode-label{display:inline-flex;align-items:center;gap:5px;color:var(--mb-muted);font-size:11px;white-space:nowrap}
+#manual-browser-root .manual-mode-label svg{width:13px;height:13px}
+#manual-browser-root .manual-viewport-mode{min-height:32px;border:1px solid rgba(184,208,244,.25);border-radius:7px;background:#182947;color:var(--mb-ink);font:inherit;font-size:12px;padding:5px 8px;cursor:pointer}
+#manual-browser-root .manual-viewport-mode:focus-visible{outline:2px solid #62b8ff;outline-offset:2px}
+@media(max-width:700px){#manual-browser-root .manual-mode-label{display:none}}

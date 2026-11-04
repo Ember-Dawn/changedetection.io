@@ -64,3 +64,6 @@ Start with `extractor-rules/AI_RULE_GUIDE.md` (self-contained rule-writing instr
 ## Browsers UI styling
 
 The manual browser template and `manual-browser.css` use the compact Product Extractors visual language but prioritize the full-height interactive screenshot. Do not inflate header or toolbar height, break the existing `manual-*` element IDs, or change the five JS modules' dependency order when making visual-only improvements. Keep text input and technical details in collapsible areas when possible.
+
+
+Product Extractors V2: consult `extractor-rules/AI_RULE_GUIDE.md` before preparing JSON rules. Validate multiple product and stock cases; never assume a single successful Dry Run validates a whole retailer. Manual Browsers supports fixed/follow-window viewport modes.

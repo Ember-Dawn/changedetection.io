@@ -60,7 +60,7 @@
 | `match.path_patterns` | 否 | 对 URL **路径**进行 glob 匹配，如 `/product/*`；省略时相当于 `*`。不包括查询参数。 |
 | `fields` | 是 | 一个或多个受支持的字段，不能包含任意自定义键。 |
 
-字段仅支持：`price`、`currency`、`in_stock`、`stock_quantity`、`title`、`sku`。为了用于价格/库存监控，最终至少要提取到**有效价格或明确库存状态**之一；二者都没有时，Dry Run 会报错。`stock_quantity` 存在时，若 `in_stock` 未识别，引擎可由数量是否大于 0 推断库存状态。
+字段支持：`price`、`currency`、`in_stock`、`stock_quantity`、`title`、`sku`、`pickup`、`shipping`。为了用于价格/库存监控，最终至少要提取到**有效价格或明确库存状态**之一；二者都没有时，Dry Run 会报错。`stock_quantity` 存在时，若 `in_stock` 未识别，引擎可由数量是否大于 0 推断库存状态。
 
 ### 字段选择器
 
@@ -137,3 +137,50 @@ python -m unittest discover -s tests/product_extraction -v
 > 请阅读我上传的 `AI_RULE_GUIDE.md`，严格按照 **schema_version=1** 和其中列出的当前引擎能力，基于我提供的商品网页 URL、实际渲染 HTML/DOM 和可选截图，生成 **一份完整的 JSON 商品提取规则**。重点提取准确的主商品价格、币种和有货/无货/未知状态，若 DOM 有可靠证据再提取库存数量、标题和 SKU。不要从截图编造 CSS/XPath，不要误选分期价、优惠说明或配件价格。结果请给出可导入的 JSON、每个字段的 DOM 证据、未确定事项和 Dry Run 验证方法；未经真实测试不得声称通过。
 
 当你有修改建议时，请对照 **当前** `registry.py`、`evaluator.py` 和 JSON Schema；本指南与程序不一致时，以实际运行代码为准，并明确指出差异。
+
+
+## V2：多种购买方式、三态条件与声明式兜底
+
+**重要：V2 不是任意代码执行环境。** 条件仅允许 `op` 为 `exists`、`contains`、`equals`、`ref`、`any`、`all`、`not`、`if`、`coalesce`、`literal`。条件节点最大 64、深度最大 8、每个列表最多 12 项。未列出的字段、操作符或任意 JS/Python 均无法导入。
+
+- `pickup`、`shipping`、`in_stock` 可以用 `{"condition": {"op":"..."}}`。
+- `exists` 检测指定元素是否存在；可选 `guard` 先确认购买组件存在。**没有 guard 时，不匹配即 false；有 guard 且组件缺失则为 unknown/null。**
+- `contains` / `equals` 检查提取值，不区分大小写；没有匹配返回 `null`。
+- `any` / `all` 为三态逻辑：`true OR unknown = true`，`false OR unknown = unknown`，`false AND unknown = false`。
+- `ref` 读取 `pickup`、`shipping`、`in_stock` 的已计算结果；推荐只让 `in_stock` 引用 `pickup`、`shipping`，不要建立环形依赖。
+- `coalesce` 选取第一个不为 `null` 的条件结果，支持在 **同一条自定义规则** 内进行兜底；不要用内置 Restock 替代明确规则失败。
+- `if` 在判定条件未知时结果也为未知，不会武断走 else。
+- 先求出 Pickup、Shipping，最后求出 `in_stock`。如果没有显式 `in_stock` 条件且通道有确定值，会按三态 OR 推导；否则才可参考确定的库存数量。
+
+可直接导入的组合条件示例：`examples/microcenter-composite-demo.json`。其 DOM 选择器来自已报告的测试记录，但**只在合成 HTML Fixture 上验证**；真实页面依然必须逐一 Dry Run。合成案例见 `examples/microcenter-scenarios-fixture.json`。
+
+## 必须执行的多商品、多状态测试（非常重要）
+
+**单个商品 Dry Run 通过，绝不等于整个网站规则已经可靠。** 一个新站点规则至少尽量覆盖不同的：
+
+1. 商品正常有货、可自提、不可配送；
+2. 当前门店无货但可配送（例如 SOLD OUT + Ship This Item），最终应为 `in_stock=true`；
+3. 不销售或明确无货，且两种购买方式都不可用；
+4. 主售价不显示但 HTML 隐藏属性存在价格；
+5. 原价、优惠价、分期和附加服务多个价格同时出现；
+6. SKU 有前导零（页面 `047084`、JSON-LD `47084` 时应尽量选页面原值）；
+7. 核心 DOM 尚未出现、验证码或组件缺失时应为 `unknown` 或明确错误，**不能武断判为无货**；
+8. 不同商品目录、网页版本、页面宽度/viewport 下是否出现不同 DOM。
+
+请为每条场景留下：实际商品 URL、查看时间、价格与库存预期、用到的选择器、Dry Run 结果，以及**是否确实从真实页面测试**。最好另外保存已脱敏的 HTML Fixtures 和预期 JSON 到 Git 追踪目录；不要包含 Cookie 或 Token。测试结果界面的“提取成功”只证明语法和数据存在，必须和截图/真实网页人工核对后才能称为正确。
+
+### 示例：Shipping 和 Pickup 任何一种可用即视为可购买
+
+```json
+{
+  "pickup": {"condition": {"op":"exists", "selector":{"type":"css","value":".pickupOption:not(.deactivated) .when"}, "guard":{"type":"css","value":".pickupOption"}}},
+  "shipping": {"condition": {"op":"exists", "selector":{"type":"css","value":".shippingOption:not(.deactivated) .when"}, "guard":{"type":"css","value":".shippingOption"}}},
+  "in_stock": {"condition": {"op":"any", "items":[{"op":"ref","field":"pickup"},{"op":"ref","field":"shipping"}]}}
+}
+```
+
+以上是 `fields` 下的**片段**；导入时需包含完整规则对象。不要用 JSON-LD `offers.availability` 直接覆盖明确的配送/自提状态。
+
+## Dry Run 的截图与 Viewport
+
+Live Dry Run 使用同一次 Page 读取 HTML 并截取 JPEG 预览，截图仅随本次测试响应返回，不写入 Watch 历史。粘贴 HTML 的离线测试不包含网页截图。截图可能含账号信息，请不要把它上传给不可信的第三方。商品提取结果应先核对价格、库存、Pickup、Shipping，必要时再展开选择器诊断与原始 JSON。正式共享 Watch 默认将自身 Page viewport 设为 1366×768；人工 Browsers 可选固定同一尺寸或跟随 UI 窗口。

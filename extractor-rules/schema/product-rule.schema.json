@@ -52,7 +52,7 @@
     "fields": {
       "type": "object",
       "minProperties": 1,
-      "maxProperties": 6,
+      "maxProperties": 8,
       "propertyNames": {
         "enum": [
           "price",
@@ -60,7 +60,9 @@
           "in_stock",
           "stock_quantity",
           "title",
-          "sku"
+          "sku",
+          "pickup",
+          "shipping"
         ]
       },
       "additionalProperties": {
@@ -165,8 +167,68 @@
               }
             }
           }
+        },
+        "condition": {
+          "$ref": "#/$defs/condition"
         }
       }
+    },
+    "condition": {
+      "type": "object",
+      "required": [
+        "op"
+      ],
+      "properties": {
+        "op": {
+          "enum": [
+            "exists",
+            "contains",
+            "equals",
+            "ref",
+            "any",
+            "all",
+            "not",
+            "if",
+            "coalesce",
+            "literal"
+          ]
+        },
+        "selector": {
+          "$ref": "#/$defs/selector"
+        },
+        "guard": {
+          "$ref": "#/$defs/selector"
+        },
+        "value": {},
+        "field": {
+          "enum": [
+            "pickup",
+            "shipping",
+            "in_stock"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/condition"
+          }
+        },
+        "item": {
+          "$ref": "#/$defs/condition"
+        },
+        "test": {
+          "$ref": "#/$defs/condition"
+        },
+        "then": {
+          "$ref": "#/$defs/condition"
+        },
+        "else": {
+          "$ref": "#/$defs/condition"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

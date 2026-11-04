@@ -152,7 +152,7 @@ test('terminal API errors carry numeric HTTP status, not only a message regex',a
   assert.equal(core.terminal({status:500,message:'navigation is in progress'}),false);
 });
 
-test('layout resize applies only matching session and resizes with viewport',async()=>{
+test('layout fixed default uses 1366 x 768 and retains its session',async()=>{
   const sim=setup(async()=>ok());
   sim.load('manual-layout.js');
   const sent=[];
@@ -162,10 +162,10 @@ test('layout resize applies only matching session and resizes with viewport',asy
   layout.init();
   await layout.start();
   assert.equal(sent[0].action,'resize');
-  assert.equal(sent[0].args.width,798);
-  assert.equal(sent[0].args.height,558);
-  assert.equal(layout.viewport().width,798);
-  assert.equal(layout.viewport().height,558);
+  assert.equal(sent[0].args.width,1366);
+  assert.equal(sent[0].args.height,768);
+  assert.equal(layout.viewport().width,1366);
+  assert.equal(layout.viewport().height,768);
   layout.shutdown();
 });
 

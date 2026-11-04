@@ -18,7 +18,8 @@ class RuleGuideExampleTests(unittest.TestCase):
         self.assertTrue(matches(rule, 'https://demo.example.com/product/gpu-001'))
         self.assertEqual(result.to_dict(), {
             'price': '1499.99', 'currency': 'USD', 'in_stock': True,
-            'stock_quantity': 1, 'title': 'Demo Graphics Card',
+            'stock_quantity': 1, 'pickup': None, 'shipping': None,
+            'title': 'Demo Graphics Card',
             'sku': 'GPU-001', 'rule_id': 'sample-product',
         })
         for field in rule['fields']:

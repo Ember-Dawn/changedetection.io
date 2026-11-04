@@ -14,6 +14,8 @@ class ProductData:
     currency: str | None = None
     in_stock: bool | None = None
     stock_quantity: int | None = None
+    pickup: bool | None = None
+    shipping: bool | None = None
     title: str | None = None
     sku: str | None = None
     rule_id: str | None = None
@@ -23,7 +25,8 @@ class ProductData:
         return {
             'price': str(self.price) if self.price is not None else None,
             'currency': self.currency, 'in_stock': self.in_stock,
-            'stock_quantity': self.stock_quantity, 'title': self.title,
+            'stock_quantity': self.stock_quantity, 'pickup': self.pickup,
+            'shipping': self.shipping, 'title': self.title,
             'sku': self.sku, 'rule_id': self.rule_id,
         }
 

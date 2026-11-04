@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "id": "microcenter-composite-demo",
+  "name": "Micro Center composite demo (review against live DOM)",
+  "enabled": true,
+  "match": {
+    "domains": [
+      "microcenter.com"
+    ],
+    "path_patterns": [
+      "/product/*"
+    ]
+  },
+  "fields": {
+    "price": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "#pricing",
+          "extract": "attr",
+          "attribute": "content"
+        },
+        {
+          "type": "css",
+          "value": "h1 [data-price]",
+          "extract": "attr",
+          "attribute": "data-price"
+        }
+      ]
+    },
+    "currency": {
+      "type": "jsonpath",
+      "value": "$..offers.priceCurrency"
+    },
+    "pickup": {
+      "condition": {
+        "op": "exists",
+        "selector": {
+          "type": "css",
+          "value": ".pickupOption:not(.deactivated) .when"
+        },
+        "guard": {
+          "type": "css",
+          "value": ".pickupOption"
+        }
+      }
+    },
+    "shipping": {
+      "condition": {
+        "op": "exists",
+        "selector": {
+          "type": "css",
+          "value": ".shippingOption:not(.deactivated) .when"
+        },
+        "guard": {
+          "type": "css",
+          "value": ".shippingOption"
+        }
+      }
+    },
+    "in_stock": {
+      "condition": {
+        "op": "any",
+        "items": [
+          {
+            "op": "ref",
+            "field": "pickup"
+          },
+          {
+            "op": "ref",
+            "field": "shipping"
+          }
+        ]
+      }
+    },
+    "stock_quantity": {
+      "type": "css",
+      "value": ".inventory .inventoryCnt"
+    },
+    "title": {
+      "type": "css",
+      "value": "h1",
+      "extract": "text"
+    },
+    "sku": {
+      "type": "jsonpath",
+      "value": "$..sku"
+    }
+  }
+}

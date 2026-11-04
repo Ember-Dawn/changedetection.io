@@ -47,10 +47,13 @@
         <div class="px-panel-icon"><i data-feather="code"></i></div>
         <div><h2 id="px-editor-title">Rule editor</h2><p>Edit the JSON definition before validating, saving, or testing.</p></div>
       </div>
-      <span id="product-rule-dirty" class="px-pill px-pill-muted" aria-live="polite">No changes</span>
+      <div class="px-head-actions">
+        <span id="product-rule-dirty" class="px-pill px-pill-muted" aria-live="polite">No changes</span>
+        <button type="button" id="product-rule-editor-toggle" class="px-button px-button-small px-button-quiet" aria-expanded="false"><i data-feather="maximize-2"></i> Expand editor</button>
+      </div>
     </div>
     <label class="px-sr-only" for="product-rule-json">Rule JSON</label>
-    <textarea id="product-rule-json" class="px-editor" rows="15" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder='{
+    <textarea id="product-rule-json" class="px-editor" rows="7" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder='{
   "schema_version": 1,
   "id": "example-store",
   "fields": {}
@@ -100,7 +103,21 @@
       <button type="button" id="product-rule-copy-result" class="px-button px-button-quiet px-button-small" disabled><i data-feather="copy"></i> Copy</button>
     </div>
     <div class="px-message" id="product-rule-message" role="status" aria-live="polite">Select a saved rule or import a JSON file to begin.</div>
-    <pre id="product-rule-result" class="px-result-output" aria-live="polite" hidden></pre>
+    <div id="product-rule-summary" class="px-summary" hidden>
+      <div class="px-summary-head"><strong>Extraction summary</strong><span id="product-rule-summary-status" class="px-pill">Data extracted; compare with source</span></div>
+      <div class="px-summary-grid" id="product-rule-summary-grid"></div>
+    </div>
+    <div id="product-rule-visual" class="px-visual" hidden>
+      <div class="px-summary-head"><strong>Page screenshot</strong><span class="px-inline-hint">Captured from the same Dry Run page · in memory only</span></div>
+      <a id="product-rule-image-link" target="_blank" rel="noopener" title="Open screenshot full size"><img id="product-rule-image" alt="Screenshot captured during rule Dry Run"></a>
+    </div>
+    <details id="product-rule-raw-details" class="px-details px-raw-details" hidden>
+      <summary><i data-feather="code"></i> Field diagnostics &amp; raw JSON <i data-feather="chevron-down" class="px-chevron"></i></summary>
+      <div class="px-details-content">
+        <div class="px-diagnostics" id="product-rule-diagnostics"></div>
+        <pre id="product-rule-result" class="px-result-output" aria-live="polite" hidden></pre>
+      </div>
+    </details>
   </section>
 </main>
 <script src="{{ url_for('product_extractors.static', filename='product-extractors.js') }}" defer></script>

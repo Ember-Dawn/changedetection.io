@@ -8,6 +8,23 @@
     let timer = null, observer = null, generation = 0, applied = '';
     let pending = false, resizeAgain = false;
     let width = 1366, height = 768;
+    const preference = 'changedetection.manual-viewport-mode';
+    let mode = 'fixed';
+    try { mode = localStorage.getItem(preference) === 'window' ? 'window' : 'fixed'; }
+    catch (_) { /* private mode or disabled storage */ }
+    function currentMode() { return mode; }
+    function setMode(value) {
+      if (value !== 'fixed' && value !== 'window') return;
+      if (mode === value) return;
+      mode = value;
+      try { localStorage.setItem(preference,mode); } catch (_) { /* optional */ }
+      applied = '';
+      generation++;
+      if (hooks.changing) hooks.changing();
+      if (core.active()) schedule();
+      if (hooks.modeChanged) hooks.modeChanged(mode);
+    }
+
     function viewport() { return {width, height}; }
     function measureRoot() {
       // A flex child may occupy all height below changedetection's top navigation.
@@ -16,6 +33,7 @@
       root.style.height = `${space}px`;
     }
     function desiredSize() {
+      if (mode === 'fixed') return {width:1366,height:768,key:'1366x768'};
       const bounds = wrap.getBoundingClientRect();
       const w = Math.min(2560, Math.max(320, Math.round(bounds.width - 2)));
       const h = Math.min(1800, Math.max(240, Math.round(bounds.height - 2)));
@@ -44,6 +62,8 @@
     }
     function schedule() {
       measureRoot();
+      if (mode === 'fixed' && applied === '1366x768') return;
+      if (core.active() && desiredSize().key !== applied && hooks.changing) hooks.changing();
       clearTimeout(timer);
       timer = setTimeout(sync, 180);
     }
@@ -62,7 +82,7 @@
       window.removeEventListener('resize', schedule);
       if (observer) { observer.disconnect(); observer = null; }
     }
-    return {viewport,init,start,schedule,reset,shutdown};
+    return {viewport,currentMode,setMode,init,start,schedule,reset,shutdown};
   }
   window.ManualBrowser.createLayout = createLayout;
 })();

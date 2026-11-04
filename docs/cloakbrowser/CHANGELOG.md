@@ -58,3 +58,11 @@ For future source changes, append a new entry with date (if known), specific pat
 - Replace the concatenated technical status with a collapsible grid and per-line URL/usage notes; move per-site Cookie/LocalStorage counts into details.
 - Prompt a coalesced screenshot after remote input succeeds, use adaptive JPEG frame intervals, and expose request/frame diagnostics; retain HTTP JPEG transport and single-flight/stale-session safeguards.
 - Add mock-based interaction/stream tests and template UI assertions. No server-side browser lifecycle, Profile, Watch history, or notification API changes. Real Docker/Chromium latency measurements remain to be verified.
+
+
+## Product Extractors V2 and manual viewport modes (2026-11-03)
+
+- Added bounded tri-state JSON rules for Pickup, Shipping and composite availability; no arbitrary scripting.
+- Added extraction summary, per-field diagnostics, optional same-Page Dry Run screenshot and compact editor styling.
+- Added manual viewport fixed/follow-window preference and explicit 1366×768 for shared Watch pages.
+- Added documented synthetic multi-product scenarios; real-world Micro Center screenshots must still be checked in Docker.

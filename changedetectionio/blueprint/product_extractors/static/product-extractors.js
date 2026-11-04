@@ -17,6 +17,63 @@
   const filenameEl = $('product-rule-filename');
   const dirtyEl = $('product-rule-dirty');
   const countEl = $('px-rule-count');
+  const summaryEl = $('product-rule-summary');
+  const summaryGrid = $('product-rule-summary-grid');
+  const rawDetails = $('product-rule-raw-details');
+  const diagnosticsEl = $('product-rule-diagnostics');
+  const visual = $('product-rule-visual');
+  const screenshot = $('product-rule-image');
+  const screenshotLink = $('product-rule-image-link');
+  const editorToggle = $('product-rule-editor-toggle');
+  let rawResult = '';
+  const fields = [
+    ['price','Price'], ['currency','Currency'], ['in_stock','In stock'],
+    ['pickup','Pickup'], ['shipping','Shipping'], ['stock_quantity','Quantity'],
+    ['title','Title'], ['sku','SKU'],
+  ];
+  function clearPreview() {
+    summaryEl.hidden = true;
+    rawDetails.hidden = true;
+    visual.hidden = true;
+    diagnosticsEl.replaceChildren();
+    summaryGrid.replaceChildren();
+    screenshot.removeAttribute('src');
+    screenshotLink.removeAttribute('href');
+    rawResult = '';
+  }
+  function showPreview(data) {
+    clearPreview();
+    if (!data || !data.dry_run || !data.result) return;
+    const result = data.result;
+    let found = 0;
+    for (const [key,label] of fields) {
+      const value = result[key];
+      if (value !== undefined && value !== null) found++;
+      const item = document.createElement('div'); item.className = 'px-summary-item';
+      const name = document.createElement('span');name.textContent = label;
+      const content = document.createElement('strong');
+      content.textContent = value === true ? 'Yes' : value === false ? 'No' : value === undefined || value === null ? 'Unknown / N/A' : String(value);
+      if (value === null || value === undefined) content.classList.add('px-unavailable');
+      item.append(name,content);summaryGrid.append(item);
+    }
+    $('product-rule-summary-status').textContent = `${found}/${fields.length} values extracted · not verified`;
+    summaryEl.hidden = false;
+    for (const [key, detail] of Object.entries(data.details || {})) {
+      const row = document.createElement('div');row.className = 'px-diagnostic-item';
+      const name = document.createElement('strong');name.textContent = key;
+      const value = document.createElement('span');
+      value.textContent = detail.condition ? `Condition: ${detail.condition}; result: ${detail.value === null ? 'unknown' : String(detail.value)}` :
+        `Matches: ${detail.matches}; source: ${(detail.selector && detail.selector.type) || 'none'}; raw: ${(detail.values || []).join(', ')}`;
+      row.append(name,value); diagnosticsEl.append(row);
+    }
+    rawDetails.hidden = false;
+    if (typeof data.screenshot === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(data.screenshot)) {
+      screenshot.src = data.screenshot;
+      screenshotLink.href = data.screenshot;
+      visual.hidden = false;
+    }
+  }
+
   let cleanText = '';
   let pending = false;
   let documentGeneration = 0;
@@ -27,9 +84,14 @@
     if (details === null) {
       outputEl.textContent = '';
       outputEl.hidden = true;
+      clearPreview();
       copyButton.disabled = true;
     } else {
-      outputEl.textContent = typeof details === 'string' ? details : JSON.stringify(details, null, 2);
+      // Do not copy the potentially sensitive page screenshot into the raw JSON text.
+      const publicResult = details && typeof details === 'object' ? {...details, screenshot: undefined} : details;
+      rawResult = typeof publicResult === 'string' ? publicResult : JSON.stringify(publicResult, null, 2);
+      outputEl.textContent = rawResult;
+      showPreview(details);
       outputEl.hidden = false;
       copyButton.disabled = false;
     }
@@ -81,6 +143,11 @@
   }
 
   editor.addEventListener('input', updateDirty);
+  editorToggle.addEventListener('click', () => {
+    const expanded = editor.classList.toggle('px-editor-expanded');
+    editorToggle.setAttribute('aria-expanded',String(expanded));
+    editorToggle.textContent = expanded ? 'Collapse editor' : 'Expand editor';
+  });
   $('product-rule-new').addEventListener('click', () => {
     if (pending || !confirmOverwrite()) return;
     selector.value = '';
@@ -181,7 +248,7 @@
   });
   copyButton.addEventListener('click', async () => {
     if (copyButton.disabled) return;
-    const text = outputEl.textContent;
+    const text = rawResult || outputEl.textContent;
     try {
       await navigator.clipboard.writeText(text);
       statusEl.textContent = 'Result copied to clipboard.';

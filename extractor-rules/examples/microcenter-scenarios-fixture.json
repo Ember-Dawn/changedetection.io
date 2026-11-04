@@ -1,0 +1,47 @@
+[
+  {
+    "name": "pickup_only",
+    "html": "<h1>Test pickup_only</h1><meta id=\"pricing\" content=\"1499.99\"><div><span data-price=\"1499.99\">Test pickup_only</span></div><section class=\"pickupOption \"><span class=\"when\">Ready By</span></section><section class=\"shippingOption deactivated\"><span class=\"when\">Shipping Not Available</span></section><section class=\"inventory\">In Stock<span class=\"inventoryCnt\">1 NEW IN STOCK</span></section><script type=\"application/ld+json\">{\"@type\": \"Product\", \"sku\": \"047084\", \"offers\": {\"priceCurrency\": \"USD\"}}</script>",
+    "price": "1499.99",
+    "in_stock": true,
+    "pickup": true,
+    "shipping": false,
+    "stock_quantity": 1
+  },
+  {
+    "name": "not_carried",
+    "html": "<h1><span data-price=\"5499.99\">Test not_carried</span></h1><section class=\"pickupOption deactivated\"><span class=\"when\">Not Available</span></section><section class=\"shippingOption deactivated\"><span class=\"when\">Shipping Not Available</span></section><section class=\"inventory\">Not Carried</section><script type=\"application/ld+json\">{\"@type\": \"Product\", \"sku\": \"047084\", \"offers\": {\"priceCurrency\": \"USD\"}}</script>",
+    "price": "5499.99",
+    "in_stock": false,
+    "pickup": false,
+    "shipping": false,
+    "stock_quantity": null
+  },
+  {
+    "name": "not_carried_other",
+    "html": "<h1><span data-price=\"5099.99\">Test not_carried_other</span></h1><section class=\"pickupOption deactivated\"><span class=\"when\">Not Available</span></section><section class=\"shippingOption deactivated\"><span class=\"when\">Shipping Not Available</span></section><section class=\"inventory\">Not Carried</section><script type=\"application/ld+json\">{\"@type\": \"Product\", \"sku\": \"047084\", \"offers\": {\"priceCurrency\": \"USD\"}}</script>",
+    "price": "5099.99",
+    "in_stock": false,
+    "pickup": false,
+    "shipping": false,
+    "stock_quantity": null
+  },
+  {
+    "name": "shipping_only",
+    "html": "<h1>Test shipping_only</h1><meta id=\"pricing\" content=\"189.99\"><div><span data-price=\"189.99\">Test shipping_only</span></div><section class=\"pickupOption deactivated\"><span class=\"when\">Not Available</span></section><section class=\"shippingOption \"><span class=\"when\">Ship This Item</span></section><section class=\"inventory\">Sold Out</section><script type=\"application/ld+json\">{\"@type\": \"Product\", \"sku\": \"047084\", \"offers\": {\"priceCurrency\": \"USD\"}}</script>",
+    "price": "189.99",
+    "in_stock": true,
+    "pickup": false,
+    "shipping": true,
+    "stock_quantity": null
+  },
+  {
+    "name": "missing_shipping",
+    "html": "<h1><span data-price=\"189.99\">Test missing_shipping</span></h1><section class=\"pickupOption deactivated\"><span class=\"when\">Not Available</span></section><section class=\"inventory\">Sold Out</section><script type=\"application/ld+json\">{\"@type\": \"Product\", \"sku\": \"047084\", \"offers\": {\"priceCurrency\": \"USD\"}}</script>",
+    "price": "189.99",
+    "in_stock": null,
+    "pickup": false,
+    "shipping": null,
+    "stock_quantity": null
+  }
+]

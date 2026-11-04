@@ -1,5 +1,6 @@
 """Authenticated rule import/editor and read-only extraction dry-run."""
 import json
+import base64
 import os
 from functools import wraps
 from flask import Blueprint, current_app, render_template, request, jsonify, abort
@@ -64,6 +65,7 @@ def construct_blueprint(datastore):
             if rule is None:rule=load(data.get('rule_id',''))
             url=str(data.get('url') or '').strip()
             html=data.get('html')
+            screenshot=None
             if html is None:
                 if not url:raise RuleError('A URL is required to fetch the page')
                 allowed,reason=is_fetch_url_allowed(url)
@@ -83,21 +85,35 @@ def construct_blueprint(datastore):
                     session={'browserstepper':stepper,'browser':browser,'playwright_context':context}
                     try:
                         await stepper.connect(proxy=None)
+                        # Keep live Dry Run and scheduled shared Watch in the same
+                        # desktop layout, independent of the operator's WebUI size.
+                        await stepper.page.set_viewport_size({'width': 1366, 'height': 768})
                         await stepper.call_action(action_name='Goto site',selector=None,optional_value=None)
                         from changedetection_cloak_shared.page_readiness import challenge_kind
                         html_result=await stepper.page.content()
                         if challenge_kind(html_result,url=stepper.page.url):
                             raise RuleError('Website verification is displayed; finish it in Manual browser')
-                        return html_result
+                        # This is an optional, in-memory JPEG from the exact Page
+                        # used for HTML extraction. A screenshot error must not
+                        # turn a successful extraction into a failed test.
+                        image_data = None
+                        try:
+                            frame = await stepper.page.screenshot(type='jpeg', quality=58,
+                                full_page=False, timeout=10000)
+                            if len(frame) <= 650_000:
+                                image_data = 'data:image/jpeg;base64,' + base64.b64encode(frame).decode('ascii')
+                        except Exception as screenshot_error:
+                            logger.debug('Dry-run screenshot unavailable: {}',type(screenshot_error).__name__)
+                        return html_result, image_data
                     finally:
                         await _close_session_resources(session,label=' for product rule dry-run')
 
-                html=run_async_in_browser_loop(fetch(),shared=resolved=='html_cloakbrowser_shared')
+                html,screenshot=run_async_in_browser_loop(fetch(),shared=resolved=='html_cloakbrowser_shared')
             if url:
                 from changedetectionio.product_extraction.registry import matches
                 if not matches(rule,url):raise RuleError('Rule does not match the test URL')
             result=evaluate(rule,html)
-            return jsonify({'result':result.to_dict(),'details':result.field_details,'dry_run':True})
+            return jsonify({'result':result.to_dict(),'details':result.field_details,'dry_run':True,'screenshot':screenshot})
         except RuleError as exc:
             return jsonify({'error':str(exc)}),400
         except Exception as exc:

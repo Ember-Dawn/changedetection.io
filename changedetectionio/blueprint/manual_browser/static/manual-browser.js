@@ -67,7 +67,14 @@
     },
   });
   stream = ns.createStream(core, {}, {status(data) { input.applyStatus(data); }});
-  layout = ns.createLayout(core, {error: message});
+  layout = ns.createLayout(core, {
+    error(text) { message(text); stream.resumeFrames(); },
+    changing() { if (core.active()) stream.suspend('正在调整浏览器画面…'); },
+    resized() { if (core.active()) stream.resumeFrames(); },
+    modeChanged(mode) { $('manual-viewport-mode').value = mode; },
+  });
+  $('manual-viewport-mode').value = layout.currentMode();
+  $('manual-viewport-mode').addEventListener('change', event => layout.setMode(event.target.value));
   input = ns.createInput(core, stream, layout, {message});
 
   $('manual-open').addEventListener('click', () => {

@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=4) }}">
+<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=5) }}">
 <main id="manual-browser-root" class="box manual-workspace">
   <header class="manual-header">
     <div class="manual-header-copy">
@@ -40,6 +40,11 @@
       <div class="manual-row manual-actionbar">
         <span class="manual-action-caption"><i data-feather="mouse-pointer"></i> 实时交互画面</span>
         <strong id="manual-state" role="status" aria-live="polite" class="manual-state">未连接</strong>
+        <label class="manual-mode-label" for="manual-viewport-mode"><i data-feather="monitor"></i> 画面尺寸</label>
+        <select id="manual-viewport-mode" class="manual-viewport-mode" aria-label="人工浏览器 viewport 模式">
+          <option value="fixed">固定 1366 × 768</option>
+          <option value="window">跟随窗口</option>
+        </select>
         <span class="manual-action-spacer"></span>
         <button id="manual-finish" type="button" class="manual-btn manual-btn-primary" disabled><i data-feather="check-circle"></i> 完成并重新检查</button>
         <button id="manual-close" type="button" class="manual-btn manual-btn-danger" disabled><i data-feather="x"></i> 关闭会话</button>
