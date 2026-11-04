@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "id": "microcenter-products",
+  "name": "Micro Center Products",
+  "enabled": true,
+  "match": {
+    "domains": [
+      "microcenter.com"
+    ],
+    "path_patterns": [
+      "/product/*"
+    ]
+  },
+  "fields": {
+    "price": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "#pricing",
+          "extract": "attr",
+          "attribute": "content"
+        },
+        {
+          "type": "css",
+          "value": "h1 [data-price]",
+          "extract": "attr",
+          "attribute": "data-price"
+        }
+      ]
+    },
+    "currency": {
+      "selectors": [
+        {
+          "type": "jsonpath",
+          "value": "$.\"@graph\"[?(@.\"@type\" == \"Product\")].offers.priceCurrency",
+          "extract": "text"
+        }
+      ]
+    },
+    "in_stock": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": ".shippingOption:not(.deactivated) .when",
+          "extract": "text"
+        },
+        {
+          "type": "css",
+          "value": ".pickupOption:not(.deactivated) .when",
+          "extract": "text"
+        },
+        {
+          "type": "css",
+          "value": ".inventory",
+          "extract": "text"
+        }
+      ],
+      "mapping": {
+        "in_stock": [
+          "Ship This Item",
+          "Ready By",
+          "NEW IN STOCK"
+        ],
+        "out_of_stock": [
+          "SOLD OUT",
+          "NOT CARRIED",
+          "OUT OF STOCK"
+        ]
+      }
+    },
+    "stock_quantity": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": ".inventory .inventoryCnt",
+          "extract": "text"
+        }
+      ]
+    },
+    "title": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "h1",
+          "extract": "text"
+        }
+      ]
+    },
+    "sku": {
+      "selectors": [
+        {
+          "type": "jsonpath",
+          "value": "$.\"@graph\"[?(@.\"@type\" == \"Product\")].sku",
+          "extract": "text"
+        }
+      ]
+    }
+  }
+}
