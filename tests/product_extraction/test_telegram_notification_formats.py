@@ -51,22 +51,43 @@ class TelegramFormatsTest(unittest.TestCase):
                         and any(isinstance(t, ast.Name) and t.id == 'PRODUCT_RICH'
                                 for t in node.targets))
         context = {
-            'watch_title': 'MC 5070 <Ti>',
-            'watch_url': 'https://example.com/product?x=1&y=2',
-            'watch_open_url': 'https://example.com/product?x=1&y=2',
-            'test_notification': True,
-            'purchase_alert': {'display_price': '$1,449.99', 'display_change': '',
-                               'stock_text': 'Out of stock', 'rule_text': 'Below $1300',
-                               'reason_text': 'Rule matched', 'reference_price': None},
+            'watch_title':'MC 5070 <Ti>', 'watch_url':'https://example.com/product?x=1&y=2',
+            'watch_open_url':'https://example.com/product?x=1&y=2',
+            'test_notification':True,
+            'purchase_alert': {
+                'show_price':True, 'show_stock':True,
+                'display_price':'$1,449.99','display_change':'(−4%, ↓ $50.00)',
+                'display_stock':'❌ Out of stock','display_stock_current':'❌ Out of stock','stock_text':'Out of stock',
+                'rule_text':'Below $1,300','reason_text':'Rule matched',
+                'display_reference_price':'$1,499.99'},
         }
         rich = fmt.validate_rich_message(Environment().from_string(template).render(**context))
         blocks = rich['blocks']
-        self.assertEqual(blocks[0]['text'], '🛒 MC 5070 <Ti>')
-        self.assertEqual(blocks[3]['text'], {'type': 'url',
-                                               'text': '🔗 View product',
-                                               'url': context['watch_open_url']})
-        self.assertIn('Test only', blocks[4]['blocks'][1]['text'])
-        self.assertNotIn('TEST', blocks[0]['text'])
+        self.assertEqual(blocks[0]['text'], {'type':'url',
+                                              'text':'MC 5070 <Ti>',
+                                              'url':context['watch_open_url']})
+        self.assertEqual(blocks[0]['size'], 5)
+        self.assertEqual(blocks[1]['text'], '💰 $1,449.99')
+        self.assertEqual(blocks[2]['text'], '❌ Out of stock')
+        self.assertEqual(blocks[3]['type'],'details')
+        self.assertIn('Test notification',blocks[3]['blocks'][1]['text'])
+        self.assertNotIn('Reference',str(blocks[3]))
+        context['test_notification'] = False
+        real = fmt.validate_rich_message(Environment().from_string(template).render(**context))
+        self.assertIn('(−4%, ↓ $50.00)',real['blocks'][1]['text'])
+        self.assertIn('Reference',str(real['blocks'][3]))
+        context['purchase_alert']['show_price'] = False
+        only_stock = fmt.validate_rich_message(Environment().from_string(template).render(**context))
+        self.assertEqual([item['type'] for item in only_stock['blocks']], ['heading','paragraph','details'])
+        self.assertEqual(only_stock['blocks'][1]['text'],'❌ Out of stock')
+        context['purchase_alert']['show_price'] = True
+        context['purchase_alert']['show_stock'] = False
+        only_price = fmt.validate_rich_message(Environment().from_string(template).render(**context))
+        self.assertEqual([item['type'] for item in only_price['blocks']], ['heading','paragraph','details'])
+        self.assertTrue(only_price['blocks'][1]['text'].startswith('💰 '))
+        context['purchase_alert']['show_price'] = False
+        neither = fmt.validate_rich_message(Environment().from_string(template).render(**context))
+        self.assertEqual([item['type'] for item in neither['blocks']], ['heading','details'])
 
     def test_rich_title_field_hides_without_disabling(self):
         js = (ROOT / 'changedetectionio/static/js/notifications.js').read_text(encoding='utf8')

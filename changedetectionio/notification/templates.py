@@ -11,7 +11,7 @@ from changedetectionio.notification import (
 from changedetectionio.jinja2_custom import create_jinja_env
 
 PRODUCT_HTML = '{% if test_notification %}🧪 TEST · {% endif %}{{ watch_title|e }}\n<b>💰 {{ purchase_alert.display_price|e }}</b>{% if purchase_alert.display_change %} {{ purchase_alert.display_change|e }}{% endif %}\n📦 {{ purchase_alert.stock_text|e }}\n<a href="{{ (watch_open_url or watch_url)|e }}">🔗 View product</a>\n<blockquote expandable>🎯 {{ purchase_alert.rule_text|e }}\n🔔 {% if test_notification %}Test only — no monitoring condition asserted{% else %}{{ purchase_alert.reason_text|e }}{% endif %}{% if purchase_alert.reference_price is not none %}\n📊 Reference: {{ purchase_alert.reference_price|e }}{% endif %}</blockquote>'
-PRODUCT_RICH = '{"blocks":[{"type":"heading","text":{{ ("🛒 " + (watch_title or ""))|tojson }},"size":3},{"type":"paragraph","text":{{ ("💰 " + (purchase_alert.display_price or "Unknown") + (" · " + purchase_alert.display_change if purchase_alert.display_change else ""))|tojson }}},{"type":"paragraph","text":{{ ("📦 " + (purchase_alert.stock_text or "Unknown"))|tojson }}},{"type":"paragraph","text":{"type":"url","text":"🔗 View product","url":{{ (watch_open_url or watch_url or "")|tojson }}}},{"type":"details","summary":"Monitoring details","blocks":[{"type":"paragraph","text":{{ ("🎯 " + (purchase_alert.rule_text or "No active rule"))|tojson }}},{"type":"paragraph","text":{{ ("🔔 " + ("Test only — no monitoring condition asserted" if test_notification else (purchase_alert.reason_text or "Monitoring event")))|tojson }}},{"type":"paragraph","text":{{ ("📊 Reference: " + (purchase_alert.reference_price|string if purchase_alert.reference_price is not none else "Not available"))|tojson }}}]}]}'
+PRODUCT_RICH = '{"blocks":[{"type":"heading","text":{% if watch_open_url or watch_url %}{"type":"url","text":{{ (watch_title or "")|tojson }},"url":{{ (watch_open_url or watch_url)|tojson }}}{% else %}{{ (watch_title or "")|tojson }}{% endif %},"size":5}{% if purchase_alert.show_price %},{"type":"paragraph","text":{{ ("💰 " + purchase_alert.display_price + (" " + purchase_alert.display_change if purchase_alert.display_change and not test_notification else ""))|tojson }}}{% endif %}{% if purchase_alert.show_stock %},{"type":"paragraph","text":{{ (purchase_alert.display_stock_current if test_notification else purchase_alert.display_stock or purchase_alert.stock_text)|tojson }}}{% endif %},{"type":"details","summary":"Details","blocks":[{"type":"paragraph","text":{{ ("🎯 " + (purchase_alert.rule_text or "No active rule"))|tojson }}},{"type":"paragraph","text":{{ ("🔔 " + ("Test notification — no monitoring condition asserted" if test_notification else (purchase_alert.reason_text or "Monitoring event")))|tojson }}}{% if purchase_alert.display_reference_price and not test_notification %},{"type":"paragraph","text":{{ ("📊 Reference: " + purchase_alert.display_reference_price)|tojson }}}{% endif %}]}]}'
 
 RICH_INTERNAL_TITLE = '{{ watch_title }}'
 
@@ -55,9 +55,11 @@ def validate_template(item):
         from changedetectionio.notification.telegram_formats import validate_rich_message
         sample = {'watch_title':'Example','watch_url':'https://example.com',
                   'watch_open_url':'https://example.com','test_notification':True,
-                  'purchase_alert':{'display_price':'$12.00','display_change':'',
-                                    'stock_text':'In stock','rule_text':'Example',
-                                    'reason_text':'Test','reference_price':None}}
+                  'purchase_alert':{'show_price':True,'show_stock':True,
+                                    'display_price':'$12.00','display_change':'',
+                                    'display_stock':'✅ In stock','display_stock_current':'✅ In stock','stock_text':'In stock',
+                                    'rule_text':'Example','reason_text':'Test',
+                                    'reference_price':None,'display_reference_price':''}}
         from changedetectionio.jinja2_custom import render
         validate_rich_message(render(template_str=result['body'], **sample))
     return result

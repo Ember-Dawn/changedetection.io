@@ -1,5 +1,13 @@
 # Product extraction changes
 
+### Dynamic Telegram Rich product notification presentation (2026-11-04)
+
+- The built-in Telegram Rich product preset now displays a linked Watch Title (no icon), with independent price and stock lines that are emitted only for enabled rules with reliable data.
+- Price changes use a single comparison baseline and the format `$890.00 (−11%, ↓ $110.00)`; cumulative percentage alerts use their notification anchor, not the immediately preceding observation.
+- Stock rows use `✅ In stock` / `❌ Out of stock` or triggered `✅ Restocked` / `❌ Sold out`, without an extra package icon. OR stock-only notifications may show an observed price change without claiming it triggered the alert.
+- Extra rule, reason and formatted reference appear in `Details`, while test notifications suppress historical change claims. Existing stored custom templates and Watch body values are unchanged until users apply the updated preset.
+
+
 ## 2026-11 — Notification templates and product alert messages
 
 - Added a copy-on-select notification template library (three presets and named custom templates) to existing global, Tag, and Watch editors. Saved templates hold only title/body/format; they never store destinations or change existing Watches until the normal Save action.

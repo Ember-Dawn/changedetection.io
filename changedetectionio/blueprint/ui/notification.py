@@ -48,7 +48,10 @@ def construct_blueprint(datastore: ChangeDetectionStore):
                 'restock': {'title': 'Example product', 'price': '1199.99', 'currency': 'USD', 'in_stock': True},
                 'test_notification': True,
                 'purchase_alert': {
-                    'display_price': '$1,199.99', 'display_change': '↓ $50.00 (-4%)',
+                    'show_price': True, 'show_stock': True,
+                    'display_price': '$1,199.99', 'display_change': '(−4%, ↓ $50.00)',
+                    'display_stock': '✅ In stock', 'display_stock_current': '✅ In stock',
+                    'display_reference_price': '$1,249.99',
                     'stock_text': 'In stock', 'rule_text': 'price below 1300 USD AND currently in stock',
                     'reason_text': 'Price fell and meets target', 'reference_price': '1249.99',
                     'price_change_amount': '-50.00', 'percent_change': '-4.0',

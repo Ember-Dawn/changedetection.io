@@ -200,18 +200,40 @@ class Watch(BaseWatch):
             except (ValueError, InvalidOperation, TypeError):
                 return 'Unknown' if v is None else str(v)
             return (symbol or '') + amount + ('' if symbol else (' ' + currency if currency else ''))
-        alert['display_price'] = money(values['restock'].get('price'))
+        # Presentation-only tokens: use the same comparison baseline for both
+        # signed amount and percentage. The monitoring policy is unchanged.
+        price_mode = state.get('price_mode') or 'none'
+        stock_mode = state.get('stock_mode') or 'none'
+        current_price = values['restock'].get('price')
+        alert['show_price'] = price_mode != 'none' and current_price is not None
+        alert['show_stock'] = stock_mode != 'none' and stock is not None
+        alert['display_price'] = money(current_price) if alert['show_price'] else ''
+        alert['display_change'] = ''
+        alert['display_reference_price'] = ''
         change = state.get('last_alert_price_change_amount')
-        if change is not None:
+        reference = state.get('last_alert_reference_price')
+        if alert['show_price'] and change is not None and reference is not None:
             try:
-                delta = _D(str(change))
-                direction = '↑ ' if delta > 0 else '↓ ' if delta < 0 else ''
-                percent = state.get('last_alert_percent_change')
-                alert['display_change'] = direction + money(abs(delta)) + (f' ({percent:+g}%)' if isinstance(percent, (int, float)) else '')
-            except (ValueError, InvalidOperation, TypeError):
-                alert['display_change'] = ''
+                delta, baseline = _D(str(change)), _D(str(reference))
+                if delta.is_finite() and baseline.is_finite() and baseline > 0 and delta != 0:
+                    pct = (delta * 100 / baseline).quantize(_D('0.01'))
+                    pct_text = format(abs(pct), 'f').rstrip('0').rstrip('.')
+                    signed_pct = ('+' if delta > 0 else '−') + (pct_text or '0') + '%'
+                    arrow = '↑' if delta > 0 else '↓'
+                    alert['display_change'] = f'({signed_pct}, {arrow} {money(abs(delta))})'
+                    alert['display_reference_price'] = money(baseline)
+            except (ValueError, InvalidOperation, TypeError, ArithmeticError):
+                pass
+        reason = state.get('last_alert_reason') or ''
+        prior_stock = state.get('last_alert_previous_stock')
+        triggered_stock_event = 'stock' in reason and 'stock_filter' not in reason
+        alert['display_stock_current'] = '✅ In stock' if stock is True else '❌ Out of stock' if stock is False else ''
+        if triggered_stock_event and prior_stock is False and stock is True:
+            alert['display_stock'] = '✅ Restocked'
+        elif triggered_stock_event and prior_stock is True and stock is False:
+            alert['display_stock'] = '❌ Sold out'
         else:
-            alert['display_change'] = ''
+            alert['display_stock'] = '✅ In stock' if stock is True else '❌ Out of stock' if stock is False else ''
         values['restock']['previous_price'] = None
         if self.history_n >= 2:
             history = self.history
@@ -251,6 +273,13 @@ class Watch(BaseWatch):
         values.append(('purchase_alert.reference_price', 'Price reference used for the alert'))
         values.append(('purchase_alert.price_change_amount', 'Signed price change since reference'))
         values.append(('purchase_alert.price_direction', "Price movement direction on latest alert"))
+        values.append(('purchase_alert.show_price', 'Show price when price monitoring and reliable price exist'))
+        values.append(('purchase_alert.show_stock', 'Show stock when stock monitoring and reliable stock exist'))
+        values.append(('purchase_alert.display_price', 'Formatted current price'))
+        values.append(('purchase_alert.display_change', 'Signed percent and money change using the same reference'))
+        values.append(('purchase_alert.display_reference_price', 'Formatted comparison reference price'))
+        values.append(('purchase_alert.display_stock', 'Stock state or triggering restock/sold-out event'))
+        values.append(('purchase_alert.display_stock_current', 'Current stock only, for test notifications'))
 
         return values
 
