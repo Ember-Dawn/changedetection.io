@@ -11,6 +11,9 @@ valid_notification_formats = {
     'html': 'HTML',
     'htmlcolor': 'HTML Color',
     'markdown': 'Markdown to HTML',
+    'telegram_html': 'Telegram HTML',
+    'telegram_markdownv2': 'Telegram MarkdownV2',
+    'telegram_rich': 'Telegram Rich Message (JSON blocks)',
     # Used only for editing a watch (not for global)
     USE_SYSTEM_DEFAULT_NOTIFICATION_FORMAT_FOR_WATCH: USE_SYSTEM_DEFAULT_NOTIFICATION_FORMAT_FOR_WATCH
 }

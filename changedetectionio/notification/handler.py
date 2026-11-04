@@ -66,6 +66,12 @@ def notification_format_align_with_apprise(n_format : str):
     if not n_format:
         return NotifyFormat.TEXT.value
 
+    if n_format == 'telegram_rich':
+        return NotifyFormat.TEXT.value
+    if n_format == 'telegram_html':
+        return NotifyFormat.HTML.value
+    if n_format == 'telegram_markdownv2':
+        return NotifyFormat.MARKDOWN.value
     if n_format.startswith('html'):
         # Apprise only knows 'html' not 'htmlcolor' etc, which shouldnt matter here
         n_format = NotifyFormat.HTML.value
@@ -323,6 +329,7 @@ def process_notification(n_object: NotificationContextData, datastore):
 
     # Insert variables into the notification content
     notification_parameters = create_notification_parameters(n_object, datastore)
+    notification_parameters['test_notification'] = bool(n_object.get('test_notification'))
 
     requested_output_format = n_object.get('notification_format', default_notification_format)
     logger.debug(f"Requested notification output format: '{requested_output_format}'")
@@ -415,6 +422,9 @@ def process_notification(n_object: NotificationContextData, datastore):
                 continue
             notification_parameters[key] = str(html_escape(str(value)))
 
+    from changedetectionio.notification.telegram_formats import (
+        is_telegram, add_query, validate_rich_message, private_rich_template)
+
     with (apprise.LogCapture(level=apprise.logging.DEBUG) as logs):
         for url in n_object['notification_urls']:
 
@@ -429,17 +439,50 @@ def process_notification(n_object: NotificationContextData, datastore):
                 logger.debug(f"Skipping commented out or empty notification URL - '{url}'")
                 continue
 
-            logger.info(f">> Process Notification: AppRise start notifying '{url}'")
+            logger.info('>> Process Notification: Apprise delivery starting (%s)', urlparse(url).scheme)
+            # Telegram-only formats are not valid for mail, Discord, or other channels.
+            if requested_output_format_original.startswith('telegram_') and not is_telegram(url):
+                raise ValueError('Telegram notification format requires tgram:// destinations only')
             url = jinja_render(template_str=url, **notification_parameters)
+
+            if requested_output_format_original == 'telegram_rich':
+                document = validate_rich_message(n_body)
+                if url.startswith('null://'):
+                    sent_objs.append({'title': n_title, 'body': n_body, 'url': url,
+                                      'original_context': n_object})
+                    continue
+                template_path = private_rich_template(document)
+                try:
+                    rich_url = add_query(url, template=template_path)
+                    per_target = apprise.Apprise(debug=True, asset=apprise_asset)
+                    if not per_target.add(rich_url):
+                        raise ValueError('Invalid Telegram Rich Message notification destination')
+                    delivered = per_target.notify(title=n_title, body='',
+                                                  body_format=NotifyFormat.TEXT.value,
+                                                  attach=n_object.get('screenshot', None))
+                    if delivered is False:
+                        raise RuntimeError('Telegram Rich Message delivery failed')
+                    sent_objs.append({'title': n_title, 'body': n_body,
+                                      'url': '[telegram rich destination]',
+                                      'original_context': n_object})
+                finally:
+                    import os
+                    os.unlink(template_path)
+                continue
+
+            if requested_output_format_original == 'telegram_html':
+                n_body = n_body.replace('<br>', '\n').replace('</br>', '\n')
+            if requested_output_format_original == 'telegram_markdownv2':
+                url = add_query(url, format='markdown', mdv='v2')
 
             if 'html' in requested_output_format:
                 # Since the n_body is always some kind of text from the 'diff' engine, attempt to preserve whitespaces that get sent to the HTML output
                 # But only where its more than 1 consecutive whitespace, otherwise "and this" becomes "and&nbsp;this" etc which is too much.
                 n_body = n_body.replace('  ', '&nbsp;&nbsp;')
 
-            (url, n_body, n_title) = apply_service_tweaks(url=url, n_body=n_body, n_title=n_title, requested_output_format=requested_output_format_original)
+            (url, n_body, n_title) = apply_service_tweaks(url=url, n_body=n_body, n_title=n_title, requested_output_format=('html' if requested_output_format_original == 'telegram_html' else 'text' if requested_output_format_original == 'telegram_markdownv2' else requested_output_format_original))
 
-            apprise_input_format = "NO-THANKS-WE-WILL-MANAGE-ALL-OF-THIS"
+            apprise_input_format = NotifyFormat.MARKDOWN.value if requested_output_format_original == 'telegram_markdownv2' else "NO-THANKS-WE-WILL-MANAGE-ALL-OF-THIS"
 
             if not 'format=' in url:
                 parsed_url = urlparse(url)
@@ -482,7 +525,9 @@ def process_notification(n_object: NotificationContextData, datastore):
                               'original_context': n_object })
 
             if not url.startswith('null://'):
-                apobj.add(url)
+                apobj = apprise.Apprise(debug=True, asset=apprise_asset)
+                if not apobj.add(url):
+                    raise ValueError('Invalid notification destination')
 
             # Since the output is always based on the plaintext of the 'diff' engine, wrap it nicely.
             # It should always be similar to the 'history' part of the UI.
@@ -490,18 +535,20 @@ def process_notification(n_object: NotificationContextData, datastore):
                 if not '<pre' in n_body and not '<body' in n_body: # No custom HTML-ish body was setup already
                     n_body = as_monospaced_html_email(content=n_body, title=n_title)
 
-        if not url.startswith('null://'):
-            delivered = apobj.notify(
-                title=n_title,
-                body=n_body,
-                # `body_format` Tell apprise what format the INPUT is in, specify a wrong/bad type and it will force skip conversion in apprise
-                # &format= in URL Tell apprise what format the OUTPUT should be in (it can convert between)
-                body_format=apprise_input_format,
-                # False is not an option for AppRise, must be type None
-                attach=n_object.get('screenshot', None)
-            )
-            if delivered is False and (n_object.get('verification_event_type') or n_object.get('test_notification')):
-                raise RuntimeError('Apprise reported a failed notification delivery')
+            if not url.startswith('null://'):
+                delivered = apobj.notify(
+                    title=n_title,
+                    body=n_body,
+                    # `body_format` Tell apprise what format the INPUT is in, specify a wrong/bad type and it will force skip conversion in apprise
+                    # &format= in URL Tell apprise what format the OUTPUT should be in (it can convert between)
+                    body_format=apprise_input_format,
+                    # False is not an option for AppRise, must be type None
+                    attach=n_object.get('screenshot', None)
+                )
+                if delivered is False and (n_object.get('verification_event_type') or n_object.get('test_notification')):
+                    raise RuntimeError('Apprise reported a failed notification delivery')
+
+
 
         # Returns empty string if nothing found, multi-line string otherwise
         log_value = logs.getvalue()

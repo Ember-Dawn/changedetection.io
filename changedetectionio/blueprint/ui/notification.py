@@ -46,7 +46,9 @@ def construct_blueprint(datastore: ChangeDetectionStore):
                 'current_snapshot': 'In Stock: True - Price: 1199.99',
                 'prev_snapshot': 'In Stock: True - Price: 1249.99',
                 'restock': {'title': 'Example product', 'price': '1199.99', 'currency': 'USD', 'in_stock': True},
+                'test_notification': True,
                 'purchase_alert': {
+                    'display_price': '$1,199.99', 'display_change': '↓ $50.00 (-4%)',
                     'stock_text': 'In stock', 'rule_text': 'price below 1300 USD AND currently in stock',
                     'reason_text': 'Price fell and meets target', 'reference_price': '1249.99',
                     'price_change_amount': '-50.00', 'percent_change': '-4.0',
@@ -59,7 +61,7 @@ def construct_blueprint(datastore: ChangeDetectionStore):
             if watch is not None:
                 # Do not mix sample product fields into real non-product watches.
                 context['restock'] = {}
-                context['purchase_alert'] = {}
+                context['purchase_alert'] = {'display_price':'Unknown', 'display_change':'', 'stock_text':'Unknown', 'rule_text':'No active rule', 'reason_text':'Test only', 'reference_price':None}
                 # Load saved watch tokens, and optionally the two latest snapshots.
                 # Never read or modify the watch's active processor or event state.
                 snapshots = []
@@ -70,6 +72,7 @@ def construct_blueprint(datastore: ChangeDetectionStore):
                     snapshots = []
                 previous, current = (snapshots[-2], snapshots[-1]) if len(snapshots) >= 2 else ('', snapshots[-1] if snapshots else '')
                 context.update(set_basic_notification_vars(current, previous, watch, '', None))
+                context['test_notification'] = True
                 from changedetectionio.notification_service import add_rendered_diff_to_notification_vars
                 context.update(add_rendered_diff_to_notification_vars(
                     prev_snapshot=previous, current_snapshot=current,

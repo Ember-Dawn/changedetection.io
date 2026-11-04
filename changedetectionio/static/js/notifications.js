@@ -54,8 +54,9 @@ function setupNotificationTemplateLibrary() {
         $title.val(item.title).trigger('change');
         $body.val(item.body).trigger('change');
         $format.val(item.format).trigger('change');
+        if (item.format === 'telegram_rich') say('Rich Message templates require Telegram tgram:// destinations.');
         $result.hide();
-        say('Copied to editor. Click the page Save button to apply these notification settings.');
+        say('Copied title, body and format to editor. Click the page Save button to apply.');
     });
     $('#notification-template-save').on('click', function() {
         var name = window.prompt('New template name:'); if (!name || !name.trim()) return;

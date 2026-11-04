@@ -191,6 +191,27 @@ class Watch(BaseWatch):
             'reference_price': state.get('last_alert_reference_price'),
             'price_change_amount': state.get('last_alert_price_change_amount'),
         })
+        from decimal import Decimal as _D
+        currency = str(values['restock'].get('currency') or '').upper()
+        symbol = {'USD':'$', 'EUR':'€', 'GBP':'£', 'JPY':'¥', 'CNY':'¥'}.get(currency)
+        def money(v):
+            try:
+                amount = f'{_D(str(v)):,.2f}'
+            except (ValueError, InvalidOperation, TypeError):
+                return 'Unknown' if v is None else str(v)
+            return (symbol or '') + amount + ('' if symbol else (' ' + currency if currency else ''))
+        alert['display_price'] = money(values['restock'].get('price'))
+        change = state.get('last_alert_price_change_amount')
+        if change is not None:
+            try:
+                delta = _D(str(change))
+                direction = '↑ ' if delta > 0 else '↓ ' if delta < 0 else ''
+                percent = state.get('last_alert_percent_change')
+                alert['display_change'] = direction + money(abs(delta)) + (f' ({percent:+g}%)' if isinstance(percent, (int, float)) else '')
+            except (ValueError, InvalidOperation, TypeError):
+                alert['display_change'] = ''
+        else:
+            alert['display_change'] = ''
         values['restock']['previous_price'] = None
         if self.history_n >= 2:
             history = self.history

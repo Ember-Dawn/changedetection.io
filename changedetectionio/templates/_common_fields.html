@@ -223,6 +223,15 @@
         <select id="notification-template-select" class="notification-template-select" style="max-width:370px;width:100%">
             <option value="">Choose a preset or saved template...</option>
         </select>
+                            <div class="">
+                                {{ render_field(form.notification_format , class="notification-format") }}
+                                <span class="pure-form-message-inline">{{ _('Format for all notifications') }}</span>
+                                <div id="discord-html-format-warning" class="inline-warning" style="display: none; margin-top: 6px;">
+                                    <img class="inline-warning-icon" src="{{url_for('static_content', group='images', filename='notice.svg')}}" alt="{{ _('Note') }}" title="{{ _('Note') }}">
+                                    {# TRANSLATORS: FIXME: fragment msgids (#4074) #}
+                                    {{ _('Discord does not render HTML — switch to') }} <strong>{{ _('Plain Text') }}</strong> {{ _('format to avoid') }} <code>&amp;nbsp;</code> {{ _('and other HTML entities appearing literally in your notifications.') }}
+                                </div>
+                            </div>
         <div style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap">
             <button type="button" class="pure-button button-secondary button-xsmall" id="notification-template-apply">Apply to editor</button>
             <button type="button" class="pure-button button-secondary button-xsmall" id="notification-template-save">Save as template</button>
@@ -269,15 +278,7 @@
                                     <br>
                                 </div>
                             </div>
-                            <div class="">
-                                {{ render_field(form.notification_format , class="notification-format") }}
-                                <span class="pure-form-message-inline">{{ _('Format for all notifications') }}</span>
-                                <div id="discord-html-format-warning" class="inline-warning" style="display: none; margin-top: 6px;">
-                                    <img class="inline-warning-icon" src="{{url_for('static_content', group='images', filename='notice.svg')}}" alt="{{ _('Note') }}" title="{{ _('Note') }}">
-                                    {# TRANSLATORS: FIXME: fragment msgids (#4074) #}
-                                    {{ _('Discord does not render HTML — switch to') }} <strong>{{ _('Plain Text') }}</strong> {{ _('format to avoid') }} <code>&amp;nbsp;</code> {{ _('and other HTML entities appearing literally in your notifications.') }}
-                                </div>
-                            </div>
+
                         </div>
 </details>
 {% endmacro %}
