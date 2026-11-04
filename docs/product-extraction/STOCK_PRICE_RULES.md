@@ -61,25 +61,6 @@ The WebUI rule help and its Copy Markdown action use this same document. JSON ex
 
 ## 5. Notification templates
 
-Open **Customise notifications** on the Global, Tag, or Watch edit page to choose a preset, save a reusable custom template, or preview the current unsaved title/body. Applying a template copies its title/body/format into the editor but does **not** save; click the normal Save button to activate it. The three presets are General webpage change, Product price and stock, and Compact change alert. Custom templates can be renamed or updated by choosing one and clicking Update, or removed using Delete. Neither operation retroactively changes saved Watch/Tag templates.
+The policy rules above determine **when to notify**, not how to render a message. Seven current built-ins cover generic, product Plain Text, Telegram HTML (foldable / all details / compact), and Telegram Rich. Selecting a template changes Format immediately; **Apply to editor** copies Title and Body; the normal Save is still necessary. Existing Watches do not automatically inherit library edits.
 
-**Preview** is read-only and never sends a notification. Global and Tag pages show explicit example data; Watch edit uses the current saved Watch state and latest saved snapshots where available. The result is shown as plain text even if its configured output format is HTML. The actual notification destination may apply additional formatting. Real notification sending uses the existing Apprise pipeline.
-
-The product preset uses `restock.title`, `restock.price`, `restock.currency`, `purchase_alert.stock_text`, `purchase_alert.rule_text`, `purchase_alert.reason_text`, `purchase_alert.reference_price`, `purchase_alert.price_change_amount`, `purchase_alert.percent_change` and `watch_open_url`. Some fields are empty until a qualifying product alert has occurred; the reference price and amount compare against the **triggering event's** saved base, not the display-oriented `restock.last_price`.
-
-## Telegram Rich product notification presentation
-
-The built-in **Telegram product · Rich details** preset uses the Watch title
-inside its first Rich `heading` block (prefixed with a shopping-cart emoji).
-Its main blocks display price, stock and a short clickable **View product**
-link; monitoring rules and the test-only explanation remain in the collapsible
-`details` block. Testing does not prepend `TEST` to the visible heading.
-
-For the `telegram_rich` Notification Format, the traditional **Notification
-Title** input is hidden, but its saved value is retained and still submitted.
-The Rich message's visible title is edited in the body JSON `heading` block;
-Apprise does not merge the separate title into a Rich message automatically.
-All other notification formats continue to show the traditional Title field.
-The Notification Body remains the ordinary textarea and the built-in Rich
-source is intentionally compact on one line. Applying a template still copies
-title, body and format together, followed by the usual Save action.
+See [NOTIFICATION_TEMPLATES.md](NOTIFICATION_TEMPLATES.md) for templates, Chinese names, dialogs, dynamic display fields and links. See [RESTOCK_AND_ALERTS.md](RESTOCK_AND_ALERTS.md) for notification event evaluation and dispatch.

@@ -1,17 +1,59 @@
-# Restock & Price monitoring
+# Product purchase alerts: evaluation and notification delivery
 
-**Source of truth:** [STOCK_PRICE_RULES.md](STOCK_PRICE_RULES.md). This document describes integration with the existing changedetection.io fork.
+This document explains **event and delivery behavior**. The authoritative configuration and edge cases are in [STOCK_PRICE_RULES.md](STOCK_PRICE_RULES.md); template formats, previews and editor behavior are in [NOTIFICATION_TEMPLATES.md](NOTIFICATION_TEMPLATES.md). Extraction rule authoring is separate: see [AI_RULE_GUIDE.md](../../extractor-rules/AI_RULE_GUIDE.md).
 
-The Watch's **Stock & Price** settings now choose a price mode first and then a stock mode. If both price and a stock *event* mode are enabled, AND is the default and OR is optional. Current in-stock/out-of-stock modes are only price filters. A fixed-price rule continues to notify of any price change within its qualified range by default; this is configurable.
+## Configured monitoring policy
 
-The rule evaluator is `changedetectionio/processors/restock_diff/purchase_alert.py`, invoked from `processor.py` after extraction. It uses the existing persisted Watch `purchase_alert_state` without a new database. The first successful relevant observation and changes to settings or extraction-rule signature create a new baseline. Failed or unknown extraction values do not become false in-stock or out-of-stock events. Price comparison and percentage anchors remain separate from the display-oriented `restock.last_price` value.
+The rule evaluator is `changedetectionio/processors/restock_diff/purchase_alert.py`. The intended policy uses:
 
-### Editing and API
+| Setting | Supported values / role |
+| --- | --- |
+| `price_mode` | `none`, `below`, `above`, `any_change`, `percent_down`, `percent_up`, `percent_any` |
+| `stock_mode` | `none`, `in_stock`, `out_of_stock`, `restock`, `sold_out`, `any_change` |
+| `price_threshold` | Strict target for `below`/`above`, or positive percentage for percent modes |
+| `price_follow_changes` | Defaults on for fixed targets: later changes within the qualified range notify |
+| `combine_mode` | `and` (default) or `or` for combinations with a stock **event** mode |
 
-The Watch/Tag editor exposes the configuration fields `price_mode`, `price_threshold`, `price_follow_changes`, `stock_mode`, `combine_mode`, `extraction_mode`, `extraction_rule_id`. The form contains a collapsed **Monitoring rules** panel and **Copy Markdown** action; the text comes directly from `STOCK_PRICE_RULES.md`. The same configuration is documented in `changedetectionio/processors/restock_diff/api.yaml`. A Group tag with `overrides_watch` still overrides Watch settings.
+The current-stock options (`in_stock`, `out_of_stock`) are filters for price rules, not stand-alone event notifications, and cannot use OR. `restock`, `sold_out`, and stock `any_change` require confirmed transitions. A fixed threshold uses strict inequality; equal-to-target values do not qualify. For percentages, small changes accumulate against a persistent anchor instead of comparing only with the immediately previous check. The anchor advances only when the percentage condition participates in an alert.
 
-Available notification tokens include `purchase_alert.reason`, `purchase_alert.price_mode`, `purchase_alert.stock_mode`, `purchase_alert.combine_mode`, `purchase_alert.price_threshold`, `purchase_alert.percent_change`, `purchase_alert.price_direction`, plus the existing `restock.price` and `restock.in_stock` values. Normal Worker and Apprise scheduling/notification reliability is unchanged; a rule decision does not guarantee external delivery. Product Extractors Dry Run remains read-only.
+## Reliable baselines and events
 
-### Run checks
+- The **first reliable measurement establishes the baseline, without alerting**. Changing the configured policy or extraction-rule signature also rebaselines.
+- A missing/invalid price must not be treated as zero; unknown stock (`null`) must not be interpreted as in stock or out of stock. Missing inputs never fabricate a change or transition.
+- Known currency changes prevent unsafe cross-currency price comparisons. A reliable stock event may still qualify under OR.
+- The Watch saves event-specific comparison details in `purchase_alert_state` separately from the current display data in `restock`.
+- Stock quantity changes alone do not count as availability transitions unless the derived `in_stock` boolean changes.
 
-Run `python -m unittest discover -s tests/product_extraction -p 'test_purchase*.py'` and related extraction tests. Run UI/Docker/CloakBrowser/real-retailer and notification delivery checks in the deployment environment. No old `alert_mode` or `target_price` migration is provided; reconfigure existing development Watches after applying the patch.
+### Combination behavior
+
+**AND:** Both conditions must hold within the same effective check. For fixed price thresholds the current price being in range is sufficient when paired with a stock event; for `any_change` or percentage modes, a matching price event is required. A stock current-state filter always gates a price rule.
+
+**OR:** A new price event **or** stock transition suffices. If both trigger in the same check, produce one notification with a combined reason. Merely remaining under or over a fixed target is not a fresh OR price event.
+
+| Example | Expected event |
+| --- | --- |
+| Below $1,300, currently in stock; price $1,400 → $1,200 | Price qualified with stock filter satisfied |
+| Below $1,300; price $1,200 → $1,350 | Leaving range; no price alert |
+| Stock-only `restock`; known out of stock → in stock | Restock alert, no price needed |
+| Percentage down 10%; anchor $1,000 → $970 → $890 | Cumulative −11%, a qualifying price event |
+| Restock **OR** price down 10%; stock restocks while price drops only 3% | Stock-only trigger; do not claim the 10% price threshold matched |
+| Any price change **OR** any stock transition; both change | One notification reporting both causes |
+| First successful check, or only unknown inputs | Baseline or preserved state; no fabricated event |
+
+## Notification data and dispatch
+
+`changedetectionio/processors/restock_diff/__init__.py` builds readable `purchase_alert` notification variables from the stored evaluator state, including `show_price`, `show_stock`, `display_price`, `display_change`, `display_stock`, `display_stock_current`, `display_reference_price`, `rule_text` and `reason_text`.
+
+The display form `$890.00 (−11%, ↓ $110.00)` uses **one comparison baseline** for its percentage and absolute amount. In an OR event, price movement may be displayed even when only stock triggered; the `reason_text` must distinguish the actual trigger. Test notifications should not imply the purchase rule actually matched.
+
+The existing Worker/notification service and Apprise pipeline continue to gate and deliver notifications. Enqueueing does not guarantee arrival or exactly-once delivery. Preview is read-only, uses saved Watch context or sample data, and never queues a notification. Template choices are described in [NOTIFICATION_TEMPLATES.md](NOTIFICATION_TEMPLATES.md).
+
+## Unresolved Watch/Tag/API integration mismatch — audited 2026-11-04
+
+**This is an actual source compatibility issue, not merely outdated prose.** The evaluator above uses `price_mode`, `stock_mode`, `price_threshold`, etc., but the audited `processors/restock_diff/forms.py`, parts of `processor.py`, and `processors/restock_diff/api.yaml` still refer to obsolete `alert_mode` / `target_price` values (`stock_only`, `price_only`, `stock_and_price`). Consequently the legacy UI/API examples must **not** be presented as verified working examples of the expanded rule engine. Verify the deployed revision, reconcile those files and update the API specification **in a separate tested source change**. No API correction is made by this documentation-only patch.
+
+The extraction modes are `auto`, `rule` and `builtin`; rule Dry Run does not modify Watch history or alert baselines. Confirm Tag `overrides_watch` behavior on the actual deployed revision, given the mismatch above.
+
+## Maintenance and verification
+
+Relevant paths are `purchase_alert.py` (policy), `restock_diff/__init__.py` (display tokens), `notification_service.py` (dispatch), and the template/Telegram handler. Run the product presentation and Telegram format/contract tests, plus real browser/Telegram acceptance tests after deploying. The older `tests/product_extraction/test_purchase_alert.py` contains legacy policy fixtures and cannot serve as proof the expanded policy passes until fixtures are migrated. Never describe offline JSON/Jinja2 validation as successful Telegram delivery.

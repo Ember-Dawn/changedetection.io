@@ -1,5 +1,14 @@
 # Product extraction changes
 
+This file records **historical** changes. Current behavior: [Stock & Price rules](STOCK_PRICE_RULES.md), [event/delivery evaluation](RESTOCK_AND_ALERTS.md), and [template guide](NOTIFICATION_TEMPLATES.md). The old mentions of three presets or old API schemas refer to earlier stages; they are not current instructions.
+
+### Documentation consolidation and integration audit (2026-11-04)
+
+- Reconciled current monitoring and Telegram template documentation; added `NOTIFICATION_TEMPLATES.md`, updated README and AI handoff links.
+- Recorded the **unresolved** new purchase policy evaluator vs legacy form/processor defaults/API schema mismatch (`price_mode`/`stock_mode` versus `alert_mode`/`target_price`). No application integration fix is claimed in this documentation-only update.
+- Current UI includes seven built-ins, dynamic Plain Text and three HTML product variants; actual Telegram/Docker acceptance still requires operator verification.
+
+
 ### Dynamic Telegram Rich product notification presentation (2026-11-04)
 
 - The built-in Telegram Rich product preset now displays a linked Watch Title (no icon), with independent price and stock lines that are emitted only for enabled rules with reliable data.
@@ -8,13 +17,12 @@
 - Extra rule, reason and formatted reference appear in `Details`, while test notifications suppress historical change claims. Existing stored custom templates and Watch body values are unchanged until users apply the updated preset.
 
 
-### Template format selection, inline dialogs and dynamic Telegram HTML/Text presets (2026-11-04)
+### Template format selection, custom dialogs and HTML/Text presets (2026-11-04)
 
-- Selecting a saved or built-in notification template now changes the Notification Format immediately, but leaves Title/Body untouched until **Apply to editor**. A guarded page Save prevents accidentally storing a format with an un-applied old body.
-- Replaced template-library browser prompt/confirm interactions with one keyboard-accessible app-styled dialog. Enter confirms (except during IME composition), Escape cancels, and asynchronous template errors stay visible in the dialog. Existing UTF-8/Chinese template names remain supported (maximum 100 Unicode code points).
-- Retained the foldable Telegram HTML preset and added **HTML (all details)** (expanded inline), **HTML (compact)** (only linked title, price and stock, with no rules/reason/details), and dynamic **Product · Plain Text** presets.
-- All product format presets use the `purchase_alert` presentation tokens for price-only, stock-only, percentage and combined modes. HTML product bodies render an escaped clickable title (`watch_open_url`/`watch_url`), with a deliberately empty rendered Notification Title to prevent Apprise duplicating or escaping the link; plain text includes the raw URL. Test notifications avoid reporting stale historical deltas as current events.
-- Built-in preset changes do not overwrite Watch/Tag/Global notification bodies or saved custom templates. Reapply the chosen preset and save the form to use it. Live Telegram/Apprise delivery and interactive browser acceptance still need verification on the user's deployment.
+- Template selection changes Notification Format immediately; Apply changes Title/Body and normal Save persists. A pending guard prevents accidental mismatched format/body saves.
+- Custom names support Chinese; template create/update/delete use app-styled dialogs, Enter confirmation and Escape cancellation (IME-safe).
+- Seven built-ins now include Telegram HTML foldable, all details, compact, dynamic Plain Text, Rich, and generic presets.
+- HTML product Body supplies an escaped linked title; internal Title is blank to avoid duplication. Templates reuse display tokens for stock-only, price-only, percentages, AND/OR.
 
 ## 2026-11 — Notification templates and product alert messages
 

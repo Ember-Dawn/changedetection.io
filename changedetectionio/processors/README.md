@@ -3,7 +3,7 @@
 The concept here is to be able to switch between different domain specific problems to solve.
 
 - `text_json_diff` The traditional text and JSON comparison handler
-- `restock_diff` Only cares about detecting if a product looks like it has some text that suggests that it's out of stock, otherwise assumes that it's in stock.
+- `restock_diff` extracts product facts from metadata or declarative JSON rules and evaluates independent stock/price policies. Unknown stock remains unknown, **never implicitly in stock**. See [`../../docs/product-extraction/STOCK_PRICE_RULES.md`](../../docs/product-extraction/STOCK_PRICE_RULES.md).
 
 Some suggestions for the future
 

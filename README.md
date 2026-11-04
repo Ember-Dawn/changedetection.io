@@ -1,3 +1,5 @@
+> **Custom fork documentation:** Local [CloakBrowser shared mode](docs/cloakbrowser/README.md), [JSON product extraction rules](extractor-rules/README.md), [Stock & Price policies](docs/product-extraction/STOCK_PRICE_RULES.md), and [Telegram/product notification templates](docs/product-extraction/NOTIFICATION_TEMPLATES.md). Read [AGENTS.md](AGENTS.md) before modifying fork code. Much of the upstream README below describes upstream features, not guarantees of this fork. An [unresolved form/API vs evaluator policy mismatch](docs/product-extraction/RESTOCK_AND_ALERTS.md#unresolved-watchtagapi-integration-mismatch--audited-2026-11-04) remains to be fixed and tested.
+
 # Detect Website Changes Automatically — Monitor Web Page Changes in Real Time
 
 Monitor websites for updates — get notified via Discord, Email, Slack, Telegram, Webhook and many more.

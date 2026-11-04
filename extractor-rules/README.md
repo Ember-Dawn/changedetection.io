@@ -41,4 +41,6 @@ Rule identity is the stable, Git-friendly `id` (`rules/<id>.json`), not a UUID. 
 
 ## Watch purchase notification policy
 
-The JSON rule only extracts data; it does not decide whether a Watch should notify. Choose **Product purchase alerts** on the Watch editor: stock only, price strictly below a target (ignoring stock), or stock AND price strictly below target. In a qualified price goal, every price change (up or down) triggers an alert; an unchanged price does not. **The first valid check creates a baseline without notification.** See [`../docs/product-extraction/RESTOCK_AND_ALERTS.md`](../docs/product-extraction/RESTOCK_AND_ALERTS.md).
+JSON rules only extract product facts. The evaluator supports seven `price_mode` and six `stock_mode` choices, cumulative percentages, current-stock filters, and AND/OR where appropriate; first valid measurements establish baselines rather than sending alerts. See [Stock & Price rules](../docs/product-extraction/STOCK_PRICE_RULES.md), [events and dispatch](../docs/product-extraction/RESTOCK_AND_ALERTS.md), and [message templates](../docs/product-extraction/NOTIFICATION_TEMPLATES.md).
+
+**Known audited mismatch (2026-11-04):** the old form/API files still mention `alert_mode` and `target_price`; the new evaluator expects `price_mode` and `stock_mode`. Do not assume the old API examples work without integration testing.

@@ -191,4 +191,6 @@ Live Dry Run 使用同一次 Page 读取 HTML 并截取 JPEG 预览，截图仅�
 
 ## 商品购买通知与提取规则分工
 
-JSON 提取规则只负责 `price`、`in_stock`、`pickup`、`shipping` 等字段；Watch 的 `alert_mode` 与 `target_price` 负责是否值得购买及何时通知。商品处于达标状态时，**价格上涨或下跌**都会通知（价格不变不重复通知）；第一次有效检测仅作为基准。详见 `docs/product-extraction/RESTOCK_AND_ALERTS.md`。
+JSON 提取规则只负责 `price`、`currency`、`in_stock`、`pickup`、`shipping` 等客观数据，不负责是否通知。新版购买提醒判定器提供 7 种 `price_mode`、6 种 `stock_mode`，以及适用场景下的 AND/OR、累计百分比和库存当前状态过滤。首次可靠检查建立基准，不发送初始事件；不能将未知库存当作无货。完整判定参考 [`STOCK_PRICE_RULES.md`](../docs/product-extraction/STOCK_PRICE_RULES.md)，动态消息参考 [`NOTIFICATION_TEMPLATES.md`](../docs/product-extraction/NOTIFICATION_TEMPLATES.md)。
+
+**源码一致性提醒：** 当前快照的表单与 API Schema 仍使用旧 `alert_mode`/`target_price` 字段，而规则判定器已使用新字段。请先核对并修复实际部署的集成，不要把旧 API 示例当成新规则的有效请求。

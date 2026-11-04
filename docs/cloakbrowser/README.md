@@ -57,6 +57,8 @@ Manual browser frontend was split into focused local JS modules and CSS. This is
 
 The custom `Product Extractors` sidebar manages declarative JSON rules in the Docker bind mount `./extractor-rules:/extractor-rules`. Use `/product-extractors/` for JSON import/edit and dry-run; a Restock Watch can select `auto`, `rule` or `builtin`. Rule changes are detected by signature and reprocessed even when HTML is unchanged. See `extractor-rules/README.md`.
 
-## 商品购买提醒（当前行为）
+## 商品购买提醒（Stock & Price）
 
-The `restock_diff` Watch now offers purchase-oriented modes `stock_only`, `price_only`, and `stock_and_price`; a qualifying price change in **either direction** notifies, but an initial check is only a baseline. This policy does not change CloakBrowser concurrency, Page ownership, or captcha handling. See [`../product-extraction/RESTOCK_AND_ALERTS.md`](../product-extraction/RESTOCK_AND_ALERTS.md) and the JSON authoring guide.
+The intended product monitoring policy uses seven price and six stock modes, including current-state filters, stock transitions, AND/OR and cumulative percentage thresholds. First reliable measurements establish baselines. Notification layout is independent of the shared CloakBrowser Context/Page and CAPTCHA flows. See [Stock & Price rules](../product-extraction/STOCK_PRICE_RULES.md), [event and delivery semantics](../product-extraction/RESTOCK_AND_ALERTS.md), and [Telegram/product templates](../product-extraction/NOTIFICATION_TEMPLATES.md).
+
+**Integration limitation:** the audited checkout still has legacy fields in form/processor defaults/API schema while the evaluator uses new policy fields. Verify and reconcile before claiming new modes work end to end.
