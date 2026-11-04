@@ -1,7 +1,7 @@
 """Settings for condition-driven product purchase notifications."""
 from wtforms import validators, FloatField
 from wtforms.fields.choices import RadioField, SelectField
-from wtforms.fields.form import FormField, Form
+from wtforms import Form, FormField
 from flask_babel import lazy_gettext as _l
 from changedetectionio.forms import processor_text_json_diff_form
 
