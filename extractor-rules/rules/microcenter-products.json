@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "id": "microcenter-products",
+  "name": "Micro Center Products",
+  "enabled": true,
+  "match": {
+    "domains": [
+      "microcenter.com"
+    ],
+    "path_patterns": [
+      "/product/*"
+    ]
+  },
+  "fields": {
+    "price": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "#options-pricing2022 #pricing",
+          "extract": "attr",
+          "attribute": "content"
+        },
+        {
+          "type": "css",
+          "value": "h1 [data-price]",
+          "extract": "attr",
+          "attribute": "data-price"
+        },
+        {
+          "type": "jsonpath",
+          "value": "$..offers.price",
+          "extract": "text"
+        }
+      ]
+    },
+    "currency": {
+      "selectors": [
+        {
+          "type": "jsonpath",
+          "value": "$..offers.priceCurrency",
+          "extract": "text"
+        }
+      ]
+    },
+    "pickup": {
+      "condition": {
+        "op": "exists",
+        "selector": {
+          "type": "css",
+          "value": ".pickupOption:not(.deactivated) .when"
+        },
+        "guard": {
+          "type": "css",
+          "value": ".pickupOption"
+        }
+      }
+    },
+    "shipping": {
+      "condition": {
+        "op": "exists",
+        "selector": {
+          "type": "css",
+          "value": ".shippingOption:not(.deactivated) .when"
+        },
+        "guard": {
+          "type": "css",
+          "value": ".shippingOption"
+        }
+      }
+    },
+    "in_stock": {
+      "condition": {
+        "op": "any",
+        "items": [
+          {
+            "op": "ref",
+            "field": "pickup"
+          },
+          {
+            "op": "ref",
+            "field": "shipping"
+          }
+        ]
+      }
+    },
+    "stock_quantity": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": ".inventory .inventoryCnt",
+          "extract": "text"
+        }
+      ]
+    },
+    "title": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "h1",
+          "extract": "text"
+        }
+      ]
+    },
+    "sku": {
+      "selectors": [
+        {
+          "type": "xpath",
+          "value": "normalize-space(//div[contains(concat(' ', normalize-space(@class), ' '), ' prodInfo ')]//span[contains(concat(' ', normalize-space(@class), ' '), ' sku ')]/text()[normalize-space()][1])",
+          "extract": "text"
+        },
+        {
+          "type": "jsonpath",
+          "value": "$..sku",
+          "extract": "text"
+        }
+      ]
+    }
+  }
+}
