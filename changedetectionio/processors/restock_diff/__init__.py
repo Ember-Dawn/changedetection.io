@@ -137,6 +137,9 @@ class Watch(BaseWatch):
     def extra_notification_token_placeholder_info(self):
         values = super().extra_notification_token_placeholder_info()
 
+        values.append(('restock.stock_quantity', "Optional stock quantity extracted by custom rule"))
+        values.append(('restock.sku', "Optional SKU extracted by custom rule"))
+        values.append(('restock.title', "Optional product title extracted by custom rule"))
         values.append(('restock.price', "Price detected"))
         values.append(('restock.in_stock', "In stock status"))
         values.append(('restock.last_price', "Price at the previous check"))

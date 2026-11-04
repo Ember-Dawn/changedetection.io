@@ -1343,6 +1343,9 @@ def changedetection_app(config=None, datastore_o=None):
         url_prefix='/manual-browser'
     )
 
+    from changedetectionio.blueprint.product_extractors import construct_blueprint as product_extractors_blueprint
+    app.register_blueprint(product_extractors_blueprint(datastore), url_prefix='/product-extractors')
+
     import changedetectionio.blueprint.price_data_follower as price_data_follower
 
     app.register_blueprint(

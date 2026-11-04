@@ -52,3 +52,7 @@ Current human control is a real Chromium/Playwright Page, displayed through peri
 ## Manual frontend development
 
 The manual browser uses plain JS scripts in dependency order: `manual-core.js` -> `manual-stream.js` -> `manual-layout.js` -> `manual-input.js` -> `manual-browser.js`. Do not introduce an unrelated frontend bundler, a second browser process, or unauthenticated control endpoints for simple UI work. Preserve request-order guarantees and the session token/epoch checks when adding new UI features. Validate with `node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs` plus actual Playwright/CloakBrowser acceptance tests on the user's Docker host.
+
+## Product extraction rules (new)
+
+`extractor-rules/` is **Git tracked** and bind-mounted writable as `/extractor-rules`. It contains no secrets or user sessions. The `changedetectionio/product_extraction/` engine uses only declarative JSON rules. The `/product-extractors/` WebUI is authenticated; dry-run must not update Watch history, notification state or checksums. Restock comparison/alerts remain in `processors/restock_diff`. Never convert unmatched/unknown stock into an out-of-stock or in-stock assertion. Rule changes require a new extraction baseline, not a false price alert.

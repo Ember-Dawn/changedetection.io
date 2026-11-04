@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "id": "example-store",
+  "name": "Example Store (not active)",
+  "match": {
+    "domains": [
+      "example.com"
+    ],
+    "path_patterns": [
+      "/product/*"
+    ]
+  },
+  "fields": {
+    "price": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": ".product-price",
+          "extract": "text"
+        }
+      ]
+    },
+    "in_stock": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": ".stock-indicator",
+          "extract": "text"
+        }
+      ],
+      "mapping": {
+        "in_stock": [
+          "In Stock",
+          "Available"
+        ],
+        "out_of_stock": [
+          "Out of Stock",
+          "Sold Out"
+        ]
+      }
+    }
+  },
+  "enabled": true
+}

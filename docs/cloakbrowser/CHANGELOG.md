@@ -26,3 +26,12 @@ For future source changes, append a new entry with date (if known), specific pat
 - `docker-compose.yml`: publish `${CHANGEDETECTION_PORT:-9901}:5000` instead of binding only to `127.0.0.1`. This permits LAN/network access subject to firewall and routing.
 - `docs/cloakbrowser/README.md` and `OPERATIONS.md`: update host exposure and security guidance.
 - No browser/session logic changed. Docker runtime and firewall behavior were not tested in this authoring environment.
+
+## 2026-11: Git-managed product extraction rules (first phase)
+
+- Added `/product-extractors/` WebUI to import/edit declarative JSON rules and run read-only extraction tests.
+- Rules reside in Git-tracked `extractor-rules/rules/*.json` and are mounted into Docker, not baked into the image.
+- Restock watches now choose `auto`, `rule` or `builtin`; custom rule output wins over generic metadata.
+- Rule SHA-256 participates in restock reprocessing; changes to rules do not themselves trigger a price-change notification.
+- Fixed Watch notification test display and aligned inherited test URLs with normal notification fallback.
+- No previous watch data migrations are supplied; this repository is in development with test data.

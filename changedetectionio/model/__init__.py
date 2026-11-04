@@ -225,6 +225,7 @@ class watch_base(dict):
             'page_title': None, # <title> from the page
             'paused': False,
             'previous_md5': False,
+            'product_rule_signature': None,
             'processor': 'text_json_diff',  # could be restock_diff or others from .processors
             'price_change_threshold_percent': None,
             'proxy': None,  # Preferred proxy connection

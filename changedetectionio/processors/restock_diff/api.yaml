@@ -13,6 +13,14 @@ components:
             - `in_stock_only`: Only trigger on Out Of Stock -> In Stock transitions
             - `all_changes`: Trigger on any availability change
             - `off`: Disable stock/availability tracking
+        extraction_mode:
+          type: string
+          enum: [auto, rule, builtin]
+          default: auto
+          description: 'Automatic Git-tracked product rules, selected rule only, or built-in metadata extraction'
+        extraction_rule_id:
+          type: string
+          description: 'ID of the rule file in extractor-rules/rules (required in rule mode)'
         follow_price_changes:
           type: boolean
           default: true

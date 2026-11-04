@@ -72,6 +72,14 @@
         </a>
     </li>
     <li class="action-sidebar-li">
+        <a href="{{ url_for('product_extractors.index') }}"
+           class="action-sidebar-item {% if ep.startswith('product_extractors.') %}active{% endif %}"
+           title="{{ _('Product Extractors') }}">
+            <i data-feather="package-search" class="action-icon"></i>
+            <span class="action-label">{{ _('Product Extractors') }}</span>
+        </a>
+    </li>
+    <li class="action-sidebar-li">
         <a href="{{ url_for('manual_browser.index') }}"
            class="action-sidebar-item {% if ep.startswith('manual_browser.') %}active{% endif %}"
            title="{{ _('Open shared CloakBrowser manual control') }}">

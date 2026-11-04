@@ -500,8 +500,8 @@ def process_notification(n_object: NotificationContextData, datastore):
                 # False is not an option for AppRise, must be type None
                 attach=n_object.get('screenshot', None)
             )
-            if delivered is False and n_object.get('verification_event_type'):
-                raise RuntimeError('Apprise reported failed browser-verification delivery')
+            if delivered is False and (n_object.get('verification_event_type') or n_object.get('test_notification')):
+                raise RuntimeError('Apprise reported a failed notification delivery')
 
         # Returns empty string if nothing found, multi-line string otherwise
         log_value = logs.getvalue()

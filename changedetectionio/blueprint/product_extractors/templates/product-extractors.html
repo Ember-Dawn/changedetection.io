@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="box" style="max-width:1100px;margin:auto;padding:18px">
+  <h2>Product Extractors</h2>
+  <p>Import or edit Git-tracked JSON product extraction rules. Test does not save Watch history or send alerts.</p>
+  <p><a href="{{ url_for('watchlist.index') }}">Back to Watches</a></p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <select id="product-rule-list" class="pure-input"><option value="">New rule / import JSON</option>{% for rule in rules %}<option value="{{ rule.id }}">{{ rule.name }} — {{ rule.id }}{% if not rule.enabled %} (disabled){% endif %}</option>{% endfor %}</select>
+    <input type="file" id="product-rule-import" accept=".json,application/json" aria-label="Import JSON rule">
+    <button class="pure-button" type="button" id="product-rule-save">Validate and save</button>
+  </div>
+  <label for="product-rule-json"><strong>Rule JSON</strong></label>
+  <textarea id="product-rule-json" rows="18" spellcheck="false" style="width:100%;box-sizing:border-box;font-family:monospace"></textarea>
+  <h3>Dry Run (no alerts, no history writes)</h3>
+  <label for="product-rule-backend">Browser for live fetch (use Shared CloakBrowser to reuse login cookies)</label>
+  <select id="product-rule-backend" class="pure-input" style="max-width:100%">
+    {% for backend, label in browser_choices %}<option value="{{ backend }}" {% if backend == default_backend %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <input id="product-rule-url" type="url" placeholder="https://example.com/product/123" style="flex:1;min-width:240px">
+    <button class="pure-button pure-button-primary" type="button" id="product-rule-test">Fetch and test</button>
+  </div>
+  <details><summary>Or test against pasted HTML (no network request)</summary>
+    <textarea id="product-rule-html" rows="5" placeholder="Paste page HTML here. Leave empty to fetch the URL." style="width:100%;box-sizing:border-box"></textarea>
+  </details>
+  <pre id="product-rule-result" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:500px;overflow:auto"></pre>
+</div>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const csrf = '{{ csrf_token() }}';
+  const base = '{{ url_for("product_extractors.index") }}';
+  const output = value => $('product-rule-result').textContent = typeof value === 'string' ? value : JSON.stringify(value,null,2);
+  const read = () => JSON.parse($('product-rule-json').value);
+  async function request(url,data) {
+    const res = await fetch(url,{method:data?'POST':'GET',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrf},body:data?JSON.stringify(data):undefined});
+    const value=await res.json();if (!res.ok) throw new Error(value.error || `HTTP ${res.status}`);return value;
+  }
+  $('product-rule-list').addEventListener('change',async () => {
+    const id=$('product-rule-list').value;if(!id)return;
+    try { $('product-rule-json').value=JSON.stringify(await request(base+'api/'+encodeURIComponent(id)),null,2);output('Loaded '+id); }
+    catch(e){output(e.message)}
+  });
+  $('product-rule-import').addEventListener('change',async e => {
+    const file=e.target.files[0];if(!file)return;
+    if(file.size>131072){output('JSON rule is too large');return;}
+    $('product-rule-json').value=await file.text();output('Imported locally. Test before saving.');
+  });
+  $('product-rule-save').addEventListener('click',async () => {
+    try {const response=await request(base+'api/save',read());
+      const listing=await request(base+'api/list');const list=$('product-rule-list');
+      list.replaceChildren(new Option('New rule / import JSON',''));
+      listing.rules.forEach(r => list.add(new Option(r.name+' — '+r.id+(r.enabled?'':' (disabled)'),r.id)));
+      list.value=response.rule.id;
+      output('Saved '+response.rule.id+' to mounted Git-tracked rules directory');}
+    catch(e){output('Save failed: '+e.message)}
+  });
+  $('product-rule-test').addEventListener('click',async () => {
+    try {let payload={rule:read(),url:$('product-rule-url').value.trim(),fetch_backend:$('product-rule-backend').value};const html=$('product-rule-html').value;if(html)payload.html=html;
+      output('Extracting...');output(await request(base+'api/test',payload));
+    }catch(e){output('Test failed: '+e.message)}
+  });
+})();
+</script>
+{% endblock %}

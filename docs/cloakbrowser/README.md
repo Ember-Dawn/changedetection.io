@@ -52,3 +52,7 @@ One shared Context deliberately shares site state; per-watch incompatible proxy/
 ### Round 2: frontend consolidation (2026-11-03)
 
 Manual browser frontend was split into focused local JS modules and CSS. This is a maintainability / connection-state change only: underlying CloakBrowser, manual HTTP API, JPEG polling transport, watch scheduling, shared Profile and notification logic are unchanged. See [MANUAL_BROWSER.md](MANUAL_BROWSER.md) for file ownership and `node --test` checks. Real browser and Docker verification are still required on the deployment host.
+
+## Git-tracked product extraction rules
+
+The custom `Product Extractors` sidebar manages declarative JSON rules in the Docker bind mount `./extractor-rules:/extractor-rules`. Use `/product-extractors/` for JSON import/edit and dry-run; a Restock Watch can select `auto`, `rule` or `builtin`. Rule changes are detected by signature and reprocessed even when HTML is unchanged. See `extractor-rules/README.md`.

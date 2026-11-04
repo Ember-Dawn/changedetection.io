@@ -423,6 +423,29 @@ class perform_site_check(difference_detection_processor):
             f"last='{self.last_raw_content_checksum}' current='{current_raw_document_checksum}' "
             f"changed={raw_changed} (was_edited={watch.was_edited}, force_reprocess={force_reprocess})"
         )
+        # Resolve the rule before checksum fast-path so rule edits take effect
+        # even when the server returns identical HTML.
+        from changedetectionio.product_extraction import choose, signature, evaluate, RuleError
+        _extra_config = self.get_extra_watch_config('restock_diff.json')
+        restock_settings = _extra_config.get('restock_diff') or {
+            'follow_price_changes': True, 'in_stock_processing': 'in_stock_only',
+            'extraction_mode': 'auto', 'extraction_rule_id': '',
+        }
+        for tag_uuid in watch.get('tags', []):
+            tag = self.datastore.data['settings']['application']['tags'].get(tag_uuid, {})
+            if tag.get('overrides_watch'):
+                restock_settings = tag.get('processor_config_restock_diff') or restock_settings
+                break
+        selected_mode = restock_settings.get('extraction_mode') or 'auto'
+        selected_id = restock_settings.get('extraction_rule_id') or ''
+        try:
+            active_rule = choose(watch.get('url'), selected_mode, selected_id)
+        except RuleError as exc:
+            raise ProcessorException(message=f'Product rule configuration: {exc}',
+                url=watch.get('url'), status_code=self.fetcher.get_last_status_code(),
+                screenshot=self.fetcher.screenshot, xpath_data=self.fetcher.xpath_data) from exc
+        active_signature = signature(active_rule)
+        rule_changed = active_signature != watch.get('product_rule_signature')
         # Skip processing only if BOTH conditions are true:
         # 1. HTML content unchanged (checksum matches last saved checksum)
         # 2. Watch configuration was not edited (including trigger_text, filters, etc.)
@@ -430,13 +453,15 @@ class perform_site_check(difference_detection_processor):
         # separate checks for trigger_text or other processing rules.
         if (not force_reprocess and
             not watch.was_edited and
+            not rule_changed and
             self.last_raw_content_checksum and
             not raw_changed):
             logger.debug(f"{watch.get('uuid')} restock - raw document unchanged since last fetch, skipping reprocessing")
             raise checksumFromPreviousCheckWasTheSame()
 
         # Unset any existing notification error
-        update_obj = {'last_notification_error': False, 'last_error': False, 'restock':  Restock()}
+        update_obj = {'last_notification_error': False, 'last_error': False,
+                      'restock': Restock(), 'product_rule_signature': active_signature}
 
         self.screenshot = self.fetcher.screenshot
         self.xpath_data = self.fetcher.xpath_data
@@ -445,8 +470,8 @@ class perform_site_check(difference_detection_processor):
         update_obj['content-type'] = self.fetcher.headers.get('Content-Type', '')  # Use hyphen (matches OpenAPI spec)
         update_obj["last_check_status"] = self.fetcher.get_last_status_code()
 
-        # Save the raw content checksum to file (processor implementation detail, not watch config)
-        self.update_last_raw_content_checksum(current_raw_document_checksum)
+        # Commit the raw checksum only after successful extraction below. A bad
+        # selector must not make an unchanged HTML body skip all subsequent retries.
 
         # Only try to process restock information (like scraping for keywords) if the page was actually rendered correctly.
         # Otherwise it will assume "in stock" because nothing suggesting the opposite was found
@@ -463,30 +488,37 @@ class perform_site_check(difference_detection_processor):
 #                                            xpath_data=self.fetcher.xpath_data
 #                                            )
 
-        # Which restock settings to compare against?
-        # Settings are stored in restock_diff.json (migrated from watch.json by update_30).
-        _extra_config = self.get_extra_watch_config('restock_diff.json')
-        restock_settings = _extra_config.get('restock_diff') or {
-            'follow_price_changes': True,
-            'in_stock_processing': 'in_stock_only',
-        }
-
-        # See if any tags have 'activate for individual watches in this tag/group?' enabled and use the first we find
-        for tag_uuid in watch.get('tags'):
-            tag = self.datastore.data['settings']['application']['tags'].get(tag_uuid, {})
-            if tag.get('overrides_watch'):
-                restock_settings = tag.get('processor_config_restock_diff') or {}
-                logger.info(f"Watch {watch.get('uuid')} - Tag '{tag.get('title')}' selected for restock settings override")
-                break
+        # Restock settings and extraction strategy were resolved above, before the
+        # unchanged-HTML shortcut; no duplicate settings traversal here.
 
 
         itemprop_availability = {}
         multiple_prices_found = False
 
+        # Watch-selected rules have precedence over site metadata, which can
+        # include installment prices or global availability rather than local stock.
+        if active_rule is not None:
+            try:
+                product = evaluate(active_rule, self.fetcher.content)
+                itemprop_availability = {
+                    'price': float(product.price) if product.price is not None else None,
+                    'currency': product.currency,
+                    'in_stock': product.in_stock,
+                    'stock_quantity': product.stock_quantity,
+                    'title': product.title,
+                    'sku': product.sku,
+                    'rule_id': product.rule_id,
+                }
+            except RuleError as exc:
+                raise ProcessorException(message=f'Product extraction rule failed: {exc}',
+                    url=watch.get('url'), status_code=self.fetcher.get_last_status_code(),
+                    screenshot=self.fetcher.screenshot, xpath_data=self.fetcher.xpath_data) from exc
+
         # Try built-in extraction first, this will scan metadata in the HTML
         # On Linux, this runs in a subprocess to prevent lxml/extruct memory leaks
         try:
-            itemprop_availability = extract_itemprop_availability_safe(self.fetcher.content)
+            if active_rule is None:
+                itemprop_availability = extract_itemprop_availability_safe(self.fetcher.content)
         except MoreThanOnePriceFound as e:
             # Don't raise immediately - let plugins try to handle this case
             # Plugins might be able to determine which price is correct
@@ -499,7 +531,7 @@ class perform_site_check(difference_detection_processor):
         has_price = itemprop_availability.get('price') is not None
         has_availability = itemprop_availability.get('availability') is not None
 
-        if not (has_price and has_availability):
+        if active_rule is None and not (has_price and has_availability):
             from changedetectionio.pluggy_interface import get_itemprop_availability_from_plugin
             # The concrete backend was already resolved when the fetcher was set up
             # (see resolve_content_fetcher) and stamped onto the fetcher instance.
@@ -550,7 +582,8 @@ class perform_site_check(difference_detection_processor):
             )
 
         # Something valid in get_itemprop_availability() by scraping metadata ?
-        if itemprop_availability.get('price') or itemprop_availability.get('availability'):
+        if (active_rule is not None or itemprop_availability.get('price') is not None
+                or itemprop_availability.get('availability') is not None):
             # Store for other usage. Wrap in Restock() so it's ALWAYS a Restock, never a plain
             # dict: the built-in extruct path returns a Restock, but plugin fallbacks (e.g. the
             # LLM restock scraper) return a plain dict. A plain dict here later blows up callers
@@ -558,7 +591,10 @@ class perform_site_check(difference_detection_processor):
             # watchlist (AttributeError -> 500 on the list page).
             update_obj['restock'] = Restock(itemprop_availability)
 
-            if itemprop_availability.get('availability'):
+            if active_rule is not None:
+                # Explicit tri-state value is authoritative, including `None`.
+                update_obj['restock']['in_stock'] = itemprop_availability.get('in_stock')
+            elif itemprop_availability.get('availability'):
                 # @todo: Configurable?
                 if any(substring.lower() in itemprop_availability['availability'].lower() for substring in [
                     'instock',
@@ -588,7 +624,7 @@ class perform_site_check(difference_detection_processor):
         else:
             update_obj['restock']['last_price'] = old_restock.get('last_price')  # unchanged: keep the existing reference
 
-        if not self.fetcher.instock_data and not itemprop_availability.get('availability') and not itemprop_availability.get('price'):
+        if active_rule is None and not self.fetcher.instock_data and not itemprop_availability.get('availability') and itemprop_availability.get('price') is None:
             # Availability/restock checking may be turned off ('in_stock_processing' == 'off'),
             # but there's still nothing here to track at all - that's always worth raising on.
             # Just don't blame "restock"/stock data for it when the user turned stock checking
@@ -607,14 +643,14 @@ class perform_site_check(difference_detection_processor):
 
         logger.debug(f"self.fetcher.instock_data is - '{self.fetcher.instock_data}' and itemprop_availability.get('availability') is {itemprop_availability.get('availability')}")
         # Nothing automatic in microdata found, revert to scraping the page
-        if self.fetcher.instock_data and itemprop_availability.get('availability') is None:
+        if active_rule is None and self.fetcher.instock_data and itemprop_availability.get('availability') is None:
             # 'Possibly in stock' comes from stock-not-in-stock.js when no string found above the fold.
             # Careful! this does not really come from chrome/js when the watch is set to plaintext
             update_obj['restock']["in_stock"] = True if self.fetcher.instock_data == 'Possibly in stock' else False
             logger.debug(f"Watch UUID {watch.get('uuid')} restock check returned instock_data - '{self.fetcher.instock_data}' from JS scraper.")
 
         # Very often websites will lie about the 'availability' in the metadata, so if the scraped version says its NOT in stock, use that.
-        if self.fetcher.instock_data and self.fetcher.instock_data != 'Possibly in stock':
+        if active_rule is None and self.fetcher.instock_data and self.fetcher.instock_data != 'Possibly in stock':
             if update_obj['restock'].get('in_stock'):
                 logger.warning(
                     f"Lie detected in the availability machine data!! when scraping said its not in stock!! itemprop was '{itemprop_availability}' and scraped from browser was '{self.fetcher.instock_data}' update obj was {update_obj['restock']} ")
@@ -622,7 +658,7 @@ class perform_site_check(difference_detection_processor):
                 update_obj['restock']["in_stock"] = False
 
         # What we store in the snapshot
-        price = update_obj.get('restock').get('price') if update_obj.get('restock').get('price') else ""
+        price = update_obj.get('restock').get('price') if update_obj.get('restock').get('price') is not None else ""
         snapshot_content = f"In Stock: {update_obj.get('restock').get('in_stock')} - Price: {price}"
 
         # Main detection method
@@ -633,7 +669,8 @@ class perform_site_check(difference_detection_processor):
         logger.debug(f"Watch UUID {watch.get('uuid')} restock check - Previous MD5: {watch.get('previous_md5')}, Fetched MD5 {fetched_md5}")
 
         # out of stock -> back in stock only?
-        if watch.get('restock') and watch['restock'].get('in_stock') != update_obj['restock'].get('in_stock'):
+        if (watch.get('restock') and update_obj['restock'].get('in_stock') is not None
+                and watch['restock'].get('in_stock') != update_obj['restock'].get('in_stock')):
             # Yes if we only care about it going to instock, AND we are in stock
             if restock_settings.get('in_stock_processing') == 'in_stock_only' and update_obj['restock']['in_stock']:
                 changed_detected = True
@@ -642,12 +679,12 @@ class perform_site_check(difference_detection_processor):
                 # All cases
                 changed_detected = True
 
-        if restock_settings.get('follow_price_changes') and watch.get('restock') and update_obj.get('restock') and update_obj['restock'].get('price'):
+        if restock_settings.get('follow_price_changes') and watch.get('restock') and update_obj.get('restock') and update_obj['restock'].get('price') is not None:
             price = float(update_obj['restock'].get('price'))
             # Compare against the previous check's price (the value 'price' held before this check).
             # That old stored 'price' is the correct reference point - last_price now mirrors it for
             # display, but reading 'price' directly avoids any off-by-one from last_price's own update.
-            if watch['restock'].get('price'):
+            if watch['restock'].get('price') is not None:
                 previous_price = float(watch['restock'].get('price'))
                 logger.debug(
                     f"{watch.get('uuid')} Comparing NEW price '{price}' against previous check's price '{previous_price}' -> "
@@ -657,16 +694,16 @@ class perform_site_check(difference_detection_processor):
                     changed_detected = True
 
             # Minimum/maximum price limit
-            if update_obj.get('restock') and update_obj['restock'].get('price'):
+            if update_obj.get('restock') and update_obj['restock'].get('price') is not None:
                 logger.debug(
                     f"{watch.get('uuid')} - Change was detected, 'price_change_max' is '{restock_settings.get('price_change_max', '')}' 'price_change_min' is '{restock_settings.get('price_change_min', '')}', price from website is '{update_obj['restock'].get('price', '')}'.")
-                if update_obj['restock'].get('price'):
+                if update_obj['restock'].get('price') is not None:
                     min_limit = float(restock_settings.get('price_change_min')) if restock_settings.get('price_change_min') else None
                     max_limit = float(restock_settings.get('price_change_max')) if restock_settings.get('price_change_max') else None
 
                     price = float(update_obj['restock'].get('price'))
                     logger.debug(f"{watch.get('uuid')} after float conversion - Min limit: '{min_limit}' Max limit: '{max_limit}' Price: '{price}'")
-                    if min_limit or max_limit:
+                    if min_limit is not None or max_limit is not None:
                         if is_between(number=price, lower=min_limit, upper=max_limit):
                             # Price was between min/max limit, so there was nothing todo in any case
                             logger.trace(f"{watch.get('uuid')} {price} is between {min_limit} and {max_limit}, nothing to check, forcing changed_detected = False (was {changed_detected})")
@@ -675,7 +712,7 @@ class perform_site_check(difference_detection_processor):
                             logger.trace(f"{watch.get('uuid')} {price} is between {min_limit} and {max_limit}, continuing normal comparison")
 
                     # Price comparison by % - against the previous check's price
-                    if watch['restock'].get('price') and changed_detected and restock_settings.get('price_change_threshold_percent'):
+                    if watch['restock'].get('price') not in (None, 0) and changed_detected and restock_settings.get('price_change_threshold_percent'):
                         previous_price = float(watch['restock'].get('price'))
                         pc = float(restock_settings.get('price_change_threshold_percent'))
                         change = abs((price - previous_price) / previous_price * 100)
@@ -688,7 +725,11 @@ class perform_site_check(difference_detection_processor):
                         else:
                             logger.debug(f"{watch.get('uuid')} Price change was {change:.3f}% , (threshold {pc}%)")
 
+        # A rule change is a new extraction baseline, not a product price event.
+        if rule_changed and watch.get('product_rule_signature'):
+            changed_detected = False
         # Always record the new checksum
         update_obj["previous_md5"] = fetched_md5
+        self.update_last_raw_content_checksum(current_raw_document_checksum)
 
         return changed_detected, update_obj, snapshot_content.strip()

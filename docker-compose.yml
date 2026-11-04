@@ -26,3 +26,5 @@ services:
       - ./cloakbrowser-home:/root/.cloakbrowser
       # Persistent cookies, localStorage, IndexedDB, history and fingerprint seed.
       - ./browser-profile:/browser-profile
+      # Git-tracked declarative product extraction rules (editable in WebUI).
+      - ./extractor-rules:/extractor-rules

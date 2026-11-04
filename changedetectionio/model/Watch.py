@@ -411,6 +411,7 @@ class model(EntityPersistenceMixin, watch_base):
             'last_notification_error': False,
             'last_viewed': 0,
             'previous_md5': False,
+            'product_rule_signature': None,
             'remote_server_reply': None,
             'track_ldjson_price_data': None
         })

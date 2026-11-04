@@ -1,9 +1,10 @@
 from wtforms import (
     BooleanField,
     validators,
-    FloatField
+    FloatField,
+    StringField
 )
-from wtforms.fields.choices import RadioField
+from wtforms.fields.choices import RadioField, SelectField
 from wtforms.fields.form import FormField
 from wtforms.form import Form
 from flask_babel import lazy_gettext as _l
@@ -30,8 +31,26 @@ class RestockSettingsForm(Form):
 
     follow_price_changes = BooleanField(_l('Follow price changes'), default=True)
 
+    extraction_mode = RadioField(_l('Product extraction mode'), choices=[
+        ('auto', _l('Auto: matching custom rule, otherwise built-in')),
+        ('rule', _l('Selected rule only (error on failure)')),
+        ('builtin', _l('Built-in metadata and plugins only')),
+    ], default='auto')
+    extraction_rule_id = SelectField(_l('Selected rule (when using rule-only mode)'),
+        choices=[('', _l('Select rule'))], validate_choice=False)
+
 class processor_settings_form(processor_text_json_diff_form):
     processor_config_restock_diff = FormField(RestockSettingsForm)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from changedetectionio.product_extraction import list_rules
+        try:
+            self.processor_config_restock_diff.form.extraction_rule_id.choices = (
+                [('', _l('Select rule'))] + [(r['id'], r['name']) for r in list_rules()]
+            )
+        except OSError:
+            pass
 
     def extra_tab_content(self):
         return _l('Restock & Price Detection')
@@ -55,6 +74,13 @@ class processor_settings_form(processor_text_json_diff_form):
         </script>
 
         <fieldset id="restock-fieldset-price-group">
+            <fieldset class="pure-group">
+                {{ render_field(form.processor_config_restock_diff.extraction_mode) }}
+                {{ render_field(form.processor_config_restock_diff.extraction_rule_id) }}
+                <span class="pure-form-message-inline">Manage, import and dry-run rules in
+                  <a href="/product-extractors/" target="_blank" rel="noopener">Product Extractors</a>.
+                  Reload this editor after importing a new rule to refresh the dropdown.</span>
+            </fieldset>
             <div class="pure-control-group">
                 <fieldset class="pure-group inline-radio">
                     {{ render_field(form.processor_config_restock_diff.in_stock_processing) }}

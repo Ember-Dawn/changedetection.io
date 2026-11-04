@@ -40,22 +40,35 @@ def construct_blueprint(datastore: ChangeDetectionStore):
         watch = datastore.data['watching'].get(watch_uuid)
         notification_urls = request.form.get('notification_urls','').strip().splitlines()
 
-        if not notification_urls:
-            logger.debug("Test notification - Trying by group/tag in the edit form if available")
-            # On an edit page, we should also fire off to the tags if they have notifications
-            if request.form.get('tags') and request.form['tags'].strip():
-                for k in request.form['tags'].split(','):
-                    tag = datastore.tag_exists_by_name(k.strip())
-                    notification_urls = tag.get('notifications_urls') if tag and tag.get('notifications_urls') else None
+        if not (is_global_settings_form or is_group_settings_form) and watch.get('notification_muted'):
+            return make_response('This Watch is muted. Unmute and save before testing.',400)
 
+        # Current, unsaved form values are authoritative. A deliberately empty
+        # Watch URL field means "inherit Group/Global", NOT "reuse its saved
+        # Watch URLs". Group form tests only send to the field being edited.
         if not notification_urls and not is_global_settings_form and not is_group_settings_form:
-            # In the global settings, use only what is typed currently in the text box
-            logger.debug("Test notification - Trying by global system settings notifications")
-            if datastore.data['settings']['application'].get('notification_urls'):
-                notification_urls = datastore.data['settings']['application']['notification_urls']
+            group_tags=[]
+            submitted_tags=(request.form.get('tags') or '').strip()
+            if submitted_tags:
+                for name in submitted_tags.split(','):
+                    tag=datastore.tag_exists_by_name(name.strip())
+                    if tag:group_tags.append(tag)
+            else:
+                for tag_uuid in watch.get('tags',[]) or []:
+                    tag=datastore.data['settings']['application'].get('tags',{}).get(tag_uuid)
+                    if tag:group_tags.append(tag)
+            for tag in group_tags:
+                if not tag.get('notification_muted') and tag.get('notification_urls'):
+                    notification_urls=tag['notification_urls']
+                    break
+            if not notification_urls:
+                notification_urls=datastore.data['settings']['application'].get('notification_urls') or []
+
+        if isinstance(notification_urls,str):
+            notification_urls=[v.strip() for v in notification_urls.splitlines() if v.strip()]
 
         if not notification_urls:
-            return 'Error: No Notification URLs set/found'
+            return make_response('No notification destination configured for this Watch, group or global settings.',400)
 
         for n_url in notification_urls:
             # We are ONLY validating the apprise:// part here, convert all tags to something so as not to break apprise URLs
@@ -64,7 +77,7 @@ def construct_blueprint(datastore: ChangeDetectionStore):
             n_url = jinja_render(template_str=n_url, **generic_notification_context_data).strip()
             if len(n_url.strip()):
                 if not apobj.add(n_url):
-                    return f'Error:  {n_url} is not a valid AppRise URL.'
+                    return make_response('Error: A notification destination is invalid.',400)
 
         try:
             # use the same as when it is triggered, but then override it with the form test values
@@ -72,7 +85,8 @@ def construct_blueprint(datastore: ChangeDetectionStore):
                 'watch_url': request.form.get('window_url', "https://changedetection.io"),
                 # Falls back to watch_url when the watch has no 'Link to Open' set
                 'watch_open_url': watch.open_link_override or request.form.get('window_url', "https://changedetection.io"),
-                'notification_urls': notification_urls
+                'notification_urls': notification_urls,
+                'test_notification': True
             })
 
             # Only use if present, if not set in n_object it should use the default system value
@@ -120,14 +134,15 @@ def construct_blueprint(datastore: ChangeDetectionStore):
             sent_obj = process_notification(n_object, datastore)
 
         except Exception as e:
-            logger.error(e)
+            logger.warning('Test notification encountered {}',type(e).__name__)
             e_str = str(e)
             # Remove this text which is not important and floods the container
             e_str = e_str.replace(
                 "DEBUG - <class 'apprise.decorators.base.CustomNotifyPlugin.instantiate_plugin.<locals>.CustomNotifyPluginWrapper'>",
                 '')
 
-            return make_response(e_str, 400)
+            logger.warning('Notification test failed: {}',type(e).__name__)
+            return make_response('Notification test failed; inspect Notification debug logs.', 400)
 
         return 'OK - Sent test notifications'
 
