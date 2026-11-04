@@ -7,7 +7,11 @@
     const wrap = document.getElementById('manual-frame-wrap');
     let timer = null, observer = null, generation = 0, applied = '';
     let pending = false, resizeAgain = false;
-    let width = 1366, height = 768;
+    const fixedViewport = (window.manualBrowserConfig && window.manualBrowserConfig.fixedViewport) || {width:1366,height:900};
+    const fixedWidth = Number(fixedViewport.width) || 1366;
+    const fixedHeight = Number(fixedViewport.height) || 900;
+    let width = fixedWidth, height = fixedHeight;
+    if (typeof root.style.setProperty === 'function') root.style.setProperty('--manual-fixed-ratio', `${fixedWidth} / ${fixedHeight}`);
     const preference = 'changedetection.manual-viewport-mode';
     let mode = 'fixed';
     try { mode = localStorage.getItem(preference) === 'window' ? 'window' : 'fixed'; }
@@ -20,6 +24,7 @@
       try { localStorage.setItem(preference,mode); } catch (_) { /* optional */ }
       applied = '';
       generation++;
+      root.classList.toggle('manual-fixed-mode', mode === 'fixed');
       if (hooks.changing) hooks.changing();
       if (core.active()) schedule();
       if (hooks.modeChanged) hooks.modeChanged(mode);
@@ -30,10 +35,16 @@
       // A flex child may occupy all height below changedetection's top navigation.
       const top = Math.max(0, root.getBoundingClientRect().top);
       const space = Math.max(420, Math.floor(window.innerHeight - top - 12));
-      root.style.height = `${space}px`;
+      if (mode === 'fixed') {
+        // CSS aspect-ratio determines height from actual screenshot width.
+        // Do not force a window-height canvas around a fixed-ratio image.
+        root.style.height = 'auto';
+      } else {
+        root.style.height = `${space}px`;
+      }
     }
     function desiredSize() {
-      if (mode === 'fixed') return {width:1366,height:768,key:'1366x768'};
+      if (mode === 'fixed') return {width:fixedWidth,height:fixedHeight,key:`${fixedWidth}x${fixedHeight}`};
       const bounds = wrap.getBoundingClientRect();
       const w = Math.min(2560, Math.max(320, Math.round(bounds.width - 2)));
       const h = Math.min(1800, Math.max(240, Math.round(bounds.height - 2)));
@@ -62,7 +73,7 @@
     }
     function schedule() {
       measureRoot();
-      if (mode === 'fixed' && applied === '1366x768') return;
+      if (mode === 'fixed' && applied === `${fixedWidth}x${fixedHeight}`) return;
       if (core.active() && desiredSize().key !== applied && hooks.changing) hooks.changing();
       clearTimeout(timer);
       timer = setTimeout(sync, 180);
@@ -70,6 +81,7 @@
     function start() { generation++; applied = ''; measureRoot(); return sync(); }
     function reset() { generation++; clearTimeout(timer); applied = ''; resizeAgain = false; }
     function init() {
+      root.classList.toggle('manual-fixed-mode', mode === 'fixed');
       measureRoot();
       window.addEventListener('resize', schedule);
       if (typeof ResizeObserver !== 'undefined') {

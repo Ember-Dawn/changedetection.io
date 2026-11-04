@@ -26,6 +26,9 @@
   const screenshotLink = $('product-rule-image-link');
   const editorToggle = $('product-rule-editor-toggle');
   let rawResult = '';
+  let resultData = null;
+  let rulesIndex = [];
+  const revisions = new Map();
   const fields = [
     ['price','Price'], ['currency','Currency'], ['in_stock','In stock'],
     ['pickup','Pickup'], ['shipping','Shipping'], ['stock_quantity','Quantity'],
@@ -40,6 +43,9 @@
     screenshot.removeAttribute('src');
     screenshotLink.removeAttribute('href');
     rawResult = '';
+    resultData = null;
+    $('product-rule-copy-summary').disabled = true;
+    $('product-rule-copy-json').disabled = true;
   }
   function showPreview(data) {
     clearPreview();
@@ -92,6 +98,11 @@
       rawResult = typeof publicResult === 'string' ? publicResult : JSON.stringify(publicResult, null, 2);
       outputEl.textContent = rawResult;
       showPreview(details);
+      // showPreview clears stale previous data; publish the new copies afterwards.
+      resultData = publicResult && typeof publicResult === 'object' ? publicResult.result : null;
+      $('product-rule-copy-summary').disabled = !resultData;
+      $('product-rule-copy-json').disabled = false;
+      rawResult = typeof publicResult === 'string' ? publicResult : JSON.stringify(publicResult, null, 2);
       outputEl.hidden = false;
       copyButton.disabled = false;
     }
@@ -113,7 +124,8 @@
   }
   function lock(isBusy) {
     pending = isBusy;
-    for (const element of [selector, saveButton, testButton, $('product-rule-new'), $('product-rule-import-trigger')]) element.disabled = isBusy;
+    for (const element of [selector, saveButton, testButton, $('product-rule-new'), $('product-rule-import-trigger'), $('product-rule-duplicate'), $('product-rule-delete')]) element.disabled = isBusy;
+    if (!isBusy) $('product-rule-delete').disabled = !selector.dataset.currentId;
   }
   async function request(path, data) {
     const response = await fetch(base + path, {
@@ -134,12 +146,20 @@
     catch (err) { throw new Error(`Invalid JSON: ${err.message}`); }
   }
   function labelFor(rule) { return `${rule.name} — ${rule.id}${rule.enabled ? '' : ' (disabled)'}`; }
+  function setSelected(value) {
+    selector.value = value;
+    if (window.CDSelect) window.CDSelect.sync(selector);
+  }
   async function refreshRules(selectedId) {
     const listing = await request('api/list');
+    rulesIndex = listing.rules || [];
+    revisions.clear();
+    for (const rule of rulesIndex) revisions.set(rule.id, rule.revision);
     selector.replaceChildren(new Option('New rule / import JSON', ''));
     for (const rule of listing.rules || []) selector.add(new Option(labelFor(rule), rule.id));
-    selector.value = selectedId || '';
+    setSelected(selectedId || '');
     countEl.textContent = `${(listing.rules || []).length} saved`;
+    $('product-rule-delete').disabled = !selector.value;
   }
 
   editor.addEventListener('input', updateDirty);
@@ -150,7 +170,9 @@
   });
   $('product-rule-new').addEventListener('click', () => {
     if (pending || !confirmOverwrite()) return;
-    selector.value = '';
+    setSelected('');
+    selector.dataset.currentId = '';
+    $('product-rule-delete').disabled = true;
     fileInput.value = '';
     filenameEl.textContent = 'New unsaved rule';
     editText('', {saved: true});
@@ -161,15 +183,16 @@
     if (pending) return;
     const id = selector.value;
     if (!id) {
-      if (!confirmOverwrite()) { selector.value = selector.dataset.currentId || ''; return; }
+      if (!confirmOverwrite()) { setSelected(selector.dataset.currentId || ''); return; }
       selector.dataset.currentId = '';
+      $('product-rule-delete').disabled = true;
       fileInput.value = '';
       filenameEl.textContent = 'No file selected';
       editText('', {saved: true});
       message('Ready for a new rule.');
       return;
     }
-    if (!confirmOverwrite()) { selector.value = selector.dataset.currentId || ''; return; }
+    if (!confirmOverwrite()) { setSelected(selector.dataset.currentId || ''); return; }
     const expectedGeneration = documentGeneration;
     lock(true);
     message(`Loading ${id}…`, 'busy');
@@ -180,9 +203,10 @@
       editText(text, {saved: true});
       filenameEl.textContent = `Loaded rule: ${id}`;
       selector.dataset.currentId = id;
+      $('product-rule-delete').disabled = false;
       message(`Loaded ${id}.`, 'success');
     } catch (err) {
-      selector.value = selector.dataset.currentId || '';
+      setSelected(selector.dataset.currentId || '');
       message(`Load failed: ${err.message}`, 'error');
     } finally { lock(false); }
   });
@@ -199,24 +223,41 @@
       const text = await file.text();
       if (expectedGeneration !== documentGeneration) return;
       JSON.parse(text); // Give immediate feedback for invalid imported JSON.
-      selector.value = '';
+      setSelected('');
       selector.dataset.currentId = '';
+      $('product-rule-delete').disabled = true;
       editText(text);
       filenameEl.textContent = `Imported: ${file.name}`;
-      message('Imported locally. Validate and test before saving.', 'success');
+      const imported = JSON.parse(text);
+      const same = rulesIndex.find(r => r.id === imported.id);
+      message(same ? `Rule ID ${imported.id} already exists. Test first; saving changes requires explicit overwrite confirmation.` : 'Imported locally. Validate and test before saving.', 'success');
     } catch (err) { message(`Import failed: ${err.message}`, 'error'); }
     finally { lock(false); fileInput.value = ''; }
   });
+  function overlapWarning(rule) {
+    const domains = (rule.match && rule.match.domains) || [];
+    const other = rulesIndex.filter(item => item.id !== rule.id && item.enabled &&
+      item.domains.some(domain => domains.some(candidate => domain === candidate || domain.endsWith('.'+candidate) || candidate.endsWith('.'+domain))));
+    return other.length ? `\nWarning: overlapping domain rules (${other.map(r => r.id).join(', ')}). Auto-mode Watches may need an explicit rule selection.` : '';
+  }
   saveButton.addEventListener('click', async () => {
     if (pending) return;
     let payload;
     try { payload = read(); } catch (err) { message(err.message, 'error'); return; }
+    const existing = rulesIndex.find(rule => rule.id === payload.id);
+    const currentId = selector.dataset.currentId || '';
+    const isSame = existing && currentId === payload.id && !updateDirty();
+    if (isSame) { message('Identical saved rule; nothing to update.', 'success'); return; }
+    if (existing && !window.confirm(`Rule ID "${payload.id}" already exists. Overwrite its JSON?\nThis affects Watches that use the rule.${overlapWarning(payload)}`)) return;
     const submittedText = editor.value;
     const expectedGeneration = documentGeneration;
     lock(true);
     message('Validating and saving rule…', 'busy');
     try {
-      const response = await request('api/save', payload);
+      const response = await request('api/save', {
+        rule:payload, expected_signature:existing ? revisions.get(payload.id) : null,
+        overwrite:Boolean(existing),
+      });
       await refreshRules(response.rule.id);
       selector.dataset.currentId = response.rule.id;
       filenameEl.textContent = `Saved rule: ${response.rule.id}`;
@@ -224,10 +265,47 @@
         cleanText = submittedText;
         updateDirty();
       }
-      message(`Saved ${response.rule.id} to extractor-rules/rules/.`, 'success');
+      message(`${response.status === 'unchanged' ? 'Unchanged' : response.status === 'updated' ? 'Updated' : 'Created'} ${response.rule.id}.${overlapWarning(response.rule)}`, 'success');
     } catch (err) { message(`Save failed: ${err.message}`, 'error'); }
     finally { lock(false); }
   });
+  $('product-rule-duplicate').addEventListener('click', () => {
+    if (pending) return;
+    let source;
+    try { source = read(); } catch (err) { message(err.message,'error'); return; }
+    const original = String(source.id || 'new-rule').slice(0,48);
+    let id = `${original}-copy`, i = 2;
+    while (rulesIndex.some(r => r.id === id)) id = `${original}-copy${i++}`;
+    source.id = id;
+    source.name = String(source.name || id).slice(0,90) + ' copy';
+    setSelected('');selector.dataset.currentId = '';
+    editText(JSON.stringify(source,null,2));
+    filenameEl.textContent = `Unsaved copy: ${id}`;
+    message('Rule duplicated locally. Save to create the new ID.', 'success');
+    $('product-rule-delete').disabled = true;
+  });
+  $('product-rule-delete').addEventListener('click', async () => {
+    const rid = selector.dataset.currentId;
+    if (pending || !rid || !confirmOverwrite()) return;
+    lock(true);
+    try {
+      const {references} = await request('api/' + encodeURIComponent(rid) + '/references');
+      if (references.length) {
+        const titles = references.slice(0,5).map(w => w.title).join(', ');
+        message(`Cannot delete ${rid}: referenced by ${references.length} Watches (${titles}). Unbind them first.`, 'error');
+        return;
+      }
+      if (!window.confirm(`Delete rule ${rid} from the Git-tracked rules directory? This cannot be undone outside Git.`)) return;
+      await request('api/' + encodeURIComponent(rid) + '/delete', {expected_signature:revisions.get(rid)});
+      await refreshRules('');
+      selector.dataset.currentId = '';
+      editText('',{saved:true});
+      filenameEl.textContent='Rule deleted';
+      message(`Deleted ${rid}. Git will record the deletion.`, 'success');
+    } catch (err) { message(`Delete failed: ${err.message}`, 'error'); }
+    finally { lock(false); }
+  });
+
   testButton.addEventListener('click', async () => {
     if (pending) return;
     let payload;
@@ -256,6 +334,13 @@
       message('Clipboard unavailable; select and copy the results manually.', 'error', text);
     }
   });
+  async function copyText(text) {
+    if (!text) return;
+    try { await navigator.clipboard.writeText(text); statusEl.textContent='Copied to clipboard.'; }
+    catch (_) { statusEl.textContent='Clipboard unavailable; select the JSON and copy manually.'; }
+  }
+  $('product-rule-copy-summary').addEventListener('click', () => copyText(resultData ? JSON.stringify(resultData,null,2) : ''));
+  $('product-rule-copy-json').addEventListener('click', () => copyText(rawResult));
   window.addEventListener('beforeunload', (event) => {
     if (editor.value === cleanText) return;
     event.preventDefault();

@@ -1,0 +1,18 @@
+/* Shared Product Extractors / Browsers dropdown: actual popup rather than a painted native menu. */
+.cd-select{display:block;position:relative;min-width:0;width:100%}
+.cd-select-native{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important;clip-path:inset(100%)!important}
+.cd-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-width:110px;min-height:39px;padding:8px 12px;border-radius:8px;border:1px solid rgba(175,201,240,.28);background:#102343;color:#edf4ff;font-size:13px;font-weight:550;text-align:left;cursor:pointer}
+.cd-select-trigger:hover:not(:disabled){border-color:#70a9ee;background:#1b3156}
+.cd-select-trigger:focus-visible{outline:2px solid #63bdff;outline-offset:2px}
+.cd-select-trigger:disabled{opacity:.55;cursor:not-allowed}
+.cd-select-value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-select-arrow{flex:0 0 16px;width:16px;height:16px;color:#adc9ef;transition:transform .15s}
+.cd-select-trigger[aria-expanded=true] .cd-select-arrow{transform:rotate(180deg)}
+.cd-select-popup{position:fixed;z-index:2147481000;overflow:auto;background:#142749;color:#edf4ff;border:1px solid rgba(175,201,240,.36);border-radius:9px;box-shadow:0 14px 45px rgba(1,9,24,.5);padding:5px;scrollbar-color:#718fbd #142749;scrollbar-width:thin}
+.cd-select-popup[hidden]{display:none!important}
+.cd-select-option{display:block;width:100%;min-height:33px;padding:8px 11px;text-align:left;background:transparent;border:0;border-radius:6px;font:inherit;font-size:13px;color:#e7f0ff;cursor:pointer;white-space:normal;overflow-wrap:anywhere}
+.cd-select-option:hover,.cd-select-option.cd-focused{background:rgba(73,139,219,.28)}
+.cd-select-option[aria-selected=true]{background:rgba(35,137,225,.35);color:white}
+#manual-browser-root .manual-mode-label+.cd-select,#manual-browser-root .manual-viewport-mode+.cd-select{width:auto;flex:0 0 155px}
+#manual-browser-root .cd-select-trigger{min-height:32px;padding:5px 9px;font-size:12px}
+#px-root .px-select-wrap .cd-select{width:100%}

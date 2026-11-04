@@ -15,6 +15,7 @@ from flask_wtf.csrf import validate_csrf, ValidationError
 from loguru import logger
 
 from changedetectionio.validate_url import is_fetch_url_allowed
+from changedetectionio.product_extraction.viewport import desktop_viewport
 
 try:
     from changedetection_cloak_shared.manual_session import ManualSessionError, manual_sessions
@@ -99,7 +100,8 @@ def construct_blueprint(datastore, update_q, queuedWatchMetaData):
             watch_title = watch.label
         # GET renders UI only, it never navigates the server-side browser.
         return render_template('manual-browser.html', initial_url=initial_url,
-                               watch_uuid=watch_uuid, watch_title=watch_title)
+                               watch_uuid=watch_uuid, watch_title=watch_title,
+                               fixed_viewport=desktop_viewport())
 
     @blueprint.route('/api/current', methods=['GET'])
     @_requires_operator

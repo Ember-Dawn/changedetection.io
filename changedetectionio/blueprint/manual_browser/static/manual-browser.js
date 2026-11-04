@@ -71,7 +71,7 @@
     error(text) { message(text); stream.resumeFrames(); },
     changing() { if (core.active()) stream.suspend('正在调整浏览器画面…'); },
     resized() { if (core.active()) stream.resumeFrames(); },
-    modeChanged(mode) { $('manual-viewport-mode').value = mode; },
+    modeChanged(mode) { $('manual-viewport-mode').value = mode; if (window.CDSelect) window.CDSelect.sync($('manual-viewport-mode')); },
   });
   $('manual-viewport-mode').value = layout.currentMode();
   $('manual-viewport-mode').addEventListener('change', event => layout.setMode(event.target.value));

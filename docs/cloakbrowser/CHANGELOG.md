@@ -66,3 +66,10 @@ For future source changes, append a new entry with date (if known), specific pat
 - Added extraction summary, per-field diagnostics, optional same-Page Dry Run screenshot and compact editor styling.
 - Added manual viewport fixed/follow-window preference and explicit 1366×768 for shared Watch pages.
 - Added documented synthetic multi-product scenarios; real-world Micro Center screenshots must still be checked in Docker.
+
+## 2026-11-03: rule management and fixed viewport refinement
+
+- Product Extractors: add rule copy, reference-checked deletion, duplicate-ID confirmation, optimistic revision checks for updates/deletion, and copy actions next to the field diagnostics. Keep rules under Git-tracked `extractor-rules/rules/`.
+- Browsers and Product Extractors: use a shared accessible dropdown enhancement rather than raw native popup styling; native controls remain data sources and no UI library is introduced.
+- Define shared desktop viewport from Compose env (1366×900 default), used by scheduled shared Watch, Product Extractors live Dry Run and manual fixed mode. Fixed mode now sizes the screenshot container to its aspect ratio; follow-window still grows with the WebUI.
+- Add standalone registry lifecycle tests. Docker/real Chromium/manual-pixel testing must still be performed on deployment.

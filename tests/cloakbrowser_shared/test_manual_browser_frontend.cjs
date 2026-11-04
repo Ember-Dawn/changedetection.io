@@ -18,7 +18,7 @@ function setup(fetcher) {
   function element(id) {
     if (!elements.has(id)) {
       elements.set(id, {
-        id, hidden:false, value:'', disabled:false, textContent:'', style:{},
+        id, hidden:false, value:'', disabled:false, textContent:'', classList:{toggle(){}}, style:{setProperty(){}},
         src:'', onload:null, onerror:null, isConnected:true,
         listeners:{},
         addEventListener(type,cb) { this.listeners[type] = cb; },
@@ -152,7 +152,7 @@ test('terminal API errors carry numeric HTTP status, not only a message regex',a
   assert.equal(core.terminal({status:500,message:'navigation is in progress'}),false);
 });
 
-test('layout fixed default uses 1366 x 768 and retains its session',async()=>{
+test('layout fixed default uses 1366 x 900 and retains its session',async()=>{
   const sim=setup(async()=>ok());
   sim.load('manual-layout.js');
   const sent=[];
@@ -163,9 +163,9 @@ test('layout fixed default uses 1366 x 768 and retains its session',async()=>{
   await layout.start();
   assert.equal(sent[0].action,'resize');
   assert.equal(sent[0].args.width,1366);
-  assert.equal(sent[0].args.height,768);
+  assert.equal(sent[0].args.height,900);
   assert.equal(layout.viewport().width,1366);
-  assert.equal(layout.viewport().height,768);
+  assert.equal(layout.viewport().height,900);
   layout.shutdown();
 });
 

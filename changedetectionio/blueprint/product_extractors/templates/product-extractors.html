@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/custom-select.css') }}">
 <link rel="stylesheet" href="{{ url_for('product_extractors.static', filename='product-extractors.css') }}">
 <main class="px-page" id="px-root"
       data-api-base="{{ url_for('product_extractors.index') }}"
@@ -25,7 +26,7 @@
       <div class="px-field px-rule-chooser">
         <label for="product-rule-list">Current rule</label>
         <div class="px-select-wrap">
-          <select id="product-rule-list" class="px-control">
+          <select id="product-rule-list" class="px-control" data-custom-select>
             <option value="">New rule / import JSON</option>
             {% for rule in rules %}<option value="{{ rule.id }}">{{ rule.name }} — {{ rule.id }}{% if not rule.enabled %} (disabled){% endif %}</option>{% endfor %}
           </select>
@@ -36,6 +37,8 @@
         <button type="button" id="product-rule-import-trigger" class="px-button px-button-quiet"><i data-feather="upload"></i> Import JSON</button>
         <input type="file" id="product-rule-import" class="px-file-hidden" accept=".json,application/json" aria-label="Import JSON rule">
         <button type="button" id="product-rule-save" class="px-button px-button-primary"><i data-feather="save"></i> Validate &amp; save</button>
+        <button type="button" id="product-rule-duplicate" class="px-button px-button-quiet"><i data-feather="copy"></i> Duplicate</button>
+        <button type="button" id="product-rule-delete" class="px-button px-button-danger" disabled><i data-feather="trash-2"></i> Delete</button>
       </div>
     </div>
     <div class="px-inline-meta" id="product-rule-filename" aria-live="polite">No file selected</div>
@@ -72,7 +75,7 @@
     <div class="px-field">
       <label for="product-rule-backend">Browser for live fetch</label>
       <div class="px-select-wrap">
-        <select id="product-rule-backend" class="px-control">
+        <select id="product-rule-backend" class="px-control" data-custom-select>
           {% for backend, label in browser_choices %}<option value="{{ backend }}" {% if backend == default_backend %}selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </div>
@@ -113,6 +116,7 @@
     </div>
     <details id="product-rule-raw-details" class="px-details px-raw-details" hidden>
       <summary><i data-feather="code"></i> Field diagnostics &amp; raw JSON <i data-feather="chevron-down" class="px-chevron"></i></summary>
+      <div class="px-raw-actions"><button type="button" id="product-rule-copy-summary" class="px-button px-button-small px-button-quiet" disabled><i data-feather="copy"></i> Copy data</button><button type="button" id="product-rule-copy-json" class="px-button px-button-small px-button-quiet" disabled><i data-feather="copy"></i> Copy full JSON</button></div>
       <div class="px-details-content">
         <div class="px-diagnostics" id="product-rule-diagnostics"></div>
         <pre id="product-rule-result" class="px-result-output" aria-live="polite" hidden></pre>
@@ -121,4 +125,5 @@
   </section>
 </main>
 <script src="{{ url_for('product_extractors.static', filename='product-extractors.js') }}" defer></script>
+<script defer src="{{ url_for('static', filename='js/custom-select.js') }}"></script>
 {% endblock %}

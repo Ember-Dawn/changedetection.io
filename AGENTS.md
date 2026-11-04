@@ -63,7 +63,13 @@ Start with `extractor-rules/AI_RULE_GUIDE.md` (self-contained rule-writing instr
 
 ## Browsers UI styling
 
-The manual browser template and `manual-browser.css` use the compact Product Extractors visual language but prioritize the full-height interactive screenshot. Do not inflate header or toolbar height, break the existing `manual-*` element IDs, or change the five JS modules' dependency order when making visual-only improvements. Keep text input and technical details in collapsible areas when possible.
+The manual browser template and `manual-browser.css` use the compact Product Extractors visual language but prioritize the full-height interactive screenshot. Do not inflate header or toolbar height, break the existing `manual-*` element IDs, or change the five JS modules' dependency order when making visual-only improvements. Keep the text-input toolbar always visible above the browser canvas; technical details may remain collapsible.
 
 
 Product Extractors V2: consult `extractor-rules/AI_RULE_GUIDE.md` before preparing JSON rules. Validate multiple product and stock cases; never assume a single successful Dry Run validates a whole retailer. Manual Browsers supports fixed/follow-window viewport modes.
+
+## Product rules lifecycle and viewport defaults (2026-11)
+
+The Product Extractors UI now supports duplicate/delete, revision-protected overwrite, and explicit linked-Watch checks before deletion. `id` is the Git-tracked filename, not a random UUID. Do not bypass the `registry.py` `WRITE_LOCK`, current-revision checks, or the authenticated `/product-extractors/api/` routes. Shared dropdown behavior is in `changedetectionio/static/js/custom-select.js` and `changedetectionio/static/css/custom-select.css`; existing native select values/events remain authoritative.
+
+`CLOAKBROWSER_VIEWPORT_WIDTH` (default `1366`) and `CLOAKBROWSER_VIEWPORT_HEIGHT` (default `900`) define scheduled shared-Watch, online Dry Run, and manual fixed-viewport size. `changedetectionio/product_extraction/viewport.py` is the common parsing/validation code. Manual follow-window mode remains a per-Page exception; fixed mode uses screenshot aspect ratio rather than stretching to full page height. Changing env vars requires container recreation.

@@ -10,8 +10,8 @@ function harness(savedMode) {
   const events = new Map();
   const storage = new Map(savedMode ? [['changedetection.manual-viewport-mode',savedMode]] : []);
   const actions = [];
-  const root = {style:{},getBoundingClientRect:()=>({top:70})};
-  const wrap = {getBoundingClientRect:()=>({width:1000,height:650})};
+  const root = {classList:{toggle(){}},style:{setProperty(){}},getBoundingClientRect:()=>({top:70})};
+  const wrap = {clientWidth:1000,getBoundingClientRect:()=>({width:1000,height:650})};
   const ctx = {
     document:{getElementById(id) {return id==='manual-browser-root'?root:wrap;}},
     window:{ManualBrowser:{},innerHeight:850,addEventListener:(k,cb)=>events.set(k,cb),removeEventListener:()=>{}},
@@ -26,12 +26,12 @@ function harness(savedMode) {
   layout.init();
   return {layout,events,actions,storage};
 }
-test('fixed mode remains 1366x768 regardless of container size',async()=>{
+test('fixed mode remains 1366x900 regardless of container size',async()=>{
   const sim=harness();assert.equal(sim.layout.currentMode(),'fixed');
   await sim.layout.start();
   assert.equal(sim.actions.length,1);
   assert.equal(sim.actions[0].width,1366);
-  assert.equal(sim.actions[0].height,768);
+  assert.equal(sim.actions[0].height,900);
   sim.layout.schedule();
   assert.equal(sim.events.has('timeout'),false);
 });

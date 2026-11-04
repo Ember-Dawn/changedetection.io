@@ -98,3 +98,14 @@
 #px-root .px-diagnostic-item span{overflow-wrap:anywhere;color:var(--px-muted)}
 @media(max-width:980px){#px-root .px-management-controls{grid-template-columns:1fr}#px-root .px-actions{justify-content:flex-start}#px-root .px-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:580px){#px-root .px-management-controls .px-actions{flex-wrap:wrap;min-width:0}#px-root .px-summary-grid{grid-template-columns:1fr 1fr}#px-root .px-editor{min-height:145px;height:165px}}
+
+/* Rule lifecycle and nearby result exports */
+#px-root .px-button-danger{color:#ffe4e4;border-color:rgba(245,120,135,.36);background:rgba(158,52,74,.14)}
+#px-root .px-button-danger:hover:not(:disabled){background:rgba(158,52,74,.28)}
+#px-root .px-raw-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding-top:12px}
+#px-root .px-raw-actions button:disabled{opacity:.5}
+@media (min-width:921px){#px-root .px-management-controls{grid-template-columns:minmax(0,1fr) auto}}
+@media (max-width:920px){#px-root .px-management-controls{grid-template-columns:1fr}#px-root .px-management-controls .px-actions{flex-wrap:wrap;min-width:0}}
+
+/* The enhanced popup provides the only dropdown arrow. */
+#px-root .px-select-wrap:has(.cd-select)::after{display:none}

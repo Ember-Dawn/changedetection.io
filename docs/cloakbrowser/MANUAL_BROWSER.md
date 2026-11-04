@@ -85,4 +85,10 @@ The existing JPEG screenshot transport, authentication, ownership checks, Browse
 
 ## Viewport modes
 
-The manual browser offers **fixed 1366×768** and **follow-window** modes; the selection is stored only in the operator browser localStorage (no session token). Fixed mode scales screenshots visually rather than resizing the remote Page on window resize. Follow-window resizes only the manual Page, not other Watch tabs.
+The manual browser offers **fixed 1366×900 (default)** and **follow-window** modes; the selection is stored only in the operator browser localStorage (no session token). Fixed mode scales screenshots visually rather than resizing the remote Page on window resize. Follow-window resizes only the manual Page, not other Watch tabs.
+
+## Shared desktop viewport and fixed-mode height
+
+The desktop viewport size is configured via `CLOAKBROWSER_VIEWPORT_WIDTH` (default `1366`) and `CLOAKBROWSER_VIEWPORT_HEIGHT` (default `900`) in Compose. This size applies to scheduled shared Watch Pages, Product Extractors live Dry Run and manual fixed mode. Fixed mode adjusts only the manual Page when first connected or switching into fixed mode, and displays the JPEG at its original aspect ratio with a content-sized workspace to avoid tall empty bands. Follow-window mode instead uses the available WebUI canvas size and can change responsive page layout. Other Pages in the shared Context are unaffected by toggling the manual mode.
+
+Both Browsers and Product Extractors use a shared, keyboard-operable themed dropdown. The native select remains the source of truth; the popup is placed outside scroll-clipping containers.

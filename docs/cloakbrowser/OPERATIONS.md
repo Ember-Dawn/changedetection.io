@@ -115,3 +115,7 @@ node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs
 ```
 
 This is a DOM/HTTP mock test, **not** a real Chromium test. A good local acceptance path is: open the global Browsers entry, log in, navigate two sites, perform a click/drag/scroll, resize the window, close and restore the manual tab, then verify that the scheduled monitors and Telegram/Apprise alerts remain operational.
+
+## Desktop viewport settings
+
+Edit the private `.env` to set `CLOAKBROWSER_VIEWPORT_WIDTH=1366` and `CLOAKBROWSER_VIEWPORT_HEIGHT=900` (defaults). Recreate the service after changing these values. Increasing height increases screenshot pixels and may make a fixed-size manual screenshot appear smaller on a short local display. Do not confuse viewport height with full-page screenshot height.

@@ -62,5 +62,5 @@ class ProductExtractorV2Contracts(unittest.TestCase):
         self.assertIn("await stepper.page.screenshot(type='jpeg'",code)
         self.assertIn('html_result=await stepper.page.content()',code)
         self.assertIn('return html_result, image_data',code)
-        self.assertIn("{'width': 1366, 'height': 768}",code)
+        self.assertIn('desktop_viewport()',code)
         self.assertNotIn('send_content_changed_notification(',code)

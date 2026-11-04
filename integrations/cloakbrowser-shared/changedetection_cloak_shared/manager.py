@@ -164,7 +164,8 @@ class _ContextLease:
         try:
             page = await self.manager._context.new_page()
             try:
-                await page.set_viewport_size({'width': 1366, 'height': 768})
+                from changedetectionio.product_extraction.viewport import desktop_viewport
+                await page.set_viewport_size(desktop_viewport())
             except BaseException:
                 await page.close()
                 raise

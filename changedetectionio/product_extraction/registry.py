@@ -138,7 +138,7 @@ def list_rules():
     for path in sorted(directory.glob('*.json')):
         try:
             rule=load(path.stem)
-            result.append({'id':rule['id'],'name':rule['name'],'domains':rule['match']['domains'],'enabled':rule.get('enabled',True)})
+            result.append({'id':rule['id'],'name':rule['name'],'domains':rule['match']['domains'],'enabled':rule.get('enabled',True),'revision':signature(rule)})
         except (RuleError, ValueError, OSError):
             continue
     return result
@@ -165,23 +165,49 @@ def load(rid):
         raise RuleError(f'Invalid JSON: {exc.msg}') from exc
 
 
-def save(rule):
+def save(rule, *, expected_signature=None, overwrite=False, return_status=False):
+    """Atomic revision-checked saves; ID is stable, no UUID or silent overwrite."""
     rule=validate(rule)
     target=root()/'rules'
     if target.is_symlink():raise RuleError('Symlinked rules directory is not allowed')
     target.mkdir(parents=True,exist_ok=True)
     data=(json.dumps(rule,indent=2,ensure_ascii=False)+'\n').encode('utf-8')
+    filepath=target/(rule['id']+'.json')
     with WRITE_LOCK:
-        if (target/(rule['id']+'.json')).is_symlink():
-            raise RuleError('Symlinked rule file is not allowed')
+        if filepath.is_symlink():raise RuleError('Symlinked rule file is not allowed')
+        existing=None
+        if filepath.exists():
+            existing=load(rule['id'])
+            if existing==rule:
+                return (rule,'unchanged') if return_status else rule
+            if not overwrite:
+                raise RuleError('Rule ID already exists with different content; confirm overwrite')
+            if not expected_signature or expected_signature!=signature(existing):
+                raise RuleError('Rule changed since opening; reload before overwriting')
+            status='updated'
+        else:
+            if expected_signature:
+                raise RuleError('Rule was deleted or renamed since opening')
+            status='created'
         fd,tmp=tempfile.mkstemp(prefix='.rule-',suffix='.tmp',dir=target)
         try:
             with os.fdopen(fd,'wb') as f:
                 f.write(data);f.flush();os.fsync(f.fileno())
-            os.replace(tmp,target/(rule['id']+'.json'))
+            os.replace(tmp,filepath)
         finally:
             if os.path.exists(tmp):os.unlink(tmp)
-    return rule
+    return (rule,status) if return_status else rule
+
+
+def remove(rid, *, expected_signature=None):
+    """Delete only the exact revision the user confirmed."""
+    with WRITE_LOCK:
+        rule=load(rid)
+        if not expected_signature or signature(rule)!=expected_signature:
+            raise RuleError('Rule changed since opening; reload before deleting')
+        filepath=root()/'rules'/(rid+'.json')
+        if filepath.is_symlink():raise RuleError('Symlinked rule file is not allowed')
+        filepath.unlink()
 
 
 def matches(rule,url):

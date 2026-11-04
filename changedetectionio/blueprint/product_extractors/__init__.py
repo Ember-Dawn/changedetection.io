@@ -7,6 +7,7 @@ from flask import Blueprint, current_app, render_template, request, jsonify, abo
 from flask_login import current_user
 from loguru import logger
 from changedetectionio.product_extraction import RuleError, load, save, list_rules, evaluate
+from changedetectionio.product_extraction.registry import remove, signature, matches
 from changedetectionio.validate_url import is_fetch_url_allowed
 
 
@@ -44,14 +45,74 @@ def construct_blueprint(datastore):
         try:return jsonify(load(rid))
         except RuleError as exc:return jsonify({'error':str(exc)}),404
 
+    def referencing_watches(rid, rule=None):
+        """Prevent deleting rules still used by explicit or auto-mode watches."""
+        import pathlib
+        references=[]
+        tags=datastore.data['settings']['application'].get('tags', {})
+        for uuid,watch in datastore.data['watching'].items():
+            if watch.get('processor') != 'restock_diff':
+                continue
+            settings={}
+            directory=getattr(watch,'data_dir',None)
+            if directory:
+                path=pathlib.Path(directory)/'restock_diff.json'
+                try:
+                    settings=(json.loads(path.read_text(encoding='utf-8')).get('restock_diff') or {})
+                except FileNotFoundError:
+                    pass
+                except (OSError,ValueError):
+                    # Fail closed: an unreadable Watch config may reference this rule.
+                    references.append({'id':uuid,'title':watch.get('title') or uuid})
+                    continue
+            for tag_id in watch.get('tags',[]):
+                tag=tags.get(tag_id,{})
+                if tag.get('overrides_watch'):
+                    settings=tag.get('processor_config_restock_diff') or settings
+                    break
+            mode=settings.get('extraction_mode') or 'auto'
+            explicit=mode=='rule' and settings.get('extraction_rule_id')==rid
+            automatic=(mode=='auto' and rule and matches(rule,watch.get('url') or ''))
+            if explicit or automatic:
+                references.append({'id':uuid,'title':watch.get('title') or uuid})
+        return references
+
+    @bp.route('/api/<rid>/references',methods=['GET'])
+    @_operator
+    def references(rid):
+        try:
+            rule=load(rid)
+            return jsonify({'references':referencing_watches(rid,rule)})
+        except RuleError as exc:return jsonify({'error':str(exc)}),404
+
+    @bp.route('/api/<rid>/delete',methods=['POST'])
+    @_operator
+    def delete_rule(rid):
+        try:
+            data=request.get_json(silent=True) or {}
+            rule=load(rid)
+            references=referencing_watches(rid,rule)
+            if references:
+                return jsonify({'error':f'Rule is used by {len(references)} Watches; unbind them first',
+                                'references':references}),409
+            remove(rid,expected_signature=data.get('expected_signature'))
+            return jsonify({'deleted':rid})
+        except RuleError as exc:return jsonify({'error':str(exc)}),409
+        except OSError:return jsonify({'error':'Could not delete rule file'}),500
+
     @bp.route('/api/save',methods=['POST'])
     @_operator
     def save_rule():
         try:
             data=request.get_json(silent=True)
             if not isinstance(data,dict):raise RuleError('Expected JSON object')
-            return jsonify({'rule':save(data)})
-        except (RuleError,ValueError,OSError) as exc:
+            payload=data.get('rule',data)
+            result,status=save(payload, expected_signature=data.get('expected_signature'),
+                overwrite=data.get('overwrite') is True, return_status=True)
+            return jsonify({'rule':result,'revision':signature(result),'status':status})
+        except RuleError as exc:
+            return jsonify({'error':str(exc)}),409 if 'changed' in str(exc).lower() or 'exists' in str(exc).lower() else 400
+        except (ValueError,OSError) as exc:
             return jsonify({'error':str(exc)}),400
 
     @bp.route('/api/test',methods=['POST'])
@@ -87,7 +148,8 @@ def construct_blueprint(datastore):
                         await stepper.connect(proxy=None)
                         # Keep live Dry Run and scheduled shared Watch in the same
                         # desktop layout, independent of the operator's WebUI size.
-                        await stepper.page.set_viewport_size({'width': 1366, 'height': 768})
+                        from changedetectionio.product_extraction.viewport import desktop_viewport
+                        await stepper.page.set_viewport_size(desktop_viewport())
                         await stepper.call_action(action_name='Goto site',selector=None,optional_value=None)
                         from changedetection_cloak_shared.page_readiness import challenge_kind
                         html_result=await stepper.page.content()

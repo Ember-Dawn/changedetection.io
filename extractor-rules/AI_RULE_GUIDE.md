@@ -183,4 +183,8 @@ python -m unittest discover -s tests/product_extraction -v
 
 ## Dry Run 的截图与 Viewport
 
-Live Dry Run 使用同一次 Page 读取 HTML 并截取 JPEG 预览，截图仅随本次测试响应返回，不写入 Watch 历史。粘贴 HTML 的离线测试不包含网页截图。截图可能含账号信息，请不要把它上传给不可信的第三方。商品提取结果应先核对价格、库存、Pickup、Shipping，必要时再展开选择器诊断与原始 JSON。正式共享 Watch 默认将自身 Page viewport 设为 1366×768；人工 Browsers 可选固定同一尺寸或跟随 UI 窗口。
+Live Dry Run 使用同一次 Page 读取 HTML 并截取 JPEG 预览，截图仅随本次测试响应返回，不写入 Watch 历史。粘贴 HTML 的离线测试不包含网页截图。截图可能含账号信息，请不要把它上传给不可信的第三方。商品提取结果应先核对价格、库存、Pickup、Shipping，必要时再展开选择器诊断与原始 JSON。正式共享 Watch 默认将自身 Page viewport 设为 1366×900（默认，可用环境变量调整）；人工 Browsers 可选固定同一尺寸或跟随 UI 窗口。
+
+### Rule identity, duplicates and safe updates
+
+`id` is the stable rule identifier and Git-tracked filename. It is **not** a UUID. Re-importing a file with the same ID does not create a new rule; saving unchanged content is a no-op. If the content differs, the WebUI requires explicit confirmation and a current revision match. If an AI wants a separate variant, it must choose a **new ID**. Delete is blocked while a Restock Watch explicitly references the ID or its automatic mode matches the rule.

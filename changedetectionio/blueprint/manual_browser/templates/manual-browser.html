@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=5) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/custom-select.css') }}">
+<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=6) }}">
 <main id="manual-browser-root" class="box manual-workspace">
   <header class="manual-header">
     <div class="manual-header-copy">
@@ -41,8 +42,8 @@
         <span class="manual-action-caption"><i data-feather="mouse-pointer"></i> 实时交互画面</span>
         <strong id="manual-state" role="status" aria-live="polite" class="manual-state">未连接</strong>
         <label class="manual-mode-label" for="manual-viewport-mode"><i data-feather="monitor"></i> 画面尺寸</label>
-        <select id="manual-viewport-mode" class="manual-viewport-mode" aria-label="人工浏览器 viewport 模式">
-          <option value="fixed">固定 1366 × 768</option>
+        <select id="manual-viewport-mode" class="manual-viewport-mode" data-custom-select aria-label="人工浏览器 viewport 模式">
+          <option value="fixed">固定 {{ fixed_viewport.width }} × {{ fixed_viewport.height }}</option>
           <option value="window">跟随窗口</option>
         </select>
         <span class="manual-action-spacer"></span>
@@ -99,9 +100,10 @@
   </section>
 </main>
 <script>
-window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token()} | tojson }};
+window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token(), 'fixedViewport': fixed_viewport} | tojson }};
 </script>
 {% for script in ['manual-core.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js'] %}
-<script defer src="{{ url_for('manual_browser.static', filename=script, v=4) }}"></script>
+<script defer src="{{ url_for('manual_browser.static', filename=script, v=6) }}"></script>
 {% endfor %}
+<script defer src="{{ url_for('static', filename='js/custom-select.js') }}"></script>
 {% endblock %}
