@@ -14,6 +14,11 @@
 - Added price-first Watch/Tag form, continuation toggle (on by default), and copyable Markdown rule explanation sourced from `STOCK_PRICE_RULES.md`.
 - Updated product notification tokens, API schema and regression tests. No old purchase-goal configuration migration is provided.
 
+### Rich template internal title normalization (2026-11-04)
+
+- Rich Message templates always store `{{ watch_title }}` as their internal `title`, for built-in templates and custom template creation/updates; a missing or stale hidden title is ignored. The visible Telegram title stays in the Rich JSON `heading`.
+- Applying a Rich template fills the hidden title with the same internal value. Normal notification formats keep editable titles. Existing stored Rich templates are normalized when listed without changing existing Watch settings.
+
 ### Telegram notification format and product template update (2026-11-04)
 
 - Added Telegram HTML, MarkdownV2, and JSON-block Rich Message format choices to the existing Notification Format field.

@@ -11,6 +11,7 @@ function setupNotificationTemplateLibrary() {
     var $title = $('input.notification-title');
     var $body = $('textarea.notification-body');
     var $format = $('select.notification-format');
+    var richInternalTitle = '{{ watch_title }}';
     // Rich messages render their own heading from the JSON body. Keep the
     // underlying title input enabled and populated for ordinary formats and
     // existing form validation; never discard it when hiding the field.
@@ -24,7 +25,11 @@ function setupNotificationTemplateLibrary() {
     var watchMatch = (typeof notification_base_url === 'string' ? notification_base_url : '').match(/\/notification\/send-test\/([^/?]+)/);
     function say(value) { $message.text(value || ''); }
     function selected() { return templates.find(function(t) { return t.id === $select.val(); }); }
-    function current() { return {title: $title.val() || '', body: $body.val() || '', format: $format.val() || 'text'}; }
+    function current() {
+        var format = $format.val() || 'text';
+        return {title: format === 'telegram_rich' ? richInternalTitle : ($title.val() || ''),
+                body: $body.val() || '', format: format};
+    }
     function refresh(items, selectId) {
         templates = items || [];
         $select.empty().append($('<option>').val('').text('Choose a preset or saved template...'));
@@ -59,7 +64,7 @@ function setupNotificationTemplateLibrary() {
         if ((edited.title.trim() || edited.body.trim()) &&
             (edited.title !== item.title || edited.body !== item.body || edited.format !== item.format) &&
             !window.confirm('Replace the current unsaved notification title, body and format?')) return;
-        $title.val(item.title).trigger('change');
+        $title.val(item.format === 'telegram_rich' ? richInternalTitle : item.title).trigger('change');
         $body.val(item.body).trigger('change');
         $format.val(item.format).trigger('change');
         if (item.format === 'telegram_rich') say('Rich Message templates require Telegram tgram:// destinations.');

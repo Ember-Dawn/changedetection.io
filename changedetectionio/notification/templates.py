@@ -13,6 +13,8 @@ from changedetectionio.jinja2_custom import create_jinja_env
 PRODUCT_HTML = '{% if test_notification %}🧪 TEST · {% endif %}{{ watch_title|e }}\n<b>💰 {{ purchase_alert.display_price|e }}</b>{% if purchase_alert.display_change %} {{ purchase_alert.display_change|e }}{% endif %}\n📦 {{ purchase_alert.stock_text|e }}\n<a href="{{ (watch_open_url or watch_url)|e }}">🔗 View product</a>\n<blockquote expandable>🎯 {{ purchase_alert.rule_text|e }}\n🔔 {% if test_notification %}Test only — no monitoring condition asserted{% else %}{{ purchase_alert.reason_text|e }}{% endif %}{% if purchase_alert.reference_price is not none %}\n📊 Reference: {{ purchase_alert.reference_price|e }}{% endif %}</blockquote>'
 PRODUCT_RICH = '{"blocks":[{"type":"heading","text":{{ ("🛒 " + (watch_title or ""))|tojson }},"size":3},{"type":"paragraph","text":{{ ("💰 " + (purchase_alert.display_price or "Unknown") + (" · " + purchase_alert.display_change if purchase_alert.display_change else ""))|tojson }}},{"type":"paragraph","text":{{ ("📦 " + (purchase_alert.stock_text or "Unknown"))|tojson }}},{"type":"paragraph","text":{"type":"url","text":"🔗 View product","url":{{ (watch_open_url or watch_url or "")|tojson }}}},{"type":"details","summary":"Monitoring details","blocks":[{"type":"paragraph","text":{{ ("🎯 " + (purchase_alert.rule_text or "No active rule"))|tojson }}},{"type":"paragraph","text":{{ ("🔔 " + ("Test only — no monitoring condition asserted" if test_notification else (purchase_alert.reason_text or "Monitoring event")))|tojson }}},{"type":"paragraph","text":{{ ("📊 Reference: " + (purchase_alert.reference_price|string if purchase_alert.reference_price is not none else "Not available"))|tojson }}}]}]}'
 
+RICH_INTERNAL_TITLE = '{{ watch_title }}'
+
 PRESETS = (
     dict(id='builtin-general', name='General webpage change',
          title=default_notification_title, body=default_notification_body,
@@ -21,7 +23,7 @@ PRESETS = (
          title='🛒 {{ watch_title }}', body=PRODUCT_HTML,
          format='telegram_html', builtin=True),
     dict(id='builtin-product-rich', name='Telegram product · Rich details',
-         title='🛒 {{ watch_title }}', body=PRODUCT_RICH,
+         title=RICH_INTERNAL_TITLE, body=PRODUCT_RICH,
          format='telegram_rich', builtin=True),
     dict(id='builtin-compact', name='Compact change alert',
          title='Watch alert: {{ watch_title or watch_url }}',
@@ -35,8 +37,9 @@ def validate_template(item):
     if not isinstance(item, dict):
         raise ValueError('Invalid template')
     result = {}
+    rich = item.get('format', 'text') == 'telegram_rich'
     for key, limit in (('name', 100), ('title', 2000), ('body', 20000)):
-        value = item.get(key)
+        value = RICH_INTERNAL_TITLE if rich and key == 'title' else item.get(key)
         if not isinstance(value, str) or not value.strip() or len(value) > limit:
             raise ValueError('Invalid template ' + key)
         result[key] = value.strip() if key == 'name' else value
@@ -62,7 +65,11 @@ def validate_template(item):
 
 def get_templates(datastore):
     stored = datastore.data['settings']['application'].get('notification_templates') or []
-    return [dict(item) for item in PRESETS] + [dict(item) for item in stored if isinstance(item, dict)]
+    templates = [dict(item) for item in PRESETS] + [dict(item) for item in stored if isinstance(item, dict)]
+    for template in templates:
+        if template.get('format') == 'telegram_rich':
+            template['title'] = RICH_INTERNAL_TITLE
+    return templates
 
 
 def mutate_templates(datastore, action, item):
