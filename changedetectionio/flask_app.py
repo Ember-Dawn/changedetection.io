@@ -1781,7 +1781,8 @@ def ticker_thread_check_time_launch_checks():
                     break
 
             # Check if all checks are paused - this loop could get stuck on very long lists of watches, best to check here.
-            if datastore.data['settings']['application'].get('all_paused', False):
+            from changedetectionio import live_browser_gate
+            if live_browser_gate.is_paused() or datastore.data['settings']['application'].get('all_paused', False):
                 app.config.exit.wait(1)
                 break
 

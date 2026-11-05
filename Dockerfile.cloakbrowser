@@ -116,6 +116,9 @@ LABEL org.opencontainers.image.vendor="changedetection.io"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libxslt1.1 \
+    xvfb \
+    x11vnc \
+    novnc \
     # For presenting price amounts correctly in the restock/price detection overview
     locales \
     # For pdftohtml

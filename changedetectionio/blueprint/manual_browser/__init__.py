@@ -8,7 +8,7 @@ import secrets
 from functools import wraps
 from urllib.parse import urlsplit
 
-from flask import (Blueprint, abort, current_app, jsonify, make_response,
+from flask import (Blueprint, abort, current_app, jsonify, make_response, send_from_directory,
                    redirect, render_template, request, session, url_for)
 from flask_login import current_user
 from flask_wtf.csrf import validate_csrf, ValidationError
@@ -103,6 +103,64 @@ def construct_blueprint(datastore, update_q, queuedWatchMetaData):
                                watch_uuid=watch_uuid, watch_title=watch_title,
                                fixed_viewport=desktop_viewport())
 
+    @blueprint.route('/api/live/status', methods=['GET'])
+    @_requires_operator
+    def live_status():
+        from changedetection_cloak_shared.live_browser import live_browser
+        response = jsonify(live_browser.status(_controller_id()))
+        response.headers['Cache-Control'] = 'no-store, private'
+        return response
+
+    @blueprint.route('/api/live/start', methods=['POST'])
+    @_requires_operator
+    def live_start():
+        from changedetection_cloak_shared.live_browser import live_browser, LiveBrowserError
+        try:
+            return jsonify(live_browser.start(_controller_id()))
+        except LiveBrowserError as exc:
+            return jsonify({'error': str(exc), **live_browser.status(_controller_id())}), 409
+
+    @blueprint.route('/api/live/stop', methods=['POST'])
+    @_requires_operator
+    def live_stop():
+        from changedetection_cloak_shared.live_browser import live_browser, LiveBrowserError
+        try:
+            return jsonify(live_browser.stop(_controller_id()))
+        except LiveBrowserError as exc:
+            return jsonify({'error': str(exc), **live_browser.status(_controller_id())}), 409
+
+    @blueprint.route('/live/desktop', methods=['GET'])
+    @_requires_operator
+    def live_desktop():
+        from changedetection_cloak_shared.live_browser import live_browser
+        if not live_browser.allowed(_controller_id()):
+            abort(403)
+        from flask_wtf.csrf import generate_csrf
+        response = make_response(render_template('live-desktop.html', csrf=generate_csrf()))
+        response.headers['Cache-Control'] = 'no-store, private'
+        return response
+
+    @blueprint.route('/live/assets/<path:filename>', methods=['GET'])
+    @_requires_operator
+    def live_asset(filename):
+        from changedetection_cloak_shared.live_browser import live_browser
+        if not live_browser.allowed(_controller_id()):
+            abort(403)
+        # send_from_directory prevents traversal. Assets installed by Debian novnc.
+        response = send_from_directory('/usr/share/novnc', filename)
+        response.headers['Cache-Control'] = 'no-store, private'
+        return response
+
+    @blueprint.route('/live/ws', methods=['GET'])
+    @_requires_operator
+    def live_websocket():
+        origin = request.headers.get('Origin')
+        if not origin or urlsplit(origin).netloc.lower() != request.host.lower():
+            abort(403, description='Live desktop requires a same-origin WebSocket')
+        from changedetection_cloak_shared.live_browser import live_browser
+        from .live_vnc_proxy import relay
+        return relay(_controller_id(), live_browser)
+
     @blueprint.route('/api/current', methods=['GET'])
     @_requires_operator
     def current_session():
@@ -137,6 +195,9 @@ def construct_blueprint(datastore, update_q, queuedWatchMetaData):
         allowed, reason = is_fetch_url_allowed(url)
         if not allowed:
             abort(400, description=reason)
+        from changedetectionio import live_browser_gate
+        if live_browser_gate.is_paused():
+            raise ManualSessionError('Live Browser is active; use the desktop view instead')
         try:
             result = manual_sessions.open(_controller_id(), url, watch_uuid or None)
         except ManualSessionError:

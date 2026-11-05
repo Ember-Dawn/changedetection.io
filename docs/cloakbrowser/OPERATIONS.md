@@ -123,3 +123,9 @@ This is a DOM/HTTP mock test, **not** a real Chromium test. A good local accepta
 ## Desktop viewport settings
 
 Edit the private `.env` to set `CLOAKBROWSER_VIEWPORT_WIDTH=1366` and `CLOAKBROWSER_VIEWPORT_HEIGHT=900` (defaults). Recreate the service after changing these values. Increasing height increases screenshot pixels and may make a fixed-size manual screenshot appear smaller on a short local display. Do not confuse viewport height with full-page screenshot height.
+
+## Live Browser V1 deployment (requires acceptance on this build)
+
+Rebuild using `docker compose build` and `docker compose up -d --force-recreate`; apt dependencies are `xvfb`, `x11vnc`, `novnc`. Do **not** add port mappings for 5900/5998/6080. Enable application password login. Visit Browsers, ensure any existing screenshot-control session is closed, click **启动实时浏览器**, test native keyboard/mouse and new-window/reconnect, then **结束并恢复监控**. Confirm one Chromium Profile writer at a time and the Watch queue resumes without modifying `all_paused`.
+
+If a start/restore error occurs, the UI reports it. A failed restore must keep the scheduler maintenance gate closed until a clean Headless reinitialization or app restart. Do not forcibly delete Profile lock files. Check `docker compose logs --tail=200 changedetection` for browser and VNC startup errors. With HTTPS reverse proxy ensure WebSocket Upgrade routing works for `/manual-browser/live/ws`. The separate one-off noVNC test passed on the operator's system; this **integrated** application path is not yet independently confirmed.

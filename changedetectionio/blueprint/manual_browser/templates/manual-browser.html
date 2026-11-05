@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/custom-select.css') }}">
-<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=11) }}">
+<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=12) }}">
 <main id="manual-browser-root" class="box manual-workspace">
   <header class="manual-header">
     <div class="manual-header-copy">
@@ -25,6 +25,18 @@
       <button id="manual-switch" type="button" class="manual-btn" hidden><i data-feather="refresh-cw"></i> 关闭旧会话并切换</button>
       <button id="manual-check" type="button" class="manual-btn"><i data-feather="rotate-cw"></i> 刷新状态</button>
     </div>
+  </section>
+
+  <section class="manual-live-panel" aria-label="实时浏览器">
+    <div class="manual-row manual-live-heading">
+      <strong><i data-feather="monitor"></i> 实时浏览器</strong>
+      <span id="manual-live-status" role="status" aria-live="polite">Headless · 正常监控</span>
+      <button id="manual-live-start" class="manual-btn manual-btn-primary" type="button">启动实时浏览器</button>
+      <button id="manual-live-stop" class="manual-btn manual-btn-danger" type="button" hidden>结束并恢复监控</button>
+      <a id="manual-live-popup" class="manual-btn" href="{{ url_for('manual_browser.live_desktop') }}" target="_blank" rel="noopener noreferrer" hidden>新窗口打开</a>
+    </div>
+    <p id="manual-live-message" class="manual-section-hint" hidden></p>
+    <div id="manual-live-frame" hidden><iframe id="manual-live-iframe" title="实时浏览器图形桌面" loading="lazy" referrerpolicy="same-origin"></iframe></div>
   </section>
 
   <section class="manual-browser-shell" aria-label="浏览器操作台">
@@ -126,5 +138,6 @@ window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf':
 {% for script in ['manual-core.js', 'manual-transport.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js'] %}
 <script defer src="{{ url_for('manual_browser.static', filename=script, v=11) }}"></script>
 {% endfor %}
+<script defer src="{{ url_for('manual_browser.static', filename='manual-live.js', v=12) }}"></script>
 <script defer src="{{ url_for('static', filename='js/custom-select.js') }}"></script>
 {% endblock %}

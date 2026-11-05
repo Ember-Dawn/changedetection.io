@@ -125,3 +125,7 @@ The collapsed Browsers details panel now distinguishes BrowserManager dispatch t
 
 - Browsers is also a general-purpose manual browsing entry. Do not show **完成并重新检查** for a sidebar/general entry or for a resumed Watch session from that entry. Show it only when the entry Watch UUID matches the session's server-derived Watch UUID, and reject `/api/finish` for a general/unowned/nonmatching token before releasing the Page. The close action remains independent.
 - Navigation toolbar: Watch-only finish, **连接浏览器**, red **关闭会话**. Upper action toolbar: viewport, frame engine and transport preference via existing `data-custom-select`; the lower details section is diagnostic, not a place for repeated editing controls or URL copy. Top navigation URL is authoritative and must not be replaced during active editing. Preserve keyboard text bar and current responsive behavior; do not add a second select library.
+
+## Live Browser V1 handoff (2026-11-05)
+
+Current source adds an **unverified integrated** Headed/desktop mode exposed in Browsers. The operator independently proved Xvfb+noVNC and Headed↔Headless storage persistence on CloakBrowser 0.7.0, but the app integration/WebSocket auth bridge and Watch admission require Docker validation. Keep BrowserManager as sole Profile writer, do not call its shutdown `stop()` to toggle mode, never publish VNC ports, and retain maintenance pause on uncertain restore. See STATUS.md, ARCHITECTURE.md and OPERATIONS.md.

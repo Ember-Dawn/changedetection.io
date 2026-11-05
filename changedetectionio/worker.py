@@ -99,13 +99,27 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
             if manual_sessions is not None and manual_sessions.is_reserved(uuid):
                 logger.debug('Skipping scheduled check for manual browser watch {}', uuid)
                 continue
+            # Live Browser maintenance gates a job before its UUID claim. Requeue
+            # without updating last_checked; leave the original priority intact.
+            from changedetectionio import live_browser_gate
+            if not live_browser_gate.begin_job():
+                worker_pool.queue_item_async_safe(q, queued_item_data, silent=True)
+                await asyncio.sleep(0.3)
+                continue
             # CRITICAL: Claim UUID immediately after getting from queue to prevent race condition
             # in wait_for_all_checks() which checks qsize() and running_uuids separately
-            if not worker_pool.claim_uuid_for_processing(uuid, worker_id):
+            try:
+                claimed = worker_pool.claim_uuid_for_processing(uuid, worker_id)
+            except BaseException:
+                live_browser_gate.end_job()
+                raise
+            if not claimed:
                 # A manual reservation might have won the race with our claim.
                 # Do not endlessly requeue such a check.
                 if manual_sessions is not None and manual_sessions.is_reserved(uuid):
+                    live_browser_gate.end_job()
                     continue
+                live_browser_gate.end_job()
                 # Already being processed - re-queue and continue
                 logger.trace(f"Worker {worker_id} detected UUID {uuid} already processing during claim - deferring")
                 await asyncio.sleep(DEFER_SLEEP_TIME_ALREADY_QUEUED)
@@ -797,6 +811,8 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                         watch_check_update = signal('watch_check_update')
                         watch_check_update.send(watch_uuid=watch['uuid'])
 
+            # Release admission after all cleanup/finalization, even on failure.
+            live_browser_gate.end_job()
             del (uuid)
 
             # Brief pause before continuing to avoid tight error loops (only on error)

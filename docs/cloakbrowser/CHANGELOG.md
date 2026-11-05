@@ -123,3 +123,10 @@ For future source changes, append a new entry with date (if known), specific pat
 - Move CDP/WS JPEG engine selection and WebSocket/HTTP preference next to viewport mode; keep themed select components and visible connection/engine status. Remove redundant interactive-view status copy, duplicate detailed URL display and URL copy action; keep the address bar authoritative.
 - Clarify operation response and CDP diagnostics, retain lower collapsible metrics, UA and help. No redesign of responsive toolbars or collapse of text entry. Existing Headless shared Profile, CDP, HTTP and WebSocket internals remain unchanged.
 - Verification: JavaScript mocked front-end checks, template contracts and source syntax; real Docker/Chromium visual behavior not proven in the authoring environment.
+
+### 2026-11-05 — Live Browser V1 (pending Docker integration acceptance)
+
+- Added maintenance gate for Watch scheduling and worker claims, draining active workers before changing browser mode without changing user `all_paused`.
+- BrowserManager now supports sequential Headless/Headed restart on its own loop using the same Profile and lock.
+- Added temporary Xvfb+x11vnc, same-origin authenticated VNC WebSocket relay, noVNC JS assets, embedded/new-window browser view, start/restore UI. No VNC port is published.
+- Independent user Docker proof exists for raw Headed/Xvfb/noVNC and Profile persistence; in-app authentication proxy, failures and scheduler restore are **not** marked as production tested.

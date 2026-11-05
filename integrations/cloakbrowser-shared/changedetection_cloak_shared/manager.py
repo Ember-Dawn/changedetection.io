@@ -252,6 +252,7 @@ class BrowserManager:
         self._profile_lock = None
         self._startup_error = None
         self._max_pages = _int_env('CLOAKBROWSER_MAX_PAGES', 3)
+        self._live_mode = False
 
     def _run_loop(self):
         loop = asyncio.new_event_loop()
@@ -405,7 +406,7 @@ class BrowserManager:
                 self._profile_lock = lock
             humanize = os.getenv('CLOAKBROWSER_HUMANIZE', 'true').lower() not in ('0', 'false', 'no')
             options = {
-                'headless': True,
+                'headless': not self._live_mode,
                 'accept_downloads': False,
                 'humanize': humanize,
                 'bypass_csp': True,
@@ -457,6 +458,8 @@ class BrowserManager:
                     await asyncio.sleep(min(delay * 2 ** attempt, 60))
 
     async def _borrow_browser(self):
+        if self._live_mode:
+            raise RuntimeError('Shared browser is in live desktop maintenance mode')
         await self._ensure_context()
         return _BrowserLease(self)
 
@@ -466,6 +469,8 @@ class BrowserManager:
             self._active_tasks.add(task)
         token = _SHARED_FETCH.set(True)
         try:
+            if self._live_mode:
+                raise RuntimeError('Shared browser is in live desktop maintenance mode')
             await self._ensure_context()
             return await func(*args, **kwargs)
         finally:
@@ -489,6 +494,7 @@ class BrowserManager:
         with self._lock:
             return {
                 'state': self._state.value,
+                'mode': 'headed' if self._live_mode else 'headless',
                 'generation_id': self._generation,
                 'active_jobs': max(sum(len(v) for v in self._pending.values()), len(self._active_tasks)),
                 'reserved_slots': max(0, self._max_pages - self._semaphore._value) if self._semaphore else 0,
@@ -546,8 +552,13 @@ class BrowserManager:
             future.cancel()
         return len(futures)
 
-    def call_sync(self, coroutine, timeout=None):
+    def call_sync(self, coroutine, timeout=None, maintenance=False):
         """Preview operations belong to the manager loop and shutdown registry."""
+        if not maintenance:
+            from changedetectionio import live_browser_gate
+            if live_browser_gate.is_paused():
+                coroutine.close()
+                raise RuntimeError('Live Browser maintenance: previews temporarily unavailable')
         if timeout is None:
             timeout = _int_env('CLOAKBROWSER_PREVIEW_TIMEOUT', 180)
         if threading.current_thread() is self._thread:
@@ -577,6 +588,26 @@ class BrowserManager:
         except concurrent.futures.TimeoutError:
             future.cancel()
             raise
+
+    async def _switch_live_mode(self, headed):
+        """Run entirely on the owning Playwright loop; keep ProfileLock held.
+
+        All worker and manual/preview traffic must have drained before calling.
+        An uncertain close fails closed instead of starting another writer.
+        """
+        async with self._launch_lock:
+            others = [t for t in (self._active_tasks | self._preview_tasks)
+                      if t is not asyncio.current_task() and not t.done()]
+            if others:
+                raise RuntimeError('Browser still has active operations')
+            if self._context is not None:
+                await self._discard_context()
+            self._state = BrowserState.STOPPED
+            self._live_mode = bool(headed)
+        await self._ensure_context()
+
+    def switch_live_mode(self, headed):
+        return self.call_sync(self._switch_live_mode(headed), timeout=115, maintenance=True)
 
     def stop(self):
         """Stop admission, drain jobs, then flush the persistent Profile."""

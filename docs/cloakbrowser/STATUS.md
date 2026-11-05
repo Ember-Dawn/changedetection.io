@@ -13,7 +13,7 @@ This page is a **current-status handoff**, not a replacement for source inspecti
 | Diagnostics (V3) | Implemented: five-second displayed FPS, screenshot/dispatch/client-display/ack metrics, full current-Page User-Agent | Metrics have different measurement scopes; they are not exact one-way latency |
 | Manual workspace (V4, V6) | Implemented: compact detail cards, themed selects, UA only, upper toolbar engine/transport controls, no duplicate URL, red close button | Live visual and Watch context paths need acceptance |
 | CDP Screencast (V5) | **Experimental / opt-in**: uses same manual Page and authenticated frame channel; fallback to WS JPEG | CloakBrowser 0.7.0 real CDPSession frame delivery, stability and FPS **not verified** in authoring environment |
-| OS remote desktop | **Not implemented**: no Headed/Xvfb/noVNC, RDP or WebRTC video service | Do not call the JPEG/CDP view a native desktop |
+| Live Browser (V1) | **Implemented in code, pending Docker acceptance**: Headed+Xvfb+x11vnc+noVNC with same Profile and Watch maintenance gate | Independent proof of Headed↔Headless Profile persistence and noVNC interactivity exists; integrated in-app websocket proxy and recovery still require real Docker testing |
 
 ## Current UI behavior
 
@@ -39,3 +39,9 @@ This page is a **current-status handoff**, not a replacement for source inspecti
 ## Separate open integration check
 
 Product Stock & Price form/processor/API fields were reported aligned in the 2026-11-04 source audit. The earlier README assertion of *currently legacy fields* was stale; **stored legacy configuration migration, Watch/Tag override behavior and live end-to-end notifications remain unverified**. See [RESTOCK_AND_ALERTS.md](../product-extraction/RESTOCK_AND_ALERTS.md). Do not mark this as fully resolved without deployment testing.
+
+## Live Browser V1 deployment verification (2026-11-05)
+
+- Operator-provided independent Docker tests passed: CloakBrowser 0.7.0 Headed launch/close, same isolated Profile reopened in Headless, persistent Cookie/LocalStorage; Xvfb+x11vnc+noVNC image and user-reported keyboard/mouse, reconnect, graceful browser close. These are **not** evidence that this new integrated build was tested.
+- New in code: a process-local admission gate pauses Watch scheduling and worker claims, BrowserManager switches modes on its own loop while retaining the single Profile lock, and `/manual-browser/live/` exposes authenticated desktop assets and an authenticated WebSocket-to-VNC relay. Docker image adds x11vnc/novnc/Xvfb; no host VNC port is published.
+- **Before relying on this in production**: rebuild and test authenticated VNC upgrade (including reverse proxy HTTPS/WSS), live start/stop, failed launch/restore, queued Watches and `all_paused` preservation. BrowserManager shut down while live is active and unexpected container termination need real-host inspection. No claim of Cloudflare passage or website-specific login persistence.
