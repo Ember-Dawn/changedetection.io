@@ -119,3 +119,8 @@ The current `processors/restock_diff/forms.py`, `processor.py` and `api.yaml` us
 ## Manual Browser diagnostics (2026-11-05)
 
 The collapsed Browsers details panel now distinguishes BrowserManager dispatch time, in-loop Playwright JPEG screenshot time, client image-display time and the previous send-to-ack interval. FPS uses a five-second displayed-frame window and may intentionally be ~2 FPS at idle. The transport preference reuses CDSelect, and the displayed UA reflects the current manual Page (Platform/Viewport/DPR remain available internally but are hidden from the UI), not necessarily outgoing HTTP headers. Retain HTTP fallback and the one-frame WebSocket backpressure when changing this feature.
+
+## Browsers V6 UI and Watch-context safety (2026-11-05)
+
+- Browsers is also a general-purpose manual browsing entry. Do not show **完成并重新检查** for a sidebar/general entry or for a resumed Watch session from that entry. Show it only when the entry Watch UUID matches the session's server-derived Watch UUID, and reject `/api/finish` for a general/unowned/nonmatching token before releasing the Page. The close action remains independent.
+- Navigation toolbar: Watch-only finish, **连接浏览器**, red **关闭会话**. Upper action toolbar: viewport, frame engine and transport preference via existing `data-custom-select`; the lower details section is diagnostic, not a place for repeated editing controls or URL copy. Top navigation URL is authoritative and must not be replaced during active editing. Preserve keyboard text bar and current responsive behavior; do not add a second select library.

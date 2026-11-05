@@ -65,10 +65,7 @@
       $safe('manual-generation', '—');
       $safe('manual-cookies', '—');
       $safe('manual-local-storage', '—');
-      $safe('manual-detail', '—');
       $safe('manual-ua', '—');
-      const copyUrl = $('manual-copy-url');
-      if (copyUrl) copyUrl.disabled = true;
       const copyUa = $('manual-copy-ua');
       if (copyUa) copyUa.disabled = true;
       coverFrame(reason);
@@ -224,9 +221,10 @@
         $safe('manual-cookies', String(data.cookie_count ?? '—'));
         $safe('manual-local-storage', String(data.local_storage_keys ?? '未知'));
         $('manual-remaining').textContent = `空闲剩余 ${Math.floor(data.seconds_remaining / 60)}:${String(data.seconds_remaining % 60).padStart(2, '0')}`;
-        $safe('manual-detail', data.url || '—');
-        const copyUrl = $('manual-copy-url');
-        if (copyUrl) copyUrl.disabled = !data.url;
+        // The navigation address is the only URL display. Do not overwrite
+        // text while the operator is editing a destination.
+        const address = $('manual-url');
+        if (data.url && address && document.activeElement !== address) address.value = data.url;
         $safe('manual-ua', data.user_agent || '暂不可用');
         const copyUa = $('manual-copy-ua');
         if (copyUa) copyUa.disabled = !data.user_agent;

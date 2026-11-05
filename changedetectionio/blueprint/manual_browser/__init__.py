@@ -172,6 +172,14 @@ def construct_blueprint(datastore, update_q, queuedWatchMetaData):
 
     def finish_session(recheck=False):
         data = _json()
+        if recheck:
+            # A finish is meaningful only for an owned, watch-associated session.
+            # Reject BEFORE closing, so a mistaken call cannot discard a general session.
+            context = manual_sessions.inspect(_controller_id())
+            if (not context.get('active') or not context.get('owned')
+                    or context.get('session') != data.get('session')
+                    or not context.get('watch_uuid')):
+                raise ManualSessionError('No associated Watch to recheck')
         watch_uuid = manual_sessions.close(data.get('session', ''), _controller_id())
         queued = False
         if recheck and watch_uuid:

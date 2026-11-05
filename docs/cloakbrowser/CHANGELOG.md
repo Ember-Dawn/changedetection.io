@@ -110,3 +110,10 @@ For future source changes, append a new entry with date (if known), specific pat
 - The `/manual-frames` Socket.IO producer may use CDP as a frame source, with an initial-frame timeout and fallback to ordinary WebSocket JPEG screenshots. The established HTTP path, mouse/keyboard handling, single browser/Profile and 15-minute session lifetime remain unchanged.
 - The themed manual detail dropdown offers **CDP Screencast（实验性）** without making it the default; mode changes restart only the frame transport. Incoming frames identify their source and CDP capture-duration fields are not fabricated.
 - Validation in authoring environment: Node frontend tests, manual workspace contract tests, CDP fake-session lifecycle tests and syntax checks. Real CloakBrowser/Chromium and actual FPS **not tested**; this is an opt-in experimental feature.
+
+## 2026-11-05: Browsers UI refinement V6
+
+- Move **关闭会话** to the right of **连接浏览器** and use a clearly red danger style. Restrict **完成并重新检查** to sessions whose actual Watch UUID matches the Watch-specific page entry; add server-side validation before closing on `/api/finish`. Generic Browsers visits and generic session resumes do not display the action.
+- Move CDP/WS JPEG engine selection and WebSocket/HTTP preference next to viewport mode; keep themed select components and visible connection/engine status. Remove redundant interactive-view status copy, duplicate detailed URL display and URL copy action; keep the address bar authoritative.
+- Clarify operation response and CDP diagnostics, retain lower collapsible metrics, UA and help. No redesign of responsive toolbars or collapse of text entry. Existing Headless shared Profile, CDP, HTTP and WebSocket internals remain unchanged.
+- Verification: JavaScript mocked front-end checks, template contracts and source syntax; real Docker/Chromium visual behavior not proven in the authoring environment.

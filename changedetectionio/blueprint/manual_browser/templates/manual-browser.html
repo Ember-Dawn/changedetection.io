@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/custom-select.css') }}">
-<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=10) }}">
+<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=11) }}">
 <main id="manual-browser-root" class="box manual-workspace">
   <header class="manual-header">
     <div class="manual-header-copy">
@@ -36,19 +36,21 @@
         <label for="manual-url" class="manual-sr-only">浏览器地址栏</label>
         <input id="manual-url" class="manual-address" type="url" value="{{ initial_url }}" maxlength="2048" spellcheck="false" placeholder="https://example.com" autocomplete="url" aria-label="浏览器地址栏，按 Enter 前往">
         <button id="manual-go" type="button" class="manual-btn" disabled><i data-feather="arrow-right-circle"></i> 前往</button>
+        <button id="manual-finish" type="button" class="manual-btn manual-btn-primary" hidden disabled><i data-feather="check-circle"></i> 完成并重新检查</button>
         <button id="manual-open" type="button" class="manual-btn manual-btn-primary"><i data-feather="link"></i> 连接浏览器</button>
+        <button id="manual-close" type="button" class="manual-btn manual-btn-danger" disabled><i data-feather="x"></i> 关闭会话</button>
       </div>
       <div class="manual-row manual-actionbar">
-        <span class="manual-action-caption"><i data-feather="mouse-pointer"></i> 实时交互画面</span>
-        <strong id="manual-state" role="status" aria-live="polite" class="manual-state">未连接</strong>
+        <strong id="manual-state" role="status" aria-live="polite" class="manual-state" hidden>未连接</strong>
         <label class="manual-mode-label" for="manual-viewport-mode"><i data-feather="monitor"></i> 画面尺寸</label>
         <select id="manual-viewport-mode" class="manual-viewport-mode" data-custom-select aria-label="人工浏览器 viewport 模式">
           <option value="fixed">固定 {{ fixed_viewport.width }} × {{ fixed_viewport.height }}</option>
           <option value="window">跟随窗口</option>
         </select>
-        <span class="manual-action-spacer"></span>
-        <button id="manual-finish" type="button" class="manual-btn manual-btn-primary" disabled><i data-feather="check-circle"></i> 完成并重新检查</button>
-        <button id="manual-close" type="button" class="manual-btn manual-btn-danger" disabled><i data-feather="x"></i> 关闭会话</button>
+        <div class="manual-transport-setting"><label for="manual-frame-engine">画面引擎</label><select id="manual-frame-engine" data-custom-select aria-label="人工浏览器画面引擎"><option value="jpeg">WebSocket JPEG（默认）</option><option value="cdp">CDP Screencast（实验性）</option></select></div>
+        <div class="manual-transport-setting"><label for="manual-transport-mode">传输偏好</label><select id="manual-transport-mode" data-custom-select aria-label="人工操控传输偏好"><option value="auto">自动 · WebSocket 优先</option><option value="http">仅 HTTP</option></select></div>
+        <span class="manual-transport-current" title="当前实际画面与输入通道"><span class="manual-status-dot" aria-hidden="true"></span><strong id="manual-transport">HTTP</strong></span>
+        <span id="manual-frame-engine-status" class="manual-section-hint" role="status" aria-live="polite">当前：WebSocket JPEG</span>
       </div>
     </div>
 
@@ -82,33 +84,24 @@
             <div class="manual-detail-item"><span>Cookie（当前网站）</span><strong id="manual-cookies">—</strong></div>
             <div class="manual-detail-item"><span>LocalStorage 键数</span><strong id="manual-local-storage">—</strong></div>
           </div>
-          <section class="manual-detail-section" aria-label="当前网站">
-            <div class="manual-section-heading"><strong>当前实际网址</strong><button id="manual-copy-url" class="manual-btn manual-utility-btn" type="button" disabled aria-label="复制当前实际网址"><i data-feather="copy"></i> 复制网址</button></div>
-            <code id="manual-detail" class="manual-url-value" title="点击可查看完整网址">—</code>
-          </section>
           <section class="manual-detail-section" aria-label="画面性能">
             <div class="manual-section-heading"><strong>性能概览</strong><span class="manual-section-hint">最近 5 秒画面帧率</span></div>
             <div class="manual-metrics-overview">
               <div class="manual-metric-item"><span>显示帧率</span><strong id="manual-fps">—</strong></div>
               <div class="manual-metric-item"><span>画面响应</span><strong id="manual-frame-latency">—</strong></div>
-              <div class="manual-metric-item"><span>操作响应</span><strong id="manual-action-latency">—</strong></div>
+              <div class="manual-metric-item"><span title="最近一次已完成操作的往返耗时，可能包含导航或浏览器等待">操作响应</span><strong id="manual-action-latency">—</strong></div>
             </div>
             <details class="manual-subdetails" id="manual-performance-details">
               <summary>详细性能指标 <i data-feather="chevron-down"></i></summary>
               <div class="manual-metrics-extra">
-                <div><span>Chromium 截图</span><strong id="manual-screenshot-ms">—</strong></div>
+                <div><span title="CDP 模式不执行 Playwright 截图，此指标显示为 —">Chromium 截图</span><strong id="manual-screenshot-ms">—</strong></div>
                 <div><span>BrowserManager 调度</span><strong id="manual-dispatch-ms">—</strong></div>
                 <div><span>前端解码显示</span><strong id="manual-display-ms">—</strong></div>
                 <div><span>JPEG 大小</span><strong id="manual-frame-bytes">—</strong></div>
                 <div><span>上一帧确认</span><strong id="manual-ack-ms">—</strong></div>
               </div>
             </details>
-            <div class="manual-transport-row">
-              <div class="manual-transport-setting"><label for="manual-frame-engine">画面引擎</label><select id="manual-frame-engine" data-custom-select aria-label="人工浏览器画面引擎"><option value="jpeg">WebSocket JPEG（默认）</option><option value="cdp">CDP Screencast（实验性）</option></select></div>
-              <span id="manual-frame-engine-status" class="manual-section-hint">当前：WebSocket JPEG</span>
-              <span class="manual-transport-current"><span class="manual-status-dot" aria-hidden="true"></span>画面/输入：<strong id="manual-transport">HTTP</strong></span>
-              <div class="manual-transport-setting"><label for="manual-transport-mode">传输偏好</label><select id="manual-transport-mode" data-custom-select aria-label="人工操控传输偏好"><option value="auto">自动 · WebSocket 优先</option><option value="http">仅 HTTP</option></select></div>
-            </div>
+
           </section>
           <section class="manual-detail-section manual-browser-environment" aria-label="当前 Page 浏览器环境">
             <div class="manual-section-heading"><strong>浏览器 User-Agent</strong><button class="manual-btn manual-utility-btn" id="manual-copy-ua" type="button" disabled><i data-feather="copy"></i> 复制 UA</button></div>
@@ -131,7 +124,7 @@
 window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token(), 'fixedViewport': fixed_viewport, 'socketioPath': get_socketio_path() ~ '/socket.io'} | tojson }};
 </script>
 {% for script in ['manual-core.js', 'manual-transport.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js'] %}
-<script defer src="{{ url_for('manual_browser.static', filename=script, v=10) }}"></script>
+<script defer src="{{ url_for('manual_browser.static', filename=script, v=11) }}"></script>
 {% endfor %}
 <script defer src="{{ url_for('static', filename='js/custom-select.js') }}"></script>
 {% endblock %}

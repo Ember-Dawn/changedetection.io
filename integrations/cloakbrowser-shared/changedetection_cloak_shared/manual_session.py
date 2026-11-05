@@ -100,7 +100,7 @@ class ManualSessionManager:
             entry.token = secrets.token_urlsafe(32)
         # Retain the existing expiry supervisor; token rotation transfers control,
         # it must not create a new lifetime supervisor or reset idle timeout.
-        return {'session': entry.token, 'generation': entry.browser_generation}
+        return {'session': entry.token, 'generation': entry.browser_generation, 'watch_uuid': entry.watch_uuid or ''}
 
     def resume(self, token, owner):
         return manager.call_sync(self._resume_owned(token, owner), timeout=15)
@@ -190,7 +190,7 @@ class ManualSessionManager:
             with self._guard:
                 self._session = session
                 self._opening = False
-            return {'session': token, 'generation': session.browser_generation}
+            return {'session': token, 'generation': session.browser_generation, 'watch_uuid': session.watch_uuid or ''}
         except BaseException:
             self._unreserve(watch_uuid)
             raise

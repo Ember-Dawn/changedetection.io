@@ -10,6 +10,7 @@
     const csrf = config.csrf || '';
     let token = null;
     let generation = null;
+    let sessionWatchUuid = '';
     let epoch = 0;
     let busy = false;
     let commandTail = Promise.resolve();
@@ -18,7 +19,7 @@
     function setTransport(value) { transport = value; }
 
     function emit(name, ...args) { if (typeof hooks[name] === 'function') hooks[name](...args); }
-    function state() { return {token, generation, epoch, busy}; }
+    function state() { return {token, generation, epoch, busy, watch_uuid: sessionWatchUuid}; }
     function active() { return Boolean(token); }
     function valid(ticket) { return token === ticket.token && epoch === ticket.epoch; }
     function snapshot() { return {token, epoch}; }
@@ -58,15 +59,17 @@
       if (transport) transport.close();
       token = null;
       generation = null;
+      sessionWatchUuid = '';
       epoch++;
       ++inspectionId;
       commandTail = Promise.resolve();
       emit('disconnected', reason || '会话已断开');
     }
-    function adopt(session, newGeneration) {
+    function adopt(session, newGeneration, associatedWatchUuid = '') {
       if (transport) transport.close();
       token = session;
       generation = newGeneration;
+      sessionWatchUuid = associatedWatchUuid;
       epoch++;
       commandTail = Promise.resolve();
       emit('connected', state());
@@ -97,7 +100,7 @@
       emit('message', '正在连接浏览器…');
       try {
         const data = await api('open', {url, watch_uuid: watchUuid});
-        adopt(data.session, data.generation);
+        adopt(data.session, data.generation, data.watch_uuid || '');
       } catch (error) {
         emit('message', '连接失败：' + error.message);
         await inspect();
@@ -108,7 +111,7 @@
       setBusy(true);
       try {
         const data = await api('resume', {session});
-        adopt(data.session, data.generation);
+        adopt(data.session, data.generation, data.watch_uuid || '');
       } catch (error) {
         emit('message', '恢复失败：' + error.message);
         await inspect();
@@ -146,7 +149,7 @@
       try {
         await api('close', {session:oldToken});
         const data = await api('open', {url: destinationUrl, watch_uuid: watchUuid});
-        adopt(data.session, data.generation);
+        adopt(data.session, data.generation, data.watch_uuid || '');
       } catch (error) {
         emit('message', '切换失败：' + error.message);
         await inspect();

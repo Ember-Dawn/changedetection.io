@@ -317,13 +317,11 @@ test('status shows only Page user agent and controls copy availability',async()=
   stream.start();
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(sim.element('manual-ua').textContent,'Mozilla/5.0 TestChromium');
-  assert.equal(sim.element('manual-detail').textContent,'https://example.net');
-  assert.equal(sim.element('manual-copy-url').disabled,false);
+  assert.equal(sim.element('manual-url').value,'https://example.net');
   assert.equal(sim.element('manual-copy-ua').disabled,false);
   stream.stop();
   assert.equal(sim.element('manual-ua').textContent,'—');
   assert.equal(sim.element('manual-copy-ua').disabled,true);
-  assert.equal(sim.element('manual-copy-url').disabled,true);
 });
 
 test('WebSocket JPEG metadata is shown without treating screenshot time as network RTT',async()=>{
@@ -394,4 +392,21 @@ test('CDP frames reuse JPEG display with separate engine timing and acknowledgem
   sim.element('manual-frame').onload();
   assert.equal(ackCount,1);
   stream.shutdown();
+});
+
+// The server is authoritative for Watch association, not the entry URL alone.
+test('core carries watch association through connect, resume and close', async()=>{
+  const sim=setup(async (url)=> {
+    if(url.endsWith('/open')) return ok({session:'watch-session',generation:4,watch_uuid:'watch-A'});
+    if(url.endsWith('/resume')) return ok({session:'resumed-session',generation:4,watch_uuid:'watch-A'});
+    return ok({closed:true});
+  });
+  sim.load('manual-core.js');
+  const core=sim.ctx.window.ManualBrowser.createCore({api:'/manual-browser/'});
+  await core.connect('https://example.net','watch-A');
+  assert.equal(core.state().watch_uuid,'watch-A');
+  await core.end('close');
+  assert.equal(core.state().watch_uuid,'');
+  await core.resume('watch-session');
+  assert.equal(core.state().watch_uuid,'watch-A');
 });

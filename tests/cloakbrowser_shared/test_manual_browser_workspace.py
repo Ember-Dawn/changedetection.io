@@ -17,7 +17,7 @@ class ManualBrowserWorkspaceTests(unittest.TestCase):
             'manual-go', 'manual-refresh', 'manual-finish', 'manual-close',
             'manual-state', 'manual-connection', 'manual-frame-wrap',
             'manual-frame', 'manual-cover', 'manual-site-data',
-            'manual-remaining', 'manual-detail', 'manual-text',
+            'manual-remaining', 'manual-text',
             'manual-type', 'manual-enter', 'manual-backspace',
         ]
         for element_id in required:
@@ -44,7 +44,7 @@ class ManualBrowserCompactToolbarTests(unittest.TestCase):
     def test_typing_toolbar_precedes_viewport_and_is_not_collapsible(self):
         html = (BASE / 'templates/manual-browser.html').read_text(encoding='utf-8')
         self.assertEqual(html.count('id="manual-text"'), 1)
-        self.assertLess(html.index('class="manual-typing-toolbar"'), html.index('class="manual-viewport-shell"'))
+        self.assertLess(html.index('manual-typing-toolbar"'), html.index('class="manual-viewport-shell"'))
         self.assertNotIn('<summary><i data-feather="keyboard"', html)
         self.assertIn('id="manual-session-details"', html)
         for part in ('manual-profile-lock', 'manual-generation', 'manual-cookies',
@@ -61,7 +61,7 @@ class ManualBrowserDiagnosticsContractTests(unittest.TestCase):
     def test_themed_transport_select_and_browser_diagnostics(self):
         html = (BASE / 'templates/manual-browser.html').read_text(encoding='utf-8')
         self.assertRegex(html, r'id="manual-transport-mode"[^>]*data-custom-select')
-        for element_id in ('manual-ua', 'manual-copy-ua', 'manual-copy-url', 'manual-screenshot-ms', 'manual-dispatch-ms',
+        for element_id in ('manual-ua', 'manual-copy-ua', 'manual-screenshot-ms', 'manual-dispatch-ms',
                            'manual-display-ms', 'manual-frame-bytes', 'manual-ack-ms'):
             with self.subTest(element_id=element_id):
                 self.assertEqual(html.count('id="' + element_id + '"'), 1)
@@ -70,7 +70,7 @@ class ManualBrowserDiagnosticsContractTests(unittest.TestCase):
         html = (BASE / 'templates/manual-browser.html').read_text(encoding='utf-8')
         css = (BASE / 'static/manual-browser.css').read_text(encoding='utf-8')
         for element_id in ('manual-performance-details', 'manual-usage-details',
-                           'manual-copy-url', 'manual-fps', 'manual-transport-mode'):
+                           'manual-fps', 'manual-transport-mode'):
             self.assertEqual(html.count('id="' + element_id + '"'), 1)
         for old_id in ('manual-platform', 'manual-viewport', 'manual-dpr'):
             self.assertNotIn('id="' + old_id + '"', html)
@@ -101,3 +101,28 @@ class ManualBrowserCdpContractTests(unittest.TestCase):
         self.assertIn("'Page.startScreencast'", screencast)
         self.assertIn("'Page.screencastFrameAck'", screencast)
         self.assertNotIn('remote-debugging-port', screencast)
+
+class ManualBrowserV6ContractTests(unittest.TestCase):
+    def test_no_duplicate_url_or_status_and_toolbar_selects(self):
+        html = (BASE / 'templates/manual-browser.html').read_text(encoding='utf-8')
+        self.assertNotIn('id="manual-detail"', html)
+        self.assertNotIn('id="manual-copy-url"', html)
+        self.assertNotIn('实时交互画面', html)
+        self.assertEqual(html.count('id="manual-finish"'), 1)
+        self.assertIn('id="manual-finish" type="button" class="manual-btn manual-btn-primary" hidden', html)
+        nav = html[html.index('manual-navigation"'):html.index('manual-actionbar"')]
+        self.assertLess(nav.index('id="manual-open"'), nav.index('id="manual-close"'))
+        actionbar = html[html.index('manual-actionbar"'):html.index('manual-typing-toolbar"')]
+        self.assertIn('id="manual-frame-engine"', actionbar)
+        self.assertIn('id="manual-transport-mode"', actionbar)
+        details = html[html.index('id="manual-session-details"'):]
+        self.assertNotIn('id="manual-frame-engine"', details)
+
+    def test_finish_is_tied_to_actual_owned_watch_context(self):
+        entry = (BASE / 'static/manual-browser.js').read_text(encoding='utf-8')
+        core = (BASE / 'static/manual-core.js').read_text(encoding='utf-8')
+        server = (BASE / '__init__.py').read_text(encoding='utf-8')
+        self.assertIn('core.state().watch_uuid === watchUuid', entry)
+        self.assertIn('associatedWatchUuid', core)
+        self.assertIn("not context.get('watch_uuid')", server)
+        self.assertIn("context.get('session') != data.get('session')", server)

@@ -21,13 +21,25 @@
   let existing = null;
   let stream, layout, input, transport;
 
-  function message(text) { $('manual-state').textContent = text; }
+  function message(text) {
+    const node = $('manual-state');
+    node.textContent = text;
+    // The connection badge already conveys the ordinary connected state.
+    node.hidden = !text || text === '浏览器已连接' || text === '人工操作已连接' || text === '未连接';
+  }
+  function finishVisibility() {
+    const node = $('manual-finish');
+    // Entry context AND actual session association must match. A general
+    // Browsers tab resuming an old Watch session never gains a finish button.
+    node.hidden = !(watchUuid && core.active() && core.state().watch_uuid === watchUuid);
+  }
   function controls(connected, busy = false) {
     for (const id of ['manual-refresh', 'manual-finish', 'manual-close', 'manual-type',
                       'manual-enter','manual-backspace','manual-go','manual-back','manual-forward']) {
       $(id).disabled = !connected || busy;
     }
     $('manual-open').disabled = connected || busy || $('manual-existing').hidden === false;
+    finishVisibility();
   }
   function showExisting(data) {
     existing = data && data.active ? data : null;
@@ -55,6 +67,7 @@
       controls(true);
       message('人工操作已连接');
       $('manual-connection').textContent = '● 已连接';
+      finishVisibility();
       input.reset();
       // Resize first so that screenshots and click coordinates refer to the
       // same viewport. Failure to resize is non-terminal.
@@ -72,11 +85,7 @@
       message(reason);
       core.inspect();
     },
-    ended({path}) {
-      if (path === 'finish' && !watchUuid) {
-        $('manual-detail').textContent = '请返回新增监控页，再点击「前往」刷新预览。';
-      }
-    },
+
   });
   stream = ns.createStream(core, {}, {status(data) { input.applyStatus(data); }});
   transport = ns.createTransport(core, config, {
@@ -92,6 +101,7 @@
     config.transport = event.target.value === 'http' ? 'http' : 'auto';
     try {localStorage.setItem('changedetection.manual-transport', config.transport);} catch (_) {}
     if (!core.active()) return;
+    message(config.transport === 'http' ? '正在切换至 HTTP 兼容模式…' : '正在连接 WebSocket…');
     if (config.transport === 'http') {transport.close(); stream.socketFallback();}
     else transport.start();
   });
@@ -99,6 +109,9 @@
     config.frameEngine = event.target.value === 'cdp' ? 'cdp' : 'jpeg';
     try {localStorage.setItem('changedetection.manual-frame-engine', config.frameEngine);} catch (_) {}
     if (!core.active()) return;
+    message('正在切换画面引擎…');
+    const engineStatus = $('manual-frame-engine-status');
+    if (engineStatus) engineStatus.textContent = '正在切换…';
     if (config.transport === 'http' && config.frameEngine === 'cdp') {
       config.transport = 'auto';
       if (transportMode) {transportMode.value = 'auto'; if (window.CDSelect) window.CDSelect.sync(transportMode);}
@@ -111,20 +124,6 @@
     // CDPSession before opening the replacement viewer connection.
     setTimeout(() => {if (core.active() && config.transport !== 'http') transport.start();}, 250);
   });
-  const copyUrl = $('manual-copy-url');
-  const currentUrl = $('manual-detail');
-  if (copyUrl && currentUrl) {
-    copyUrl.addEventListener('click', async () => {
-      const url = currentUrl.textContent.trim();
-      if (!url || url === '—') return;
-      try {
-        if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('Clipboard unavailable');
-        await navigator.clipboard.writeText(url);
-        copyUrl.textContent = '已复制';
-        setTimeout(() => {copyUrl.textContent = '复制网址';}, 1500);
-      } catch (_) {message('复制失败，请手动选择网址后复制');}
-    });
-  }
   const copyUa = $('manual-copy-ua');
   if (copyUa) copyUa.addEventListener('click', async () => {
     const ua = $('manual-ua').textContent;
@@ -157,7 +156,10 @@
     core.connect(url, watchUuid);
   });
   $('manual-close').addEventListener('click', () => core.end('close'));
-  $('manual-finish').addEventListener('click', () => core.end('finish'));
+  $('manual-finish').addEventListener('click', () => {
+    if (!watchUuid || core.state().watch_uuid !== watchUuid) return;
+    core.end('finish');
+  });
   $('manual-check').addEventListener('click', () => core.inspect());
   $('manual-resume').addEventListener('click', () => {
     if (existing && existing.owned) core.resume(existing.session);
