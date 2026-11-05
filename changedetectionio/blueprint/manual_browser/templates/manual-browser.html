@@ -87,12 +87,15 @@
             <span>画面响应：<strong id="manual-frame-latency">—</strong></span>
             <span>操作响应：<strong id="manual-action-latency">—</strong></span>
             <span>显示帧率：<strong id="manual-fps">—</strong></span>
+            <span>画面/输入：<strong id="manual-transport">HTTP</strong></span>
+            <label for="manual-transport-mode">传输偏好</label>
+            <select id="manual-transport-mode" aria-label="人工操控传输偏好"><option value="auto">自动 · WebSocket 优先</option><option value="http">仅 HTTP</option></select>
           </div>
           <div class="manual-usage-notes">
             <strong>使用说明</strong>
             <p>点击画面可操作鼠标，滚轮用于页面滚动；画面获得焦点后可以使用键盘。也可以通过上方的文字输入栏发送内容。</p>
             <p>15 分钟无人工操作后会话自动结束。关闭当前网页标签后，仍可在有效期内恢复会话。</p>
-            <p>画面来自 JPEG 截图轮询，不是原生视频流。延迟数值是当前网页测得的请求往返时间，不等于目标网站的渲染耗时。</p>
+            <p>画面优先使用 WebSocket JPEG 推送，失败时回退 HTTP 截图轮询；不是原生视频流。延迟数值是当前网页测得的请求往返时间，不等于目标网站的渲染耗时。</p>
           </div>
         </div>
       </details>
@@ -100,10 +103,10 @@
   </section>
 </main>
 <script>
-window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token(), 'fixedViewport': fixed_viewport} | tojson }};
+window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token(), 'fixedViewport': fixed_viewport, 'socketioPath': get_socketio_path() ~ '/socket.io'} | tojson }};
 </script>
-{% for script in ['manual-core.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js'] %}
-<script defer src="{{ url_for('manual_browser.static', filename=script, v=6) }}"></script>
+{% for script in ['manual-core.js', 'manual-transport.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js'] %}
+<script defer src="{{ url_for('manual_browser.static', filename=script, v=7) }}"></script>
 {% endfor %}
 <script defer src="{{ url_for('static', filename='js/custom-select.js') }}"></script>
 {% endblock %}

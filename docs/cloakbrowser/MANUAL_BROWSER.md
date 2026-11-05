@@ -29,10 +29,10 @@ A browser tab/window closing does not immediately destroy the server-side manual
 ## Session and input constraints
 
 - Human session idle timeout: 15 minutes. One expiry task belongs to each Page session and survives login-token rotation; resuming an old tab does not create another expiry task. Polling screenshots or querying status does **not** count as human activity; interacting refreshes last-active time. Browser generation changes invalidate a session.
-- Browser screenshots are JPEG frames over authenticated HTTP requests; transient HTTP 500 during navigation is retried without assuming the remote Page has died. Terminal session/auth errors (401/403/404/409, certain 400 failures) require reconnection.
+- Browser screenshots prefer authenticated Socket.IO binary JPEG frames with one-frame acknowledgement and adaptive 10/5/2 FPS caps; HTTP JPEG polling remains a fallback. transient HTTP 500 during navigation is retried without assuming the remote Page has died. Terminal session/auth errors (401/403/404/409, certain 400 failures) require reconnection.
 - The frontend records an in-memory session epoch and matches async callbacks to the current token. Late status/frame/inspection responses from a previous session are ignored, even when a prior browser tab still has in-flight requests. The token is never kept in localStorage or URL parameters.
-- Only one screenshot request runs per polling chain. The screenshot URL is revoked when replaced/closed and a hidden tab suspends polling; an abandoned server-side Page still expires under the 15-minute manager supervisor.
-- Actions run through one ordered request queue (mouse down/move/up, key, resize and navigation); non-terminal input failures are reported without permanently blocking later commands. Drag capture loss sends a matching mouse-up when the session is still active.
+- Only one screenshot request runs per HTTP polling chain; WebSocket frame production waits for explicit client consumption acknowledgement. The screenshot URL is revoked when replaced/closed and a hidden tab suspends polling; an abandoned server-side Page still expires under the 15-minute manager supervisor.
+- Actions run through one ordered request queue (Socket.IO input when connected; HTTP fallback) (mouse down/move/up, key, resize and navigation); non-terminal input failures are reported without permanently blocking later commands. Drag capture loss sends a matching mouse-up when the session is still active.
 - Actions are limited and validated: click, pointer move/down/up, wheel, selected keys, text (up to 512 chars), navigation, back/forward, refresh and viewport resize. URL and navigation requests go through the app's URL safety checks; popups are closed rather than being allowed to evade Page quotas.
 - The UI tracks the displayed screenshot dimensions for accurate click coordinates; the manual Page viewport can be resized independently from other watch Pages.
 - Authentication, CSRF, origin checks, per-login ownership tokens and restrictions on remote URL navigation protect the control API; keep server or Cloudflare Access controls as an additional layer. Do not expose Playwright/CDP, VNC or similar raw control ports publicly.
@@ -45,14 +45,14 @@ The container may write Profile files as UID 0. A host non-root user seeing `Per
 
 ## Limitations and future ideas (not implemented)
 
-- This is screenshot polling plus HTTP input, not 30/60 FPS stream, remote desktop, audio, or OS-window control.
+- This is JPEG image streaming over Socket.IO with HTTP polling fallback, not 30/60 FPS video, remote desktop, audio, or OS-window control.
 - Popup-based sign-in flows may not work because untracked popups are closed.
 - Human verification remains subject to target-site policies and may be requested again; no automatic CAPTCHA-solving guarantee.
-- Xvfb + noVNC and CDP screencast/WebSocket are **research options only**. They are not part of the current image or deployed remote-control code. Preserve the current working HTTP method until any alternative is explicitly implemented/tested.
+- Xvfb + noVNC and CDP screencast remain research options. Socket.IO JPEG delivery is implemented, but no CDP screencast is enabled. They are not part of the current image or deployed remote-control code. Preserve the current working HTTP method until any alternative is explicitly implemented/tested.
 
 ## Frontend verification after round 2 refactor
 
-The browser interface is still **plain JavaScript**, without build tools or framework packages. `manual-browser.html` loads five local `defer` scripts in dependency order and a local CSS file. Update all five together when changing the shared module API; versions are cache-busted in the template. Do not import JavaScript directly from a CDN.
+The browser interface is still **plain JavaScript**, without build tools or framework packages. `manual-browser.html` loads six local `defer` scripts in dependency order and a local CSS file. Update all six together when changing the shared module API; versions are cache-busted in the template. Do not import JavaScript directly from a CDN.
 
 Run the frontend tests (Node 20+ recommended):
 
@@ -66,12 +66,12 @@ These tests use a simulated DOM and mocked same-origin HTTP API; they cannot sub
 
 The Browsers page uses a compact dark interface with a unified header, status badge, address/navigation toolbar, action toolbar, large interactive viewport, and collapsible **文字输入** / **会话详情与使用说明** panels. Session recovery is displayed in a separate notice only when necessary. The visual language is aligned with Product Extractors while the screenshot remains the dominant, flexible-height area.
 
-- The server API and five JavaScript module responsibilities are unchanged. The template retains the existing element IDs consumed by `manual-core`, `manual-stream`, `manual-layout`, `manual-input`, and the entrypoint.
+- The existing HTTP server API and the six JavaScript module boundaries are maintained. The template retains the existing element IDs consumed by `manual-core`, `manual-stream`, `manual-layout`, `manual-input`, and the entrypoint.
 - `manual-layout.js` still measures the actual root offset and sizes the Page viewport to the screenshot container; compact headers and collapsed details leave more room for the interactive Page.
 - The typing controls sit in a compact **always-visible single-row toolbar above the viewport**, with a deliberately width-limited text field. Keyboard events in the focused screenshot continue to work. Opening the session detail panel resizes the viewport when `ResizeObserver` is available.
 - Styles remain scoped to `#manual-browser-root` in `static/manual-browser.css`. Feather icons already bundled with changedetection.io are used; no CDN or remote UI dependencies were added.
 
-The existing JPEG screenshot transport, authentication, ownership checks, BrowserManager quotas, URL validation, 15-minute session expiration and watch recheck behavior have not changed. Test the UI with different screen heights, especially after expanding/collapsing the controls, resizing, navigating, and resuming a session.
+The JPEG-over-HTTP fallback, authentication, ownership checks, BrowserManager quotas, URL validation, 15-minute session expiration and watch recheck behavior have not changed. Test the UI with different screen heights, especially after expanding/collapsing the controls, resizing, navigating, and resuming a session.
 
 ## 2026-11: Browser input and frame responsiveness
 
@@ -92,3 +92,14 @@ The manual browser offers **fixed 1366×900 (default)** and **follow-window** mo
 The desktop viewport size is configured via `CLOAKBROWSER_VIEWPORT_WIDTH` (default `1366`) and `CLOAKBROWSER_VIEWPORT_HEIGHT` (default `900`) in Compose. This size applies to scheduled shared Watch Pages, Product Extractors live Dry Run and manual fixed mode. Fixed mode adjusts only the manual Page when first connected or switching into fixed mode, and displays the JPEG at its original aspect ratio with a content-sized workspace to avoid tall empty bands. Follow-window mode instead uses the available WebUI canvas size and can change responsive page layout. Other Pages in the shared Context are unaffected by toggling the manual mode.
 
 Both Browsers and Product Extractors use a shared, keyboard-operable themed dropdown. The native select remains the source of truth; the popup is placed outside scroll-clipping containers.
+
+## 2026-11-05: WebSocket JPEG and input transport (Manual Input V2)
+
+- The manual page prefers two authenticated Socket.IO namespaces, `/manual-input` and `/manual-frames`, using separate client Engine.IO connections so JPEG frames cannot queue in front of input messages. It remains a single Headless Chromium Page, with no new container or Profile writer.
+- The input namespace enforces password-protected login, CSRF, matching Origin/Host, owner and browser generation. A single input controller is accepted; each command has a sequence and execution acknowledgement. Commands run through existing `ManualSessionManager.action` validations. Disconnected input releases any pressed mouse button.
+- The frame namespace streams binary JPEG (quality 65) with a single frame outstanding until the client acknowledges decoding/consumption. Target intervals after capture are 100/200/500 ms (active/recent/idle), bounded by actual screenshot/transport/decode duration. Hidden/suspended views stop generating new frames after the in-flight image. Frames do not extend the 15-minute human idle timeout.
+- The detail panel offers **自动 · WebSocket 优先** (default) or **仅 HTTP**, saved in localStorage without credentials. If WebSocket is disabled, unsupported by the reverse proxy, or drops unexpectedly, the client closes both channels and returns to the original HTTP input and JPEG polling. Unconfirmed commands must **never** be replayed automatically during fallback.
+- Mouse Hover is forwarded; drag release flushes its last pending move before `up`. Existing keyboard controls are unchanged.
+- The base template supplies the bundled Socket.IO client only when Socket.IO UI is enabled. `SOCKETIO_MODE=threading` remains preferred; check WebSocket upgrade support in the deployment proxy and confirm the page's **画面/输入** field reads `WebSocket` in a real browser.
+- WebSocket does not promise Cloudflare verification success: Playwright/automated browsers may be rejected independently of pointer delivery.
+- Real Docker/Chromium performance, authorization, websocket disconnect, and exact frame rates require on-host validation; local Node/unit tests are not end-to-end evidence.

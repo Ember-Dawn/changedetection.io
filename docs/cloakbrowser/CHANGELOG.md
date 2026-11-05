@@ -80,3 +80,11 @@ For future source changes, append a new entry with date (if known), specific pat
 - Preserve initial-check baseline behavior and existing Worker/Apprise notification gating. No first-check notifications. Unknown extraction data does not reset reliable qualification. Mode/target edits or extraction-rule revisions start a fresh baseline.
 - Save `purchase_alert_state` on Watch, update processor API schema and tests. Improve Watch editor radio alignment, show `name — id` with shared custom select, remove redundant top manual-operation button.
 - Add `docs/product-extraction/RESTOCK_AND_ALERTS.md` as the notification semantics source of truth.
+
+## 2026-11-05: Manual Browser Socket.IO input / binary JPEG streaming
+
+- `manual_socket.py` registers protected input and frame namespaces; connects require active password login, CSRF, session owner and browser generation; JPEG delivery uses explicit frame acknowledgement.
+- `manual-transport.js` adds independent Socket.IO connections, ordered operation ACK and safe HTTP fallback, keeping the shared Headless BrowserManager and Profile unchanged.
+- Existing manual frontend gains real Hover, final-move-before-release, and a compact transport diagnostic.
+- Screenshot encoder stays JPEG 65; CDP Screencast, WebP, Xvfb and noVNC remain unimplemented.
+- Tests: frontend Node tests and source/template checks are run locally. No real Chromium, production Cloudflare or Docker acceptance is claimed.

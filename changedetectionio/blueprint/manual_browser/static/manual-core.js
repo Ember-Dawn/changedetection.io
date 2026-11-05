@@ -14,6 +14,8 @@
     let busy = false;
     let commandTail = Promise.resolve();
     let inspectionId = 0;
+    let transport = null;
+    function setTransport(value) { transport = value; }
 
     function emit(name, ...args) { if (typeof hooks[name] === 'function') hooks[name](...args); }
     function state() { return {token, generation, epoch, busy}; }
@@ -53,6 +55,7 @@
     }
     function disconnect(reason) {
       if (!token && !busy) return;
+      if (transport) transport.close();
       token = null;
       generation = null;
       epoch++;
@@ -61,6 +64,7 @@
       emit('disconnected', reason || '会话已断开');
     }
     function adopt(session, newGeneration) {
+      if (transport) transport.close();
       token = session;
       generation = newGeneration;
       epoch++;
@@ -72,7 +76,8 @@
       const ticket = snapshot();
       const next = commandTail.catch(() => {}).then(async () => {
         if (!valid(ticket)) throw new Error('会话已切换，已取消旧操作');
-        return api('action', {session: ticket.token, action, ...args});
+        const socketResult = transport && transport.send(action, args);
+        return socketResult || api('action', {session: ticket.token, action, ...args});
       });
       // Continue processing future actions even after one command fails.
       commandTail = next.catch(() => {});
@@ -147,7 +152,7 @@
         await inspect();
       } finally { setBusy(false); }
     }
-    return {state, active, valid, snapshot, request, api, send, terminal,
+    return {state, active, valid, snapshot, request, api, send, setTransport, terminal,
             disconnect, connect, resume, end, inspect, switchSession};
   }
 

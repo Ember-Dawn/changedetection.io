@@ -36,11 +36,14 @@ class _Session:
     last_active: float
     address: str
     closed: bool = False
+    pointer_down: bool = False
 
 
 class ManualSessionManager:
     def __init__(self):
         self._guard = threading.RLock()
+        # Serialize mutable Page commands across both HTTP and Socket.IO.
+        self._command_guard = threading.RLock()
         self._session = None
         self._reserved = set()
         self._opening = False
@@ -61,6 +64,13 @@ class ManualSessionManager:
         if time.monotonic() - session.last_active > _SESSION_SECONDS:
             raise ManualSessionError('Manual session expired after 15 minutes of inactivity')
         return session
+
+    def authorize(self, token, owner, generation):
+        with self._guard:
+            entry = self._get(token, owner)
+            if entry.browser_generation != generation:
+                raise ManualSessionError('Browser generation changed')
+            return True
 
     def inspect(self, owner):
         """Never reveal another operator's URL or control token."""
@@ -278,9 +288,11 @@ class ManualSessionManager:
             elif action == 'down':
                 await page.mouse.move(x, y)
                 await page.mouse.down(button='left')
+                session.pointer_down = True
             elif action == 'up':
                 await page.mouse.move(x, y)
                 await page.mouse.up(button='left')
+                session.pointer_down = False
             else:
                 dx, dy = float(args.get('dx') or 0), float(args.get('dy') or 0)
                 if abs(dx) > 3000 or abs(dy) > 3000:
@@ -335,8 +347,21 @@ class ManualSessionManager:
         session.last_active = time.monotonic()
         return {'ok': True}
 
+    async def _release_pointer(self, token, owner):
+        session = self._get(token, owner)
+        if session.pointer_down:
+            try:
+                await session.page.mouse.up(button='left')
+            finally:
+                session.pointer_down = False
+
+    def release_pointer(self, token, owner):
+        with self._command_guard:
+            return manager.call_sync(self._release_pointer(token, owner), timeout=15)
+
     def action(self, token, owner, action, args):
-        return manager.call_sync(self._action(token, owner, action, args), timeout=40)
+        with self._command_guard:
+            return manager.call_sync(self._action(token, owner, action, args), timeout=40)
 
 
 manual_sessions = ManualSessionManager()

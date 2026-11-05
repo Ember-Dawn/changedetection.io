@@ -1,4 +1,4 @@
-/* JPEG polling and status polling are independently retryable. They are not a CDP stream. */
+/* WebSocket binary JPEG with independent HTTP screenshot/status fallback; not CDP. */
 (() => {
   'use strict';
   window.ManualBrowser = window.ManualBrowser || {};
@@ -10,6 +10,8 @@
     let paused = false, frameRequest = null, refreshPending = false;
     let lastHumanAt = Date.now(), lastRefreshRequested = 0;
     let previousDisplayAt = 0;
+    let transport = null;
+    function setTransport(value) { transport = value; }
     const $safe = (id, value) => { const node = $(id); if (node) node.textContent = value; };
     const $ = id => document.getElementById(id);
     const img = $('manual-frame');
@@ -30,6 +32,7 @@
     }
     function stop(reason = '点击「连接浏览器」开始操作。') {
       run++;
+      if (transport) transport.close();
       clearTimeout(frameTimer); clearTimeout(statusTimer);
       frameTimer = null; statusTimer = null;
       frameFailures = 0; statusFailures = 0;
@@ -59,14 +62,15 @@
     }
     function nextFrame(ms = defaultFrameDelay()) {
       clearTimeout(frameTimer);
-      if (core.active() && active && !paused) frameTimer = setTimeout(frame, ms);
+      if (core.active() && active && !paused && !(transport && (transport.isActive() || transport.isConnecting()))) frameTimer = setTimeout(frame, ms);
     }
     function nextStatus(ms = 2500) {
       clearTimeout(statusTimer);
       if (core.active() && active) statusTimer = setTimeout(status, ms);
     }
     async function frame() {
-      if (!core.active() || !active || paused || frameRequest) return;
+      if (!core.active() || !active || paused || frameRequest ||
+          (transport && (transport.isActive() || transport.isConnecting()))) return;
       const ticket = core.snapshot();
       const cycle = run;
       const requestTag = {cycle};
@@ -76,29 +80,10 @@
       try {
         const response = await core.request('frame?session=' + encodeURIComponent(ticket.token));
         const blob = await response.blob();
-        if (cycle !== run || !core.valid(ticket) || paused || !active) return;
+        if (cycle !== run || !core.valid(ticket) || paused || !active || (transport && transport.isActive())) return;
         frameFailures = 0;
         $safe('manual-frame-latency', `${Date.now() - started} ms`);
-        const url = URL.createObjectURL(blob);
-        disposePending();
-        pending = url;
-        img.onload = () => {
-          if (cycle !== run || !core.valid(ticket) || pending !== url) return;
-          const now = Date.now();
-          if (previousDisplayAt && now > previousDisplayAt) {
-            $safe('manual-fps', `${(1000 / (now - previousDisplayAt)).toFixed(1)} FPS`);
-          }
-          previousDisplayAt = now;
-          if (shown) URL.revokeObjectURL(shown);
-          shown = url;
-          pending = null;
-          img.hidden = false;
-          cover.hidden = true;
-        };
-        img.onerror = () => {
-          if (pending === url) { disposePending(); message('画面解码失败，将重试'); }
-        };
-        img.src = url;
+        displayBlob(blob, ticket, cycle);
       } catch (error) {
         if (cycle !== run || !core.valid(ticket)) return;
         if (core.terminal(error)) { core.disconnect('画面会话已失效：' + error.message); return; }
@@ -116,7 +101,59 @@
         }
       }
     }
-    function interaction() { lastHumanAt = Date.now(); }
+    function displayBlob(blob, ticket, cycle, acknowledged) {
+      if (cycle !== run || !core.valid(ticket) || !active || paused) {
+        if (acknowledged) acknowledged();
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      disposePending();
+      pending = url;
+      img.onload = () => {
+        if (cycle !== run || !core.valid(ticket) || pending !== url) {
+          if (acknowledged) acknowledged();
+          return;
+        }
+        const now = Date.now();
+        if (previousDisplayAt && now > previousDisplayAt)
+          $safe('manual-fps', `${(1000 / (now - previousDisplayAt)).toFixed(1)} FPS`);
+        previousDisplayAt = now;
+        if (shown) URL.revokeObjectURL(shown);
+        shown = url; pending = null;
+        img.hidden = false; cover.hidden = true;
+        if (acknowledged) acknowledged();
+      };
+      img.onerror = () => {
+        if (pending === url) { disposePending(); message('画面解码失败，将重试'); }
+        if (acknowledged) acknowledged();
+      };
+      img.src = url;
+    }
+    function socketReady() {
+      ++run;
+      clearTimeout(frameTimer); frameTimer = null;
+      frameRequest = null;
+      if (core.active() && active) nextStatus(0);
+    }
+    function socketFallback() {
+      if (!core.active()) return;
+      ++run;
+      frameRequest = null;
+      message('WebSocket 不可用，已回退 HTTP 画面');
+      if (active && !paused) nextFrame(0);
+      if (active) nextStatus(0);
+    }
+    function socketFrame(data, ack) {
+      if (!transport || !transport.isActive()) { ack(); return; }
+      if (!data || typeof data.seq !== 'number' || !data.jpeg) { ack(); return; }
+      $safe('manual-frame-latency', `${data.capture_ms || 0} ms 截图`);
+      const blob = new Blob([data.jpeg], {type:'image/jpeg'});
+      displayBlob(blob, core.snapshot(), run, ack);
+    }
+    function interaction() {
+      lastHumanAt = Date.now();
+      if (transport) transport.interaction();
+    }
     function requestRefresh() {
       interaction();
       if (!core.active() || !active || paused) return;
@@ -134,7 +171,7 @@
       if (typeof elapsed === 'number' && Number.isFinite(elapsed)) {
         $safe('manual-action-latency', `${Math.max(0, Math.round(elapsed))} ms`);
       }
-      requestRefresh();
+      if (!(transport && transport.isActive())) requestRefresh();
     }
     async function status() {
       if (!core.active() || !active) return;
@@ -173,15 +210,20 @@
       active = !document.hidden;
       paused = false;
       if (active) { frame(); status(); }
+      if (transport) transport.start();
     }
     function suspend(text) {
+      if (transport) transport.view(false);
       paused = true;
       clearTimeout(frameTimer);
       coverFrame(text);
     }
     function resumeFrames() {
       paused = false;
-      if (core.active() && active) nextFrame(0);
+      if (core.active() && active) {
+        if (transport && transport.isActive()) transport.view(true);
+        else nextFrame(0);
+      }
     }
     function visibilityChanged() {
       active = !document.hidden;
@@ -189,13 +231,18 @@
         // Retire in-flight frame/status responses from the now-hidden tab.
         run++; frameRequest = null; refreshPending = false;
         clearTimeout(frameTimer); clearTimeout(statusTimer);
-      } else if (core.active()) { nextFrame(0); nextStatus(0); }
+        if (transport) transport.view(false);
+      } else if (core.active()) {
+        if (transport && transport.isActive()) transport.view(true);
+        else nextFrame(0);
+        nextStatus(0);
+      }
     }
     function shutdown() {
       stop();
       active = false;
     }
-    return {start,stop,suspend,resumeFrames,visibilityChanged,shutdown,coverFrame,interaction,requestRefresh,actionCompleted};
+    return {start,stop,setTransport,socketReady,socketFallback,socketFrame,suspend,resumeFrames,visibilityChanged,shutdown,coverFrame,interaction,requestRefresh,actionCompleted};
   }
   window.ManualBrowser.createStream = createStream;
 })();

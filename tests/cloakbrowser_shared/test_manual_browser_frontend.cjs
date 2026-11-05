@@ -181,14 +181,14 @@ test('input sends mouse-up after lost pointer capture',async()=>{
   wrap.listeners.pointerdown({button:0,target:img,clientX:400,clientY:300,pointerId:1,preventDefault(){}});
   wrap.listeners.lostpointercapture({});
   await new Promise(r=>setImmediate(r));
-  assert.deepEqual(sent.map(x=>x.type),['down','up']);
+  assert.deepEqual(sent.map(x=>x.type),['down','move','up']);
 });
 
 test('all frontend modules initialize in template load order without a bundler',async()=>{
   const sim=setup(async url=>url.endsWith('/current') ? ok({active:false,opening:false}) : ok());
   sim.ctx.window.manualBrowserConfig={api:'/manual-browser/',csrf:'test'};
   sim.element('manual-url').value='https://example.net';
-  for(const file of ['manual-core.js','manual-stream.js','manual-layout.js','manual-input.js','manual-browser.js']) sim.load(file);
+  for(const file of ['manual-core.js','manual-transport.js','manual-stream.js','manual-layout.js','manual-input.js','manual-browser.js']) sim.load(file);
   assert.ok(sim.element('manual-open').listeners.click);
   assert.ok(sim.element('manual-back').listeners.click);
   assert.ok(sim.element('manual-refresh').listeners.click);
@@ -252,4 +252,53 @@ test('old frame cannot block fresh screenshot after stream restart',async()=>{
   held.resolve(ok());
   await new Promise(resolve=>setImmediate(resolve));
   stream.shutdown();
+});
+
+test('Socket.IO input is ordered and never replays unacknowledged actions on failure', async()=>{
+  const sim=setup(async url=>url.endsWith('/open') ? ok({session:'socket-test',generation:7}):ok());
+  sim.load('manual-core.js');
+  sim.load('manual-transport.js');
+  const sockets=[];
+  sim.ctx.window.io = (namespace, options) => {
+    const events = {};
+    const socket = {
+      namespace, options, events, disconnected:false,
+      on(name, fn) {events[name]=fn;},
+      removeAllListeners() {Object.keys(events).forEach(key=>delete events[key]);},
+      disconnect() {this.disconnected=true;},
+      emit(name, payload, ack) {if(name==='action') { calls.push(payload); ack({ok:true,seq:payload.seq,result:{ok:true}}); }}
+    };
+    sockets.push(socket);
+    return socket;
+  };
+  const calls=[];
+  const core=sim.ctx.window.ManualBrowser.createCore({api:'/manual-browser/',csrf:'csrf'});
+  await core.connect('https://example.org','');
+  const transport=sim.ctx.window.ManualBrowser.createTransport(core,{csrf:'csrf'},{});
+  core.setTransport(transport);
+  transport.start();
+  assert.equal(sockets.length,2);
+  assert.equal(sockets[0].options.transports[0],'websocket');
+  sockets[0].events.connect(); sockets[1].events.connect();
+  assert.equal(transport.isActive(),true);
+  await core.send('move',{x:10,y:20},true);
+  await core.send('down',{x:10,y:20},true);
+  assert.deepEqual(calls.map(x=>x.seq),[1,2]);
+  sockets[0].events.disconnect();
+  assert.equal(transport.isActive(),false);
+  assert.ok(sockets.every(socket=>socket.disconnected));
+});
+
+test('Socket.IO missing uses original HTTP transport without opening sockets',async()=>{
+  const calls=[];
+  const sim=setup(async (url,opt)=>{calls.push(url);return url.endsWith('/open')?ok({session:'s',generation:1}):ok({ok:true});});
+  sim.load('manual-core.js'); sim.load('manual-transport.js');
+  const core=sim.ctx.window.ManualBrowser.createCore({api:'/manual-browser/',csrf:'test'});
+  await core.connect('https://example.org','');
+  const transport=sim.ctx.window.ManualBrowser.createTransport(core,{csrf:'test'});
+  core.setTransport(transport);
+  transport.start();
+  await core.send('move',{x:1,y:2},true);
+  assert.equal(transport.isActive(),false);
+  assert.ok(calls.some(url=>url.endsWith('/action')));
 });

@@ -30,7 +30,7 @@ class ManualBrowserWorkspaceTests(unittest.TestCase):
     def test_script_order_and_screenshot_flex(self):
         template = (BASE / 'templates/manual-browser.html').read_text(encoding='utf-8')
         css = (BASE / 'static/manual-browser.css').read_text(encoding='utf-8')
-        self.assertIn("['manual-core.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js']", template)
+        self.assertIn("['manual-core.js', 'manual-transport.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js']", template)
         self.assertRegex(css, r'\.manual-viewport-shell\s*\{[^}]*flex:1 1 auto')
         self.assertRegex(css, r'\.manual-view\s*\{[^}]*flex:1 1 auto')
         self.assertIn('manual-details', css)

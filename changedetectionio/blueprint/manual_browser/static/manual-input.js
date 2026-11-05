@@ -6,7 +6,7 @@
     const $ = id => document.getElementById(id);
     const wrap = $('manual-frame-wrap');
     const img = $('manual-frame');
-    let dragging = false, pendingMove = null, lastPointer = null, moving = false, navigating = false;
+    let dragging = false, pendingMove = null, lastPointer = null, moving = null, navigating = false, releasing = false;
     let dirty = false;
     let inFlight = null;
     function message(text) { if (hooks.message) hooks.message(text); }
@@ -20,7 +20,7 @@
         return result;
       });
     }
-    function reset() { dragging = false; pendingMove = null; lastPointer = null; moving = false; navigating = false; dirty = false; }
+    function reset() { dragging = false; pendingMove = null; lastPointer = null; navigating = false; releasing = false; dirty = false; }
     function point(event) {
       const rect = img.getBoundingClientRect();
       if (img.hidden || !rect.width || !rect.height ||
@@ -30,24 +30,31 @@
       return {x:Math.max(0,Math.min(width,(event.clientX - rect.left) * width / rect.width)),
               y:Math.max(0,Math.min(height,(event.clientY - rect.top) * height / rect.height))};
     }
-    async function flushMoves() {
-      if (moving) return;
-      moving = true;
-      try {
-        while (core.active() && dragging && pendingMove) {
+    function flushMoves() {
+      if (moving) return moving;
+      moving = (async () => {
+        while (core.active() && pendingMove) {
           const latest = pendingMove;
           pendingMove = null;
           await sendAndRefresh('move', latest);
         }
-      } finally { moving = false; }
+      })().finally(() => { moving = null; });
+      return moving;
     }
-    function release(event) {
-      if (!dragging) return;
-      dragging = false;
+    async function release(event) {
+      if (!dragging || releasing) return;
+      releasing = true;
       const p = point(event) || pendingMove || lastPointer;
-      pendingMove = null; lastPointer = null;
-      if (p && core.active()) sendAndRefresh('up', p);
-      if (wrap.hasPointerCapture && wrap.hasPointerCapture(event.pointerId)) wrap.releasePointerCapture(event.pointerId);
+      if (p) pendingMove = p;
+      dragging = false;
+      try {
+        await flushMoves();
+        if (core.active() && p) await sendAndRefresh('up', p);
+      } finally {
+        pendingMove = null; lastPointer = null; releasing = false;
+        if (wrap.hasPointerCapture && wrap.hasPointerCapture(event.pointerId))
+          wrap.releasePointerCapture(event.pointerId);
+      }
     }
     async function navigate(action, args = {}) {
       if (!core.active() || navigating) return;
@@ -80,25 +87,21 @@
     }
     function init() {
       wrap.addEventListener('pointerdown', event => {
-        if (!core.active() || event.button !== 0 || event.target !== img) return;
+        if (!core.active() || releasing || event.button !== 0 || event.target !== img) return;
         const p = point(event); if (!p) return;
         event.preventDefault(); wrap.focus(); dragging = true; lastPointer = p;
         wrap.setPointerCapture(event.pointerId);
         sendAndRefresh('down', p);
       });
       wrap.addEventListener('pointermove', event => {
-        if (!core.active() || !dragging) return;
+        if (!core.active() || releasing) return;
         const p = point(event);
         if (p) { pendingMove = p; lastPointer = p; flushMoves(); }
       });
       wrap.addEventListener('pointerup', release);
       wrap.addEventListener('pointercancel', release);
-      wrap.addEventListener('lostpointercapture', () => {
-        if (!dragging) return;
-        dragging = false;
-        const p = pendingMove || lastPointer;
-        pendingMove = null; lastPointer = null;
-        if (p && core.active()) sendAndRefresh('up', p);
+      wrap.addEventListener('lostpointercapture', event => {
+        if (dragging && !releasing) release(event);
       });
       wrap.addEventListener('wheel', event => {
         if (!core.active()) return;

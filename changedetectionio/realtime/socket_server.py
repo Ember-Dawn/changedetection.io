@@ -417,6 +417,14 @@ def init_socketio(app, datastore):
     from .events import register_watch_operation_handlers
     register_watch_operation_handlers(socketio, datastore)
 
+    # Remote browser control has stricter authentication than status events.
+    try:
+        from changedetectionio.blueprint.manual_browser.manual_socket import register_manual_socketio
+        register_manual_socketio(socketio)
+    except ModuleNotFoundError as exc:
+        if exc.name != 'changedetection_cloak_shared':
+            raise
+
     # Store the datastore reference on the socketio object for later use
     socketio.datastore = datastore
 

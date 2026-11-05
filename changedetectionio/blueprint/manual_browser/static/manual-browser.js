@@ -6,8 +6,12 @@
   const config = window.manualBrowserConfig || {};
   const initialUrl = $('manual-url').value.trim();
   const watchUuid = $('manual-watch-uuid').value.trim();
+  const transportMode = $('manual-transport-mode');
+  try {config.transport = localStorage.getItem('changedetection.manual-transport') === 'http' ? 'http' : 'auto';}
+  catch (_) {config.transport = 'auto';}
+  if (transportMode) transportMode.value = config.transport;
   let existing = null;
-  let stream, layout, input;
+  let stream, layout, input, transport;
 
   function message(text) { $('manual-state').textContent = text; }
   function controls(connected, busy = false) {
@@ -67,6 +71,21 @@
     },
   });
   stream = ns.createStream(core, {}, {status(data) { input.applyStatus(data); }});
+  transport = ns.createTransport(core, config, {
+    ready() { stream.socketReady(); },
+    fallback() { stream.socketFallback(); },
+    frame(data, ack) { stream.socketFrame(data, ack); },
+    state(mode) {const node = $('manual-transport'); if (node) node.textContent = mode;},
+  });
+  core.setTransport(transport);
+  stream.setTransport(transport);
+  if (transportMode) transportMode.addEventListener('change', event => {
+    config.transport = event.target.value === 'http' ? 'http' : 'auto';
+    try {localStorage.setItem('changedetection.manual-transport', config.transport);} catch (_) {}
+    if (!core.active()) return;
+    if (config.transport === 'http') {transport.close(); stream.socketFallback();}
+    else transport.start();
+  });
   layout = ns.createLayout(core, {
     error(text) { message(text); stream.resumeFrames(); },
     changing() { if (core.active()) stream.suspend('正在调整浏览器画面…'); },

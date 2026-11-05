@@ -47,11 +47,11 @@ This repository is a modified changedetection.io deployment. **Read this file fi
 
 ## Current vs planned
 
-Current human control is a real Chromium/Playwright Page, displayed through periodic JPEG HTTP screenshots and controlled by HTTP mouse/keyboard actions. **It is not a native streamed desktop.** CDP screencast or Xvfb/noVNC are options under discussion, **not installed or enabled**. Do not describe them as present functionality.
+Current human control is a real Chromium/Playwright Page, displayed through Socket.IO binary JPEG frame delivery with authenticated HTTP polling fallback; mouse/keyboard actions use ordered Socket.IO messages with HTTP fallback. **It is not a native streamed desktop.** CDP screencast or Xvfb/noVNC remain unimplemented research options. Do not describe them as present functionality.
 
 ## Manual frontend development
 
-The manual browser uses plain JS scripts in dependency order: `manual-core.js` -> `manual-stream.js` -> `manual-layout.js` -> `manual-input.js` -> `manual-browser.js`. Do not introduce an unrelated frontend bundler, a second browser process, or unauthenticated control endpoints for simple UI work. Preserve request-order guarantees and the session token/epoch checks when adding new UI features. Validate with `node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs` plus actual Playwright/CloakBrowser acceptance tests on the user's Docker host.
+The manual browser uses plain JS scripts in dependency order: `manual-core.js` -> `manual-transport.js` -> `manual-stream.js` -> `manual-layout.js` -> `manual-input.js` -> `manual-browser.js`. Do not introduce an unrelated frontend bundler, a second browser process, or unauthenticated control endpoints for simple UI work. Preserve request-order guarantees and the session token/epoch checks when adding new UI features. Validate with `node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs` plus actual Playwright/CloakBrowser acceptance tests on the user's Docker host.
 
 ## Product extraction rules (new)
 
@@ -65,7 +65,7 @@ Start with `extractor-rules/AI_RULE_GUIDE.md` (self-contained rule-writing instr
 
 ## Browsers UI styling
 
-The manual browser template and `manual-browser.css` use the compact Product Extractors visual language but prioritize the full-height interactive screenshot. Do not inflate header or toolbar height, break the existing `manual-*` element IDs, or change the five JS modules' dependency order when making visual-only improvements. Keep the text-input toolbar always visible above the browser canvas; technical details may remain collapsible.
+The manual browser template and `manual-browser.css` use the compact Product Extractors visual language but prioritize the full-height interactive screenshot. Do not inflate header or toolbar height, break the existing `manual-*` element IDs, or change the six JS modules' dependency order when making visual-only improvements. Keep the text-input toolbar always visible above the browser canvas; technical details may remain collapsible.
 
 
 Product Extractors V2: consult `extractor-rules/AI_RULE_GUIDE.md` before preparing JSON rules. Validate multiple product and stock cases; never assume a single successful Dry Run validates a whole retailer. Manual Browsers supports fixed/follow-window viewport modes.
