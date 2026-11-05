@@ -21,6 +21,9 @@
         }
       ]
     },
+    "currency": {
+      "literal": "USD"
+    },
     "title": {
       "selectors": [
         {

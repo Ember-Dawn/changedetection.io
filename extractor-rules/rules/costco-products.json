@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "costco-products",
+  "name": "Costco Products",
+  "enabled": true,
+  "match": {
+    "domains": [
+      "costco.com"
+    ],
+    "path_patterns": [
+      "/p/*"
+    ]
+  },
+  "fields": {
+    "price": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "[data-testid='Text_single-price-whole-value']",
+          "extract": "text"
+        }
+      ]
+    },
+    "currency": {
+      "literal": "USD"
+    },
+    "title": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "[data-testid='Text_brand-name']",
+          "extract": "text"
+        }
+      ]
+    },
+    "sku": {
+      "selectors": [
+        {
+          "type": "xpath",
+          "value": "normalize-space(substring-before(substring-after(//*[@data-testid='Text_item-number'], 'Item '), '|'))"
+        }
+      ]
+    },
+    "shipping": {
+      "condition": {
+        "op": "exists",
+        "selector": {
+          "type": "xpath",
+          "value": "//*[@data-testid='Text_zipcode-status' and normalize-space()='Available']"
+        },
+        "guard": {
+          "type": "css",
+          "value": "[data-testid='Text_zipcode-status']"
+        }
+      }
+    },
+    "in_stock": {
+      "condition": {
+        "op": "ref",
+        "field": "shipping"
+      }
+    }
+  }
+}

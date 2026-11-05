@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "id": "amazon-products",
+  "name": "Amazon Products",
+  "enabled": true,
+  "page": {
+    "extra_wait_seconds": 3
+  },
+  "match": {
+    "domains": [
+      "amazon.com"
+    ],
+    "path_patterns": [
+      "*/dp/*",
+      "*/gp/product/*"
+    ]
+  },
+  "fields": {
+    "price": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "#corePriceDisplay_desktop_feature_div .a-price.apex-pricetopay-value:not(.priceToPay) > .a-offscreen",
+          "extract": "text"
+        },
+        {
+          "type": "css",
+          "value": "#buybox .a-price.apex-pricetopay-value:not(.priceToPay) > .a-offscreen",
+          "extract": "text"
+        }
+      ]
+    },
+    "currency": {
+      "literal": "USD"
+    },
+    "title": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "#title #productTitle",
+          "extract": "text"
+        }
+      ]
+    },
+    "sku": {
+      "selectors": [
+        {
+          "type": "xpath",
+          "value": "//form[@id='addToCart']//input[@id='ASIN']/@value"
+        }
+      ]
+    },
+    "shipping": {
+      "condition": {
+        "op": "all",
+        "items": [
+          {
+            "op": "exists",
+            "selector": {
+              "type": "css",
+              "value": "#availability .primary-availability-message"
+            },
+            "guard": {
+              "type": "css",
+              "value": "#outOfStock, #availability .primary-availability-message"
+            }
+          },
+          {
+            "op": "exists",
+            "selector": {
+              "type": "css",
+              "value": "#buybox #add-to-cart-button"
+            },
+            "guard": {
+              "type": "css",
+              "value": "#outOfStock, #buybox #add-to-cart-button"
+            }
+          },
+          {
+            "op": "exists",
+            "selector": {
+              "type": "css",
+              "value": "#deliveryBlockMessage"
+            },
+            "guard": {
+              "type": "css",
+              "value": "#outOfStock, #deliveryBlockMessage"
+            }
+          }
+        ]
+      }
+    },
+    "in_stock": {
+      "condition": {
+        "op": "ref",
+        "field": "shipping"
+      }
+    }
+  }
+}
