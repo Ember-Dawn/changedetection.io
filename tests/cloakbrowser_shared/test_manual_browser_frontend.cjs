@@ -302,3 +302,49 @@ test('Socket.IO missing uses original HTTP transport without opening sockets',as
   assert.equal(transport.isActive(),false);
   assert.ok(calls.some(url=>url.endsWith('/action')));
 });
+
+test('status exposes Page navigator fields and copy button only when UA exists',async()=>{
+  const sim=setup(async url=>url.endsWith('/open') ? ok({session:'diag',generation:1}) : ok({
+    generation:1,url:'https://example.net',seconds_remaining:899,
+    user_agent:'Mozilla/5.0 TestChromium',platform:'Linux x86_64',
+    width:1366,height:900,device_pixel_ratio:1.25,
+    cookie_count:0,local_storage_keys:0,profile_lock_held:true
+  }));
+  sim.load('manual-core.js'); sim.load('manual-stream.js');
+  const core=sim.ctx.window.ManualBrowser.createCore({api:'/manual-browser/'});
+  const stream=sim.ctx.window.ManualBrowser.createStream(core,{});
+  await core.connect('https://example.net','');
+  stream.start();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(sim.element('manual-ua').textContent,'Mozilla/5.0 TestChromium');
+  assert.equal(sim.element('manual-platform').textContent,'Linux x86_64');
+  assert.equal(sim.element('manual-viewport').textContent,'1366 × 900');
+  assert.equal(sim.element('manual-dpr').textContent,'1.25');
+  assert.equal(sim.element('manual-copy-ua').disabled,false);
+  stream.stop();
+  assert.equal(sim.element('manual-ua').textContent,'—');
+  assert.equal(sim.element('manual-copy-ua').disabled,true);
+});
+
+test('WebSocket JPEG metadata is shown without treating screenshot time as network RTT',async()=>{
+  const sim=setup(async url=>url.endsWith('/open') ? ok({session:'ws',generation:1}) : ok({generation:1,seconds_remaining:800}));
+  sim.ctx.Blob=class {constructor(chunks){this.size=chunks[0].byteLength||chunks[0].length||0;}};
+  sim.load('manual-core.js');sim.load('manual-stream.js');
+  const core=sim.ctx.window.ManualBrowser.createCore({api:'/manual-browser/'});
+  const stream=sim.ctx.window.ManualBrowser.createStream(core,{});
+  await core.connect('https://example.net','');
+  const transport={isActive:()=>true,isConnecting:()=>false,close(){},interaction(){},view(){},start(){}};
+  stream.setTransport(transport);
+  stream.start();
+  let acknowledgements=0;
+  stream.socketFrame({seq:1,jpeg:new Uint8Array(2048),capture_ms:181,screenshot_ms:140,
+    dispatch_ms:41,bytes:2048,previous_ack_ms:77},()=>acknowledgements++);
+  sim.element('manual-frame').onload();
+  assert.equal(acknowledgements,1);
+  assert.equal(sim.element('manual-frame-latency').textContent,'181 ms 服务端');
+  assert.equal(sim.element('manual-screenshot-ms').textContent,'140 ms');
+  assert.equal(sim.element('manual-dispatch-ms').textContent,'41 ms');
+  assert.equal(sim.element('manual-frame-bytes').textContent,'2 KiB');
+  assert.equal(sim.element('manual-ack-ms').textContent,'77 ms');
+  stream.shutdown();
+});

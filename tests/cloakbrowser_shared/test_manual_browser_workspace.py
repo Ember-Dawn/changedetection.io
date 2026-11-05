@@ -56,3 +56,18 @@ class ManualBrowserCompactToolbarTests(unittest.TestCase):
         self.assertNotIn(' | Profile 锁：', js)
         self.assertIn('requestRefresh()', js)
         self.assertIn('frameRequest', js)
+
+class ManualBrowserDiagnosticsContractTests(unittest.TestCase):
+    def test_themed_transport_select_and_browser_diagnostics(self):
+        html = (BASE / 'templates/manual-browser.html').read_text(encoding='utf-8')
+        self.assertRegex(html, r'id="manual-transport-mode"[^>]*data-custom-select')
+        for element_id in ('manual-ua', 'manual-copy-ua', 'manual-platform', 'manual-viewport',
+                           'manual-dpr', 'manual-screenshot-ms', 'manual-dispatch-ms',
+                           'manual-display-ms', 'manual-frame-bytes', 'manual-ack-ms'):
+            with self.subTest(element_id=element_id):
+                self.assertEqual(html.count('id="' + element_id + '"'), 1)
+
+    def test_timed_capture_has_separate_execution_and_dispatch_durations(self):
+        source = (Path(__file__).resolve().parents[2] / 'integrations/cloakbrowser-shared/changedetection_cloak_shared/manual_session.py').read_text(encoding='utf-8')
+        for field in ('screenshot_ms', 'dispatch_ms', 'frame_with_metrics', 'userAgent', 'devicePixelRatio'):
+            self.assertIn(field, source)

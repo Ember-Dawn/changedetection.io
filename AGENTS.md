@@ -115,3 +115,7 @@ The current `processors/restock_diff/forms.py`, `processor.py` and `api.yaml` us
 - Editing the currently loaded rule ID updates it with `overwrite: true` **and** the stored `expected_signature`; imported/new JSON with an existing ID requires the custom confirmation dialog. Do not bypass the registry's atomic revision guard.
 - API save uses `RULE_ID_CONFLICT` and `RULE_REVISION_CONFLICT` codes alongside HTTP 409. An ID conflict can be explicitly confirmed after refreshing revisions; a stale revision must require reload, never be silently overwritten.
 - The product rule dialog accepts Enter to confirm and Escape to cancel. Keep script asset cache-busting when changing editor behavior; run the behavioral Node test as well as Python contracts.
+
+## Manual Browser diagnostics (2026-11-05)
+
+The collapsed Browsers details panel now distinguishes BrowserManager dispatch time, in-loop Playwright JPEG screenshot time, client image-display time and the previous send-to-ack interval. FPS uses a five-second displayed-frame window and may intentionally be ~2 FPS at idle. The transport preference reuses CDSelect, and UA/Platform/Viewport/DPR reflect the current manual Page, not necessarily outgoing HTTP headers. Retain HTTP fallback and the one-frame WebSocket backpressure when changing this feature.

@@ -9,7 +9,18 @@
     let shown = null, pending = null;
     let paused = false, frameRequest = null, refreshPending = false;
     let lastHumanAt = Date.now(), lastRefreshRequested = 0;
-    let previousDisplayAt = 0;
+    let displayTimes = [];
+    const FPS_WINDOW_MS = 5000;
+    function updateFps(now = Date.now()) {
+      displayTimes = displayTimes.filter(t => now - t <= FPS_WINDOW_MS);
+      if (!displayTimes.length || now - displayTimes[displayTimes.length - 1] > 2500) {
+        $safe('manual-fps', '0.0 FPS'); return;
+      }
+      // Count frames in a time window, rather than using a noisy single interval.
+      const span = Math.min(FPS_WINDOW_MS, now - displayTimes[0]);
+      const fps = span > 0 ? Math.max(0, (displayTimes.length - 1) * 1000 / span) : 0;
+      $safe('manual-fps', `${fps.toFixed(1)} FPS`);
+    }
     let transport = null;
     function setTransport(value) { transport = value; }
     const $safe = (id, value) => { const node = $(id); if (node) node.textContent = value; };
@@ -37,8 +48,9 @@
       frameTimer = null; statusTimer = null;
       frameFailures = 0; statusFailures = 0;
       refreshPending = false; frameRequest = null;
-      lastHumanAt = Date.now(); lastRefreshRequested = 0; previousDisplayAt = 0;
+      lastHumanAt = Date.now(); lastRefreshRequested = 0; displayTimes = [];
       $safe('manual-frame-latency', '—');
+      for (const id of ['manual-screenshot-ms','manual-dispatch-ms','manual-display-ms','manual-frame-bytes','manual-ack-ms']) $safe(id, '—');
       $safe('manual-fps', '—');
       $safe('manual-action-latency', '—');
       img.onload = null; img.onerror = null;
@@ -54,6 +66,9 @@
       $safe('manual-cookies', '—');
       $safe('manual-local-storage', '—');
       $safe('manual-detail', '—');
+      for (const id of ['manual-ua','manual-platform','manual-viewport','manual-dpr']) $safe(id, '—');
+      const copyUa = $('manual-copy-ua');
+      if (copyUa) copyUa.disabled = true;
       coverFrame(reason);
     }
     function defaultFrameDelay() {
@@ -82,7 +97,11 @@
         const blob = await response.blob();
         if (cycle !== run || !core.valid(ticket) || paused || !active || (transport && transport.isActive())) return;
         frameFailures = 0;
-        $safe('manual-frame-latency', `${Date.now() - started} ms`);
+        $safe('manual-frame-latency', `${Date.now() - started} ms HTTP 往返`);
+        $safe('manual-frame-bytes', `${Math.round(blob.size / 1024)} KiB`);
+        $safe('manual-screenshot-ms', '—');
+        $safe('manual-dispatch-ms', '—');
+        $safe('manual-ack-ms', '—');
         displayBlob(blob, ticket, cycle);
       } catch (error) {
         if (cycle !== run || !core.valid(ticket)) return;
@@ -106,6 +125,7 @@
         if (acknowledged) acknowledged();
         return;
       }
+      const decodeStarted = Date.now();
       const url = URL.createObjectURL(blob);
       disposePending();
       pending = url;
@@ -115,9 +135,9 @@
           return;
         }
         const now = Date.now();
-        if (previousDisplayAt && now > previousDisplayAt)
-          $safe('manual-fps', `${(1000 / (now - previousDisplayAt)).toFixed(1)} FPS`);
-        previousDisplayAt = now;
+        displayTimes.push(now);
+        updateFps(now);
+        $safe('manual-display-ms', `${now - decodeStarted} ms`);
         if (shown) URL.revokeObjectURL(shown);
         shown = url; pending = null;
         img.hidden = false; cover.hidden = true;
@@ -146,7 +166,11 @@
     function socketFrame(data, ack) {
       if (!transport || !transport.isActive()) { ack(); return; }
       if (!data || typeof data.seq !== 'number' || !data.jpeg) { ack(); return; }
-      $safe('manual-frame-latency', `${data.capture_ms || 0} ms 截图`);
+      $safe('manual-frame-latency', `${data.capture_ms ?? '—'} ms 服务端`);
+      $safe('manual-screenshot-ms', typeof data.screenshot_ms === 'number' ? `${data.screenshot_ms} ms` : '—');
+      $safe('manual-dispatch-ms', typeof data.dispatch_ms === 'number' ? `${data.dispatch_ms} ms` : '—');
+      $safe('manual-frame-bytes', typeof data.bytes === 'number' ? `${Math.round(data.bytes / 1024)} KiB` : '—');
+      $safe('manual-ack-ms', typeof data.previous_ack_ms === 'number' ? `${data.previous_ack_ms} ms` : '—');
       const blob = new Blob([data.jpeg], {type:'image/jpeg'});
       displayBlob(blob, core.snapshot(), run, ack);
     }
@@ -175,6 +199,7 @@
     }
     async function status() {
       if (!core.active() || !active) return;
+      updateFps();
       const ticket = core.snapshot(), cycle = run;
       try {
         const data = await core.api('status?session=' + encodeURIComponent(ticket.token));
@@ -192,6 +217,12 @@
         $safe('manual-local-storage', String(data.local_storage_keys ?? '未知'));
         $('manual-remaining').textContent = `空闲剩余 ${Math.floor(data.seconds_remaining / 60)}:${String(data.seconds_remaining % 60).padStart(2, '0')}`;
         $safe('manual-detail', data.url || '—');
+        $safe('manual-ua', data.user_agent || '暂不可用');
+        $safe('manual-platform', data.platform || '暂不可用');
+        $safe('manual-viewport', data.width && data.height ? `${data.width} × ${data.height}` : '暂不可用');
+        $safe('manual-dpr', Number.isFinite(data.device_pixel_ratio) ? String(data.device_pixel_ratio) : '暂不可用');
+        const copyUa = $('manual-copy-ua');
+        if (copyUa) copyUa.disabled = !data.user_agent;
         if (hooks.status) hooks.status(data);
         if (!paused) message(data.challenge ? '页面仍要求验证，可继续人工操作' : '浏览器已连接');
       } catch (error) {

@@ -9,7 +9,11 @@
   const transportMode = $('manual-transport-mode');
   try {config.transport = localStorage.getItem('changedetection.manual-transport') === 'http' ? 'http' : 'auto';}
   catch (_) {config.transport = 'auto';}
-  if (transportMode) transportMode.value = config.transport;
+  if (transportMode) {
+    transportMode.value = config.transport;
+    // CDSelect is initialized after the scripts load; sync handles later changes.
+    if (window.CDSelect) window.CDSelect.sync(transportMode);
+  }
   let existing = null;
   let stream, layout, input, transport;
 
@@ -85,6 +89,17 @@
     if (!core.active()) return;
     if (config.transport === 'http') {transport.close(); stream.socketFallback();}
     else transport.start();
+  });
+  const copyUa = $('manual-copy-ua');
+  if (copyUa) copyUa.addEventListener('click', async () => {
+    const ua = $('manual-ua').textContent;
+    if (!ua || ua === '—' || ua === '暂不可用') return;
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(ua);
+      copyUa.textContent = '已复制';
+      setTimeout(() => { copyUa.textContent = '复制 UA'; }, 1500);
+    } catch (_) { message('复制失败，请手动选中 UA 后复制'); }
   });
   layout = ns.createLayout(core, {
     error(text) { message(text); stream.resumeFrames(); },

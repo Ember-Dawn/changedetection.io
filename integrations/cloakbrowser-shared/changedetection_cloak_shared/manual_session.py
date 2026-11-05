@@ -218,16 +218,31 @@ class ManualSessionManager:
     def close(self, token, owner):
         return manager.call_sync(self._close_owned(token, owner), timeout=25)
 
-    async def _frame(self, token, owner):
+    async def _frame_timed(self, token, owner):
         session = self._get(token, owner)
+        started = time.monotonic()
         data = await session.page.screenshot(type='jpeg', quality=65,
                                              full_page=False, timeout=12000)
+        screenshot_ms = round((time.monotonic() - started) * 1000)
         if len(data) > _MAX_FRAME_BYTES:
             raise ManualSessionError('Browser screenshot exceeds size limit')
+        return data, screenshot_ms
+
+    async def _frame(self, token, owner):
+        data, _ = await self._frame_timed(token, owner)
         return data
 
     def frame(self, token, owner):
         return manager.call_sync(self._frame(token, owner), timeout=20)
+
+    def frame_with_metrics(self, token, owner):
+        """Frame and timing from the same manager-loop call, never Flask Page access."""
+        started = time.monotonic()
+        data, screenshot_ms = manager.call_sync(self._frame_timed(token, owner), timeout=20)
+        elapsed_ms = round((time.monotonic() - started) * 1000)
+        return data, {'capture_ms': elapsed_ms, 'screenshot_ms': screenshot_ms,
+                      'dispatch_ms': max(0, elapsed_ms - screenshot_ms),
+                      'bytes': len(data)}
 
     async def _status(self, token, owner):
         session = self._get(token, owner)
@@ -240,6 +255,8 @@ class ManualSessionManager:
         try:
             info = await page.evaluate('''() => ({
                 width: window.innerWidth, height: window.innerHeight,
+                userAgent: navigator.userAgent, platform: navigator.platform,
+                devicePixelRatio: window.devicePixelRatio,
                 localStorageKeys: (() => { try { return localStorage.length; } catch (_) { return null; } })()
             })''')
             if not isinstance(info, dict):
@@ -262,6 +279,10 @@ class ManualSessionManager:
             'height': max(1, int(info.get('height') or 768)),
             'cookie_count': len(cookies),
             'local_storage_keys': info.get('localStorageKeys'),
+            'user_agent': str(info.get('userAgent') or '')[:1024],
+            'platform': str(info.get('platform') or '')[:128],
+            'device_pixel_ratio': info.get('devicePixelRatio') if isinstance(info.get('devicePixelRatio'), (int, float)) else None,
+            'headless': True,  # This shared CloakBrowser manager launches headless.
             'profile_lock_held': manager.profile_lock_held(),
             'generation': session.browser_generation,
             'challenge': await page_challenge(page),

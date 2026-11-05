@@ -170,20 +170,23 @@ class ManualFramesNamespace(Namespace):
             started = time.monotonic()
             try:
                 manual_sessions.authorize(token, owner, generation)
-                jpeg = manual_sessions.frame(token, owner)
+                jpeg, metrics = manual_sessions.frame_with_metrics(token, owner)
                 if not client['alive']:
                     break
                 client['ack'].clear()
                 client['seq'] += 1
                 self.socketio.emit('frame', {'seq': client['seq'], 'jpeg': jpeg,
-                                             'capture_ms': round((time.monotonic()-started)*1000)},
+                                             **metrics,
+                                             'previous_ack_ms': client.get('ack_ms')},
                                    to=client['sid'], namespace=FRAME_NS)
+                sent_at = time.monotonic()
                 # One frame in flight; stall instead of queueing unlimited JPEGs.
                 deadline = time.monotonic() + 6
                 while client['alive'] and not client['ack'].is_set() and time.monotonic() < deadline:
                     self.socketio.sleep(0.02)
                 if not client['alive'] or not client['ack'].is_set():
                     break
+                client['ack_ms'] = round((time.monotonic() - sent_at) * 1000)
             except Exception as exc:
                 logger.debug('Manual frame stream stopped: {}', type(exc).__name__)
                 break

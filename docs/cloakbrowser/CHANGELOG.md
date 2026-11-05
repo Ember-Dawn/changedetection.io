@@ -88,3 +88,11 @@ For future source changes, append a new entry with date (if known), specific pat
 - Existing manual frontend gains real Hover, final-move-before-release, and a compact transport diagnostic.
 - Screenshot encoder stays JPEG 65; CDP Screencast, WebP, Xvfb and noVNC remain unimplemented.
 - Tests: frontend Node tests and source/template checks are run locally. No real Chromium, production Cloudflare or Docker acceptance is claimed.
+
+## 2026-11-05: Browsers diagnostics, themed transport control and UA
+
+- Split manual frame timing into Playwright screenshot duration versus BrowserManager dispatch/return overhead. Expose JPEG size and the previous Socket.IO send-to-consumption acknowledgement time for diagnosis, without claiming exact one-way transport timing.
+- Change FPS display from a noisy single-frame interval to a five-second displayed-frame observation with stale-frame zeroing; retain adaptive 10/5/2 FPS caps and one-frame backpressure.
+- Reuse existing CDSelect for transport preference instead of the native-looking dropdown; preserve localStorage preference and HTTP fallback.
+- Add current Page UA, Platform, Viewport and DPR plus a copy control in the collapsed session detail; the Page is still Headless. Display only non-secret browser metadata.
+- New tests cover status rendering, stream metrics and template/metadata contracts. Real Docker/Chromium FPS remains to be measured on the operator host.

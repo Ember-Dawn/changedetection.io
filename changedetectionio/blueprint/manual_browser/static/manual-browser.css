@@ -99,3 +99,14 @@
 #manual-browser-root.manual-fixed-mode .manual-viewport-shell{flex:0 0 auto;min-height:0;padding:5px 8px}
 #manual-browser-root.manual-fixed-mode .manual-view{flex:0 0 auto;min-height:0;max-height:calc(100dvh - 240px);aspect-ratio:var(--manual-fixed-ratio,1366 / 900)}
 #manual-browser-root.manual-fixed-mode .manual-view img{max-width:100%;max-height:100%}
+
+/* Manual diagnostics remain compact and scroll within the existing details panel. */
+#manual-browser-root .manual-detail-performance .cd-select{flex:0 1 210px;width:210px;min-width:155px}
+#manual-browser-root .manual-browser-environment{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--mb-line);padding-top:10px;min-width:0}
+#manual-browser-root .manual-environment-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#edf4ff}
+#manual-browser-root .manual-environment-heading>span{font-size:11px;color:var(--mb-muted)}
+#manual-browser-root .manual-environment-grid{display:grid;grid-template-columns:110px minmax(0,1fr);gap:7px 12px;align-items:center}
+#manual-browser-root .manual-environment-grid>span{color:var(--mb-muted)}
+#manual-browser-root .manual-environment-grid code,#manual-browser-root .manual-environment-grid strong{color:#edf4ff;font-size:11px;overflow-wrap:anywhere;font-weight:600}
+#manual-browser-root .manual-environment-ua{display:block;background:rgba(5,17,39,.38);border:1px solid var(--mb-line);padding:9px;border-radius:7px;color:#d4e6ff;overflow-wrap:anywhere;user-select:text;line-height:1.55;font-size:11px}
+#manual-browser-root .manual-copy-ua{min-height:27px;padding:5px 9px;font-size:11px}
