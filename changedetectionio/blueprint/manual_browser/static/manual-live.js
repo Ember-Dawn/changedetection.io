@@ -7,6 +7,9 @@
   const status = $('manual-live-status'), message = $('manual-live-message');
   const frame = $('manual-live-frame'), iframe = $('manual-live-iframe');
   const popup = $('manual-live-popup'), shell = document.querySelector('.manual-browser-shell');
+  const confirmation = $('manual-live-confirm');
+  const confirmAccept = $('manual-live-confirm-accept');
+  const confirmCancel = $('manual-live-confirm-cancel');
   const csrf = $('manual-csrf').value;
   const root = window.manualBrowserConfig.api.replace(/\/$/, '');
   let busy = false, lastPhase = null;
@@ -35,9 +38,39 @@
     lastPhase=s.phase;
   }
   async function refresh() {try {render(await api('status'));}catch(e){showError(e.message);}}
+  function askToStart() {
+    return new Promise(resolve => {
+      if (!confirmation || !confirmAccept || !confirmCancel) {
+        resolve(false);
+        return;
+      }
+      let settled = false;
+      function finish(accepted) {
+        if (settled) return;
+        settled = true;
+        confirmation.removeEventListener('close', onClose);
+        confirmAccept.removeEventListener('click', onAccept);
+        confirmCancel.removeEventListener('click', onCancel);
+        if (confirmation.open) confirmation.close();
+        resolve(accepted);
+      }
+      function onClose() { finish(false); }
+      function onAccept() { finish(true); }
+      function onCancel() { finish(false); }
+      confirmation.addEventListener('close', onClose);
+      confirmAccept.addEventListener('click', onAccept);
+      confirmCancel.addEventListener('click', onCancel);
+      try {
+        confirmation.showModal();
+        confirmCancel.focus();
+      } catch (e) {
+        finish(false);
+      }
+    });
+  }
   async function action(verb) {
     if(busy) return;
-    if(verb==='start' && !confirm('将暂停所有 Watch 并关闭 Headless 浏览器。请先关闭现有截图操控会话。继续？'))return;
+    if (verb === 'start' && !(await askToStart())) return;
     busy=true;start.disabled=stop.disabled=true;showError(verb==='start'?'正在等待任务结束并启动图形浏览器…':'正在关闭图形浏览器并恢复监控…');
     try {render(await api(verb,'POST'));showError('');}
     catch(e){showError(e.message);await refresh();}

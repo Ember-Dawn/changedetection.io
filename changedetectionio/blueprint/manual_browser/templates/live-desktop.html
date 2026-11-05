@@ -7,7 +7,10 @@
 import RFB from './assets/core/rfb.js';
 const tip=document.getElementById('tip');
 const protocol=location.protocol==='https:'?'wss:':'ws:';
-const ws=protocol+'//'+location.host+{{ url_for('manual_browser.live_websocket') | tojson }}+'?csrf='+encodeURIComponent({{ csrf | tojson }});
+// A Werkzeug websocket=True route may make url_for() generate an absolute ws:// URL.
+// Keep its routed path while retaining the browser's public host and TLS scheme.
+const endpoint=new URL({{ url_for('manual_browser.live_websocket') | tojson }},location.href);
+const ws=protocol+'//'+location.host+endpoint.pathname+'?csrf='+encodeURIComponent({{ csrf | tojson }});
 let rfb;
 try {
   rfb=new RFB(document.getElementById('screen'),ws);

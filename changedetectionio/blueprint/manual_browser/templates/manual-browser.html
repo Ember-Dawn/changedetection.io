@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/custom-select.css') }}">
-<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=12) }}">
+<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=13) }}">
 <main id="manual-browser-root" class="box manual-workspace">
   <header class="manual-header">
     <div class="manual-header-copy">
@@ -16,6 +16,18 @@
 
   <input type="hidden" id="manual-csrf" value="{{ csrf_token() }}">
   <input type="hidden" id="manual-watch-uuid" value="{{ watch_uuid }}">
+
+  <dialog id="manual-live-confirm" class="manual-live-dialog" aria-labelledby="manual-live-confirm-title" aria-describedby="manual-live-confirm-description">
+    <div class="manual-live-dialog-body">
+      <div class="manual-live-dialog-heading"><i data-feather="monitor"></i><h2 id="manual-live-confirm-title">启动实时浏览器？</h2></div>
+      <p id="manual-live-confirm-description">启动时将临时暂停所有 Watch，等待当前检查结束，并关闭 Headless 浏览器。请先关闭现有截图操控会话。</p>
+      <p class="manual-live-dialog-note">结束实时浏览器后，将恢复 Headless 和原有监控计划。</p>
+      <div class="manual-live-dialog-actions">
+        <button type="button" id="manual-live-confirm-cancel" class="manual-btn">取消</button>
+        <button type="button" id="manual-live-confirm-accept" class="manual-btn manual-btn-primary">确认启动</button>
+      </div>
+    </div>
+  </dialog>
 
   <section id="manual-existing" class="manual-session-notice" aria-label="已有人工会话" hidden>
     <div class="manual-session-heading"><i data-feather="info"></i><strong id="manual-existing-title">已有人工会话</strong></div>
@@ -138,6 +150,6 @@ window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf':
 {% for script in ['manual-core.js', 'manual-transport.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js'] %}
 <script defer src="{{ url_for('manual_browser.static', filename=script, v=11) }}"></script>
 {% endfor %}
-<script defer src="{{ url_for('manual_browser.static', filename='manual-live.js', v=12) }}"></script>
+<script defer src="{{ url_for('manual_browser.static', filename='manual-live.js', v=13) }}"></script>
 <script defer src="{{ url_for('static', filename='js/custom-select.js') }}"></script>
 {% endblock %}

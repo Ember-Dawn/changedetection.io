@@ -1,3 +1,9 @@
+## 2026-11-05 — Live Browser V1 noVNC handshake and modal fix
+
+- Register `/manual-browser/live/ws` as an actual WebSocket route (`websocket=True`) to support Werkzeug/simple-websocket upgrade handling and address observed HTTP 400 responses.
+- Replace native `confirm()` for starting Live Browser with an accessible, styled in-page dialog; refresh front-end asset versions.
+- Preserve the V1 authenticated relay, single-Profile switching and Watch maintenance gate. Docker acceptance still required.
+
 # CloakBrowser fork change history
 
 This is a **feature and patch history**, reconstructed from the maintained source and prior delivery artifacts. It is **not** a release-tag list and does not imply that each step has a verified Git commit. For the current architecture use README, ARCHITECTURE, MANUAL_BROWSER, VERIFICATION and OPERATIONS instead. More detailed older incident notes are archived in [`history/`](history/).

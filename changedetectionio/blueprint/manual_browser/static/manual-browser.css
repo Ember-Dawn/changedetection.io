@@ -166,3 +166,15 @@
 #manual-live-status{font-size:12px;opacity:.8}
 #manual-live-frame{margin-top:12px;min-height:520px;height:min(76vh,850px);background:#121720;border-radius:7px;overflow:hidden}
 #manual-live-iframe{width:100%;height:100%;border:0}
+
+/* Live Browser: accessible application-styled confirmation (native <dialog> semantics). */
+#manual-browser-root .manual-live-dialog{width:min(430px,calc(100vw - 36px));max-width:none;max-height:calc(100vh - 36px);overflow:auto;margin:auto;padding:0;border:1px solid rgba(150,175,216,.45);border-radius:12px;background:#1e2c43;color:#e9f1ff;box-shadow:0 24px 75px rgba(0,0,0,.52)}
+#manual-browser-root .manual-live-dialog::backdrop{background:rgba(5,12,27,.7);backdrop-filter:blur(3px)}
+#manual-browser-root .manual-live-dialog-body{padding:20px;display:grid;gap:12px}
+#manual-browser-root .manual-live-dialog-heading{display:flex;align-items:center;gap:10px}
+#manual-browser-root .manual-live-dialog-heading svg{width:20px;height:20px;color:#a8cef8}
+#manual-browser-root .manual-live-dialog-heading h2{font-size:17px;font-weight:650;margin:0;color:inherit}
+#manual-browser-root .manual-live-dialog-body p{margin:0;line-height:1.6;font-size:13px}
+#manual-browser-root .manual-live-dialog-note{color:#adc2df}
+#manual-browser-root .manual-live-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}
+#manual-browser-root .manual-live-dialog-actions .manual-btn{min-width:80px}

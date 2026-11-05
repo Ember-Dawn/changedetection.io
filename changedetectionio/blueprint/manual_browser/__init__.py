@@ -151,7 +151,7 @@ def construct_blueprint(datastore, update_q, queuedWatchMetaData):
         response.headers['Cache-Control'] = 'no-store, private'
         return response
 
-    @blueprint.route('/live/ws', methods=['GET'])
+    @blueprint.route('/live/ws', websocket=True)
     @_requires_operator
     def live_websocket():
         origin = request.headers.get('Origin')
