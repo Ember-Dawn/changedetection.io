@@ -48,7 +48,7 @@ This repository is a modified changedetection.io deployment. **Read this file fi
 
 ## Current vs planned
 
-Current human control is a real Chromium/Playwright Page, displayed through Socket.IO binary JPEG frame delivery with authenticated HTTP polling fallback; mouse/keyboard actions use ordered Socket.IO messages with HTTP fallback. **It is not a native streamed desktop.** An optional, experimental CDP Screencast producer now provides an additional JPEG source over the existing authenticated Socket.IO frame channel; it does not provide a native streamed desktop, change the mouse/keyboard input path, or bypass verification. Xvfb/noVNC remain unimplemented. The CDP path requires real CloakBrowser acceptance testing and falls back to WS JPEG if unsupported.
+Browsers has two mutually exclusive human-control modes. **截图操控** uses a Headless Playwright Page with Socket.IO JPEG frames, ordered input and HTTP fallback; optional CDP Screencast is still experimental. **实时浏览器** temporarily pauses Watch admission, closes Headless and runs the same persistent Profile in Headed Chromium on Xvfb, controlled through authenticated noVNC/WebSocket; exiting restores Headless and Watch admission. The user has confirmed the integrated noVNC display and the V8 bottom-black-strip correction on Docker, not full crash/rollback acceptance or particular websites' login persistence. Never open two Profile writers, expose unauthenticated VNC ports or bypass the maintenance gate. See `docs/cloakbrowser/STATUS.md`.
 
 ## Manual frontend development
 
@@ -128,7 +128,7 @@ The collapsed Browsers details panel now distinguishes BrowserManager dispatch t
 
 ## Live Browser V1 handoff (2026-11-05)
 
-Current source adds an **unverified integrated** Headed/desktop mode exposed in Browsers. The operator independently proved Xvfb+noVNC and Headed↔Headless storage persistence on CloakBrowser 0.7.0, but the app integration/WebSocket auth bridge and Watch admission require Docker validation. Keep BrowserManager as sole Profile writer, do not call its shutdown `stop()` to toggle mode, never publish VNC ports, and retain maintenance pause on uncertain restore. See STATUS.md, ARCHITECTURE.md and OPERATIONS.md.
+Current source includes integrated Headed desktop control. The operator confirmed working in-app noVNC after the `websocket=True` handshake fix and that the V8 X11 window-fit eliminated the bottom black strip; independent Headed↔Headless Cookie/LocalStorage persistence and manual VNC input/reconnect were also tested on Docker. Error recovery, simultaneous Watch drain and HTTPS reverse-proxy WSS remain acceptance items. Keep BrowserManager as sole Profile writer, do not call its shutdown `stop()` to toggle mode, never publish VNC ports, and retain maintenance pause on uncertain restore. See STATUS.md, ARCHITECTURE.md and OPERATIONS.md.
 
 
 ## Browsers V7 mode navigation (2026-11-05)

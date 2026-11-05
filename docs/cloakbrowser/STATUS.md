@@ -1,62 +1,42 @@
-# Implementation progress and acceptance status (2026-11-05)
+# CloakBrowser implementation and acceptance status (2026-11-05)
 
-This page is a **current-status handoff**, not a replacement for source inspection. Updated against the uploaded complete project and the successive V2–V6 incremental payloads. It describes code present in this checkout, **not proof that every feature has passed real Docker/Chromium acceptance**. Detailed implementation belongs in [ARCHITECTURE.md](ARCHITECTURE.md), [MANUAL_BROWSER.md](MANUAL_BROWSER.md), and the chronological [CHANGELOG.md](CHANGELOG.md).
+This page tracks the **current repository implementation** and evidence supplied by the Docker operator. It is not a full production sign-off. For architecture and operation consult [ARCHITECTURE.md](ARCHITECTURE.md), [MANUAL_BROWSER.md](MANUAL_BROWSER.md), and [OPERATIONS.md](OPERATIONS.md). The historical sequence remains in [CHANGELOG.md](CHANGELOG.md).
 
-## Current implementation
+## Current features
 
-| Area | State in source | Acceptance caveat |
+| Area | Implementation | Evidence / remaining limits |
 | --- | --- | --- |
-| Shared browser and persistent Profile | Implemented: Headless CloakBrowser, BrowserManager asyncio ownership, bounded leased Pages, one Profile writer | Production concurrency, crash recovery and persistence require real-host acceptance |
-| Manual session | Implemented: authenticated ownership, 15-minute inactivity expiry, resume/close, Playwright pointer/basic keyboard, Watch-specific finish guards | Real UI/browser acceptance remains necessary |
-| Input transport (V2) | Implemented: separate protected Socket.IO input, ordered acknowledgements, HTTP fallback; pointer Hover and drag cleanup | No guarantee of CAPTCHA/Cloudflare passage; full keyboard/IME is not implemented |
-| Image transport (V2) | Implemented: WebSocket binary JPEG by default, one-frame client acknowledgement, adaptive pacing; HTTP polling fallback retained | Actual FPS depends on page, host and network |
-| Diagnostics (V3) | Implemented: five-second displayed FPS, screenshot/dispatch/client-display/ack metrics, full current-Page User-Agent | Metrics have different measurement scopes; they are not exact one-way latency |
-| Manual workspace (V4, V6) | Implemented: compact detail cards, themed selects, UA only, upper toolbar engine/transport controls, no duplicate URL, red close button | Live visual and Watch context paths need acceptance |
-| CDP Screencast (V5) | **Experimental / opt-in**: uses same manual Page and authenticated frame channel; fallback to WS JPEG | CloakBrowser 0.7.0 real CDPSession frame delivery, stability and FPS **not verified** in authoring environment |
-| Live Browser (V1) | **Implemented in code, pending Docker acceptance**: Headed+Xvfb+x11vnc+noVNC with same Profile and Watch maintenance gate | Independent proof of Headed↔Headless Profile persistence and noVNC interactivity exists; integrated in-app websocket proxy and recovery still require real Docker testing |
+| Shared CloakBrowser | BrowserManager-owned persistent Profile, bounded Page leases; Headless Watch checks | Independent Profile persistence demonstrated; full concurrency and crash recovery not exhaustively tested |
+| 截图操控 / Screenshot control | Authenticated manual Page with ordered Socket.IO input, JPEG frames and HTTP fallback; V6 Watch-only finish guard, compact toolbar and diagnostics | Existing UI tests; Cloudflare passage and all keyboard/IME cases not guaranteed |
+| CDP Screencast V5 | Optional experimental JPEG producer on the same Page, fallback to WebSocket JPEG | Real CloakBrowser 0.7.0 CDP frame/FPS acceptance still open |
+| 实时浏览器 / Live Browser V1 | Exclusive Headed mode with Xvfb, x11vnc, noVNC and protected WebSocket relay; temporarily pauses Watch admission, reuses same Profile, restores Headless | **Operator demonstrated working integrated noVNC display** after handshake fix; abnormal failure recovery and real Watch-load drain remain to test |
+| Live Browser UI V7 | Shared **截图操控 / 实时浏览器** tabs, no enclosing pale card, proportional desktop display; explicit start/restore confirmation | Operator screenshots demonstrated the new UI; do not treat tab selection as an actual mode change |
+| Live Browser geometry V8 | `xdotool` best-effort move/resize of the Headed Chromium X11 window to 1366×900, with diagnostics and safe warning on failure | **Operator explicitly confirmed bottom black bar is resolved** on Docker |
 
-## Current UI behavior
+## What the operator verified on Docker
 
-- Default picture source is **WebSocket JPEG**, with optional **CDP Screencast（实验性）**; authenticated **HTTP** remains a compatible fallback. Input is WebSocket/Playwright with HTTP fallback, independently of the chosen picture producer.
-- **画面尺寸**, **画面引擎** and **传输偏好** live in the upper toolbar. The input/typing row is always visible; responsive-toolbar redesign and text-row collapsing were explicitly excluded from V6.
-- Sidebar **Browsers** is general browsing: **完成并重新检查** must not appear there, even if it resumes a previously Watch-linked session. Watch-specific entry plus matching server-owned Watch association is required; **关闭会话** is a separate red action.
-- Detail panel retains Profile/generation/cookie/storage counts, performance overview, expandable detailed metrics, and a copyable **full UA only**. The editable top address bar is the sole visible URL field.
+1. CloakBrowser **0.7.0** can launch/close Headed under Xvfb. A **separate temporary Profile** reopened Headless with persistent Cookie and LocalStorage values.
+2. Standalone Xvfb + x11vnc + noVNC displayed Chromium; operator reported working mouse/keyboard, reconnection and graceful shutdown.
+3. Initial integrated noVNC connection failed with `/manual-browser/live/ws` HTTP **400**; after the Werkzeug WebSocket route (`websocket=True`) correction, the operator showed the live Chromium page inside Browsers.
+4. V7 rendered the compact mode tabs and unframed desktop. V8 added X11 window sizing; the operator reported **the bottom black strip is gone**.
 
-## Tests and confidence
+These observations do **not** establish website-specific login persistence, Cloudflare verification success, exhaustive security testing or all error paths.
 
-- V6 delivery reported frontend tests **22/22**, workspace/template tests **11/11**, plus syntax and ZIP checks. V5 delivery separately reported CDP fake-session tests **4/4**. These results are from the prior delivery checks, not freshly run real-browser benchmarks.
-- Full manual-session Python tests were **not completed** during the V6 delivery because the authoring environment lacked `loguru`; do not label all Python integration tests passed.
-- Live Docker, pinned CloakBrowser Chromium + CDPSession, actual HTTP/WS/CDP FPS, CPU consumption, Watch recheck behavior, and cross-tab recovery must still be tested on the deployment host.
+## Current UI and invariants
 
-## Recommended next verification
+- **截图操控** normally uses WebSocket JPEG, with optional experimental CDP Screencast and HTTP fallback. It retains the always-visible text input toolbar and Watch-only **完成并重新检查** safety checks.
+- **实时浏览器** is mutually exclusive with Headless screenshot control. Selection of its tab does not start a browser: **启动实时浏览器** and **结束并恢复监控** explicitly control the transition. While Headed is active, screenshot controls are unavailable.
+- BrowserManager remains the **single owner of the Profile**; never run Headed and Headless simultaneously against `browser-profile/` or directly expose VNC/CDP ports. The maintenance gate must not silently change the user's existing `all_paused` preference.
+- `xdotool` geometry fitting is best-effort and diagnostic; the noVNC framebuffer is not artificially cropped.
 
-1. Rebuild and recreate the service after applying the complete ordered incremental payloads; keep `browser-profile/`, `datastore/`, and license/private configuration untouched.
-2. Confirm sidebar vs Watch entry: finish action hidden/shown correctly, server rejects invalid finish; close action never submits a watch check.
-3. Compare **WebSocket JPEG** and **CDP Screencast** on the same page while actively scrolling. Record displayed FPS, capture/ack times and CPU; verify CDP first-frame timeout and fallback. Then test HTTP compatibility.
-4. Check manual token rotation/resume, disconnect while dragging, 15-minute idle expiry, browser restart/generation change, and simultaneous scheduled Watches.
-5. Run `node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs` and `python -m unittest discover -s tests/cloakbrowser_shared -v` with all runtime dependencies installed; follow [OPERATIONS.md](OPERATIONS.md) for real-host tests.
+## Still to validate
 
-## Separate open integration check
+1. Watch scheduler and Worker maintenance gate under **active and queued** Watch jobs; correct resumption without phantom checks, altered last-check timestamps or changed `all_paused`.
+2. Failed/aborted start or restore, container restart mid-Live, Profile lock protection and session ownership/security negative cases.
+3. Reverse proxy HTTPS/WSS WebSocket upgrading if this deployment uses a reverse proxy; test authentication and CSRF enforcement in that configuration.
+4. Normal screenshot-control multi-Page concurrency and V5 experimental CDP stability/FPS; actual CPU and latency measurements.
+5. Target websites' session retention after switching back to Headless; browser storage persistence alone is not a guarantee.
 
-Product Stock & Price form/processor/API fields were reported aligned in the 2026-11-04 source audit. The earlier README assertion of *currently legacy fields* was stale; **stored legacy configuration migration, Watch/Tag override behavior and live end-to-end notifications remain unverified**. See [RESTOCK_AND_ALERTS.md](../product-extraction/RESTOCK_AND_ALERTS.md). Do not mark this as fully resolved without deployment testing.
+## Other project open work
 
-## Live Browser V1 deployment verification (2026-11-05)
-
-- Operator-provided independent Docker tests passed: CloakBrowser 0.7.0 Headed launch/close, same isolated Profile reopened in Headless, persistent Cookie/LocalStorage; Xvfb+x11vnc+noVNC image and user-reported keyboard/mouse, reconnect, graceful browser close. These are **not** evidence that this new integrated build was tested.
-- New in code: a process-local admission gate pauses Watch scheduling and worker claims, BrowserManager switches modes on its own loop while retaining the single Profile lock, and `/manual-browser/live/` exposes authenticated desktop assets and an authenticated WebSocket-to-VNC relay. Docker image adds x11vnc/novnc/Xvfb; no host VNC port is published.
-- **Before relying on this in production**: rebuild and test authenticated VNC upgrade (including reverse proxy HTTPS/WSS), live start/stop, failed launch/restore, queued Watches and `all_paused` preservation. BrowserManager shut down while live is active and unexpected container termination need real-host inspection. No claim of Cloudflare passage or website-specific login persistence.
-
-
-## Browsers UI V7 (2026-11-05)
-
-- UI code now uses a shared Screenshot Control / Live Browser tab bar and removes the standalone pale bordered Live Browser card. The remote canvas is displayed at the Xvfb 1366:900 aspect ratio. Tabs are view selection only; switching the actual browser still requires the explicit confirmed start or restore action.
-- Screenshot controls are withheld during Headed operation, while the previous manual input/stream implementation remains intact.
-- **Host acceptance remains needed** for final desktop geometry/black margins, tab focus and interaction, and a successful Live Browser exit/re-entry. The operator has already shown that the earlier WebSocket route fix allows in-app noVNC to display the Google page.
-
-## Headed X11 window fit (2026-11-05)
-
-- Implemented X11 move/resize and geometry verification to address the
-  reported bottom black strip beneath the Chromium window.
-- **Still requires host visual acceptance**: confirm the strip disappears,
-  input coordinates remain accurate, and normal Headless restoration works.
-- No Watch gate, Profile, VNC socket or authentication change.
+Product Stock & Price form/processor/API fields were found aligned in the 2026-11-04 source audit; stored legacy configuration migration and live notification delivery remain unverified. See [RESTOCK_AND_ALERTS.md](../product-extraction/RESTOCK_AND_ALERTS.md).

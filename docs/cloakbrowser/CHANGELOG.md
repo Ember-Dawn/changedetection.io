@@ -150,3 +150,9 @@ For future source changes, append a new entry with date (if known), specific pat
 - Add `xdotool` and best-effort Chromium X11 window fitting at startup, with
   diagnostic before/after geometry. Preserve 1366×900 Xvfb and noVNC
   proportional scaling; do not crop canvas or change Watch/Profile lifecycle.
+
+### 2026-11-05 — Documentation reconciliation after Live Browser V8 Docker acceptance
+
+- Update current-status documents to distinguish independently tested Headed/Profile/noVNC proof from the later **integrated** in-app noVNC path (confirmed by operator after Werkzeug `websocket=True` handshake fix).
+- Record the operator's V7 UI screenshot and successful V8 black-strip elimination after `xdotool` window fitting. Correct obsolete claims that Xvfb/noVNC is unimplemented or integrated desktop remains entirely unverified.
+- Retain explicit outstanding tests for Watch maintenance drain/restore, negative security paths, HTTPS reverse-proxy WSS, experimental CDP, and site-specific login persistence. Historical feature milestones remain unchanged.

@@ -47,10 +47,10 @@ The container may write Profile files as UID 0. A host non-root user seeing `Per
 
 ## Limitations and future ideas (not implemented)
 
-- This is JPEG image streaming over Socket.IO with HTTP polling fallback, not 30/60 FPS video, remote desktop, audio, or OS-window control.
+- **截图操控** is JPEG streaming over Socket.IO with HTTP fallback, not desktop/video/audio streaming. The separate **实时浏览器** tab is native Xvfb/noVNC desktop control while the browser is Headed. Neither mode guarantees target-site human verification will pass.
 - Popup-based sign-in flows may not work because untracked popups are closed.
 - Human verification remains subject to target-site policies and may be requested again; no automatic CAPTCHA-solving guarantee.
-- Xvfb + noVNC remain research options. An optional **experimental CDP Screencast** source now exists alongside the default Socket.IO JPEG screenshot producer and the HTTP fallback. CDP still delivers JPEG frames over Socket.IO, is not OS-level remote desktop/video, and has not been validated in the operator's live CloakBrowser deployment. Preserve the existing modes.
+- **实时浏览器** has been implemented and operator-tested for in-app display; it uses Xvfb + x11vnc + noVNC during exclusive Headed mode, then restores Headless on exit. The **CDP Screencast** choice in screenshot control remains experimental and unverified on the live CloakBrowser instance; it still produces JPEG frames, not the noVNC desktop. Preserve both independently.
 
 ## Frontend verification after round 2 refactor
 
@@ -140,11 +140,11 @@ Both Browsers and Product Extractors use a shared, keyboard-operable themed drop
 - The duplicate detailed URL panel and its copy button are removed. The editable top navigation field is now the single URL display; status updates synchronize it only while the user is not actively editing. Detailed performance, compact metrics, User-Agent copying and collapsed usage notes remain in the lower session details. Input-response milliseconds describe the latest completed operation (including navigation/wait), not continuous pointer latency; CDP has no `page.screenshot()` duration.
 - The original shared Headless Context, Profile, HTTP/WebSocket JPEG, experimental CDP Screencast, input sequencing and 15-minute expiry are unchanged. Run front-end, template and manual-session tests; verify layout, Watch-context resume and real-browser mode switching on the Docker host.
 
-## Live Browser V1 (2026-11-05: implementation, pending integrated Docker test)
+## Live Browser V1–V8 (2026-11-05: partial integrated Docker acceptance)
 
 Browsers now offers **启动实时浏览器** and **结束并恢复监控**. The former pauses Watch admission, drains running work, requires the previous screenshot-control session to be closed, changes the existing manager-owned persistent Context from Headless to Headed, and presents a native VNC desktop in the page with **新窗口打开** as an alternative. The latter safely closes Headed, restarts Headless with the same Profile and resumes Worker admission. The original screenshots/WS JPEG/CDP/HTTP interface is not removed.
 
-Only one active Live Browser controller is supported. If recovery fails, maintenance remains active and the owner can retry restoring. Do not manually remove Chromium Singleton or changedetection lock files. Closing the browser tab does not automatically close the desktop. The separate test showing Cookie/LocalStorage persistence does not prove a given retailer's login persists. The browser UI/WSS proxy has not yet been accepted on real deployed Docker; test behind the actual reverse proxy before using credentials.
+Only one active Live Browser controller is supported. If recovery fails, maintenance remains active and the owner can retry restoring. Do not manually remove Chromium Singleton or changedetection lock files. Closing the browser tab does not automatically close the desktop. The separate test showing Cookie/LocalStorage persistence does not prove a given retailer's login persists. The operator has confirmed working in-app noVNC after the WebSocket route fix; HTTPS reverse-proxy/WSS compatibility and adverse-condition recovery remain unverified. Test security and recovery in the actual access configuration before sensitive use.
 
 ### Live Browser V1 WebSocket compatibility patch (2026-11-05)
 
@@ -155,7 +155,7 @@ The noVNC RFB relay endpoint `/manual-browser/live/ws` must be registered as a W
 
 Browsers now presents **截图操控** and **实时浏览器** as compact tabs in a single mode bar. A tab click selects a view but does not switch Chromium between Headless and Headed; only **启动实时浏览器** (with confirmation) and **结束并恢复监控** change the running mode. The screenshot-control tab is unavailable while Live Browser is active or transitioning, preventing nonfunctional Headless controls from appearing. After restore, normal screenshot control is available again.
 
-The embedded noVNC desktop no longer has an enclosing pale bordered card. Its containing box follows the Xvfb 1366×900 aspect ratio rather than an unrelated `vh` height; noVNC continues to scale without cropping its RFB coordinates. Remaining black pixels **inside the remote desktop** may be due to Chromium not completely occupying the Xvfb screen, and cannot be fixed by removing a CSS border alone. The full-size **新窗口打开** option remains available.
+The embedded noVNC desktop no longer has an enclosing pale bordered card. Its containing box follows the Xvfb 1366×900 aspect ratio rather than an unrelated `vh` height; noVNC continues to scale without cropping its RFB coordinates. The former bottom black strip was traced to the potential mismatch between Chromium's X11 window and the Xvfb screen; the V8 `xdotool` window fit has now eliminated it in the user's Docker test. Do not replace coordinate-preserving sizing with CSS cropping. The full-size **新窗口打开** option remains available.
 
 ### Headed desktop bottom black strip (2026-11-05)
 

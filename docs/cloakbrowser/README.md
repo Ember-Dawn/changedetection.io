@@ -25,7 +25,7 @@ The repository root [`AGENTS.md`](../../AGENTS.md) is the recommended starting p
 - Python package versions are **pinned** (`cloakbrowser==0.7.0`, `changedetection.io-cloak-browser==0.1.1`). The CloakBrowser-managed Chromium binary is version-resolved/downloaded separately; check the running version using `python -m cloakbrowser info`.
 - Shared context Profile is bind-mounted at `./browser-profile:/browser-profile`. Binary/cache data is separate: `./cloakbrowser-home:/root/.cloakbrowser`. Watch settings and history are under `./datastore:/datastore`.
 - `FETCH_WORKERS=3` and default `CLOAKBROWSER_MAX_PAGES=3`. Each concurrent shared fetch leases **its own** Page, up to the available Page limit; queued checks wait. Pages close after checks, while the Profile/Context survives. A manual browser Page also consumes one permit.
-- The manual browser is reachable from **Browsers** in the sidebar and Watch-specific entry points. The current default is authenticated Socket.IO/WebSocket JPEG screenshots with ordered Playwright input; HTTP screenshot/input fallback is preserved, and **CDP Screencast** is an optional, unverified experimental JPEG producer. The shared Chromium remains Headless; there is no VNC/video desktop.
+- **Browsers** now offers two mutually exclusive tabs: **截图操控** (Headless Playwright Page, authenticated Socket.IO JPEG/input and HTTP fallback, with experimental CDP Screencast), and **实时浏览器** (a Headed Chromium desktop on Xvfb via authenticated noVNC). Live mode temporarily pauses Watch admission and switches the **same** persistent Profile from Headless to Headed, then restores Headless; it is not a second Profile or simultaneous browser.
 - Add Watch uses the normal browser-step screenshot flow without the previously added 2-second settling / 15-second challenge waits. Known challenge screenshots can be shown without saving them as normal baselines.
 - Shared scheduled watches attempt to detect known Google/Cloudflare verification pages **before** normal extraction, keep the last good content, and can notify via configured Apprise channels on first detection and later recovery. Detection and successful Telegram delivery are not guaranteed.
 
@@ -48,11 +48,11 @@ Do not overwrite an existing `.env` or remove an existing Profile. Read [OPERATI
 
 ## Important limits
 
-One shared Context deliberately shares site state; per-watch incompatible proxy/User-Agent settings cannot be isolated. One persistent Profile must never have multiple simultaneous writers. The free CloakBrowser license was observed to permit one concurrent browser *session*, not only one Page; separate `html_cloakbrowser` launches may contend with that limit. CAPTCHA challenges still require the website to accept a human interaction; manual control is not a guarantee of passage.
+The shared Profile deliberately shares site state; per-watch incompatible proxy/User-Agent settings cannot be isolated. In Live mode BrowserManager closes the Headless Context before opening a Headed Context with that same Profile. One persistent Profile must never have multiple simultaneous writers. The free CloakBrowser license was observed to permit one concurrent browser *session*, not only one Page; separate `html_cloakbrowser` launches may contend with that limit. CAPTCHA challenges still require the website to accept a human interaction; manual control is not a guarantee of passage.
 
 ### Historical milestone: frontend consolidation (2026-11-03)
 
-At that historical milestone the frontend was split into focused local JS modules and CSS; it still used HTTP polling then. Subsequent V2–V6 changes added Socket.IO input/frame delivery, experimental CDP capture, diagnostic metrics and UI updates. The original HTTP endpoints, shared Profile and watch scheduling are still retained. See [MANUAL_BROWSER.md](MANUAL_BROWSER.md) for file ownership and `node --test` checks. Real browser and Docker verification are still required on the deployment host.
+At that historical milestone the frontend was split into focused local JS modules and CSS; it still used HTTP polling then. Subsequent V2–V6 changes added Socket.IO input/frame delivery, experimental CDP capture, diagnostic metrics and UI updates. The original HTTP endpoints, shared Profile and watch scheduling are still retained. See [MANUAL_BROWSER.md](MANUAL_BROWSER.md) for file ownership and `node --test` checks. See [STATUS.md](STATUS.md) for the Docker checks that have already passed and for the remaining fault-recovery and CDP tests.
 
 ## Git-tracked product extraction rules
 
