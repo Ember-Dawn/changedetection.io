@@ -45,3 +45,10 @@ Product Stock & Price form/processor/API fields were reported aligned in the 202
 - Operator-provided independent Docker tests passed: CloakBrowser 0.7.0 Headed launch/close, same isolated Profile reopened in Headless, persistent Cookie/LocalStorage; Xvfb+x11vnc+noVNC image and user-reported keyboard/mouse, reconnect, graceful browser close. These are **not** evidence that this new integrated build was tested.
 - New in code: a process-local admission gate pauses Watch scheduling and worker claims, BrowserManager switches modes on its own loop while retaining the single Profile lock, and `/manual-browser/live/` exposes authenticated desktop assets and an authenticated WebSocket-to-VNC relay. Docker image adds x11vnc/novnc/Xvfb; no host VNC port is published.
 - **Before relying on this in production**: rebuild and test authenticated VNC upgrade (including reverse proxy HTTPS/WSS), live start/stop, failed launch/restore, queued Watches and `all_paused` preservation. BrowserManager shut down while live is active and unexpected container termination need real-host inspection. No claim of Cloudflare passage or website-specific login persistence.
+
+
+## Browsers UI V7 (2026-11-05)
+
+- UI code now uses a shared Screenshot Control / Live Browser tab bar and removes the standalone pale bordered Live Browser card. The remote canvas is displayed at the Xvfb 1366:900 aspect ratio. Tabs are view selection only; switching the actual browser still requires the explicit confirmed start or restore action.
+- Screenshot controls are withheld during Headed operation, while the previous manual input/stream implementation remains intact.
+- **Host acceptance remains needed** for final desktop geometry/black margins, tab focus and interaction, and a successful Live Browser exit/re-entry. The operator has already shown that the earlier WebSocket route fix allows in-app noVNC to display the Google page.

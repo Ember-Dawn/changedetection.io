@@ -6,13 +6,37 @@
   if (!start || !stop) return;
   const status = $('manual-live-status'), message = $('manual-live-message');
   const frame = $('manual-live-frame'), iframe = $('manual-live-iframe');
-  const popup = $('manual-live-popup'), shell = document.querySelector('.manual-browser-shell');
+  const popup = $('manual-live-popup'), shell = $('manual-capture-panel');
+  const livePanel = $('manual-live-panel'), placeholder = $('manual-live-placeholder');
+  const captureTab = $('manual-mode-capture'), liveTab = $('manual-mode-live');
   const confirmation = $('manual-live-confirm');
   const confirmAccept = $('manual-live-confirm-accept');
   const confirmCancel = $('manual-live-confirm-cancel');
   const csrf = $('manual-csrf').value;
   const root = window.manualBrowserConfig.api.replace(/\/$/, '');
-  let busy = false, lastPhase = null;
+  let busy = false, lastPhase = null, selectedMode = 'capture';
+  function setMode(mode) {
+    selectedMode = mode;
+    captureTab.setAttribute('aria-selected', String(mode === 'capture'));
+    liveTab.setAttribute('aria-selected', String(mode === 'live'));
+    captureTab.tabIndex = mode === 'capture' ? 0 : -1;
+    liveTab.tabIndex = mode === 'live' ? 0 : -1;
+    livePanel.hidden = mode !== 'live';
+    shell.hidden = mode !== 'capture';
+    start.hidden = mode !== 'live' || start.dataset.available !== 'true';
+    stop.hidden = mode !== 'live' || stop.dataset.available !== 'true';
+    popup.hidden = mode !== 'live' || popup.dataset.available !== 'true';
+  }
+  captureTab.addEventListener('click', () => { if (!captureTab.disabled) setMode('capture'); });
+  liveTab.addEventListener('click', () => setMode('live'));
+  for (const tab of [captureTab, liveTab]) {
+    tab.addEventListener('keydown', event => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      const next = tab === captureTab ? liveTab : captureTab;
+      if (!next.disabled) { next.focus(); setMode(next === liveTab ? 'live' : 'capture'); }
+    });
+  }
   const showError = text => {message.textContent=text || '';message.hidden=!text;};
   async function api(path, method='GET') {
     const res = await fetch(root+'/api/live/'+path, {method, credentials:'same-origin',
@@ -26,11 +50,16 @@
     const active = s.phase==='active', idle=s.phase==='idle';
     const ours=s.owned;
     status.textContent=({idle:'Headless · 正常监控',starting:'正在启动…',active:'Headed · 监控已暂停',stopping:'正在恢复…',error:'恢复失败 · 监控保持暂停'})[s.phase] || s.phase;
-    start.hidden=!idle; stop.hidden=!(ours&&(active||s.phase==='error'));
+    start.dataset.available = String(idle);
+    stop.dataset.available = String(ours && (active || s.phase === 'error'));
+    popup.dataset.available = String(ours && active);
     start.disabled=busy;stop.disabled=busy;
-    popup.hidden=!(ours&&active);
+    captureTab.disabled = !idle;
+    if (!idle && selectedMode !== 'live') selectedMode = 'live';
+    if (idle && lastPhase && lastPhase !== 'idle') selectedMode = 'capture';
+    setMode(selectedMode);
     frame.hidden=!(ours&&active);
-    shell.hidden=active || (ours&&s.phase==='error');
+    placeholder.hidden=!!(ours&&active);
     if(active && !iframe.getAttribute('src')) iframe.src=popup.href;
     if(!active && iframe.getAttribute('src')) iframe.removeAttribute('src');
     if(s.error) showError(s.error);

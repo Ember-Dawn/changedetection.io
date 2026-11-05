@@ -129,3 +129,8 @@ The collapsed Browsers details panel now distinguishes BrowserManager dispatch t
 ## Live Browser V1 handoff (2026-11-05)
 
 Current source adds an **unverified integrated** Headed/desktop mode exposed in Browsers. The operator independently proved Xvfb+noVNC and Headed↔Headless storage persistence on CloakBrowser 0.7.0, but the app integration/WebSocket auth bridge and Watch admission require Docker validation. Keep BrowserManager as sole Profile writer, do not call its shutdown `stop()` to toggle mode, never publish VNC ports, and retain maintenance pause on uncertain restore. See STATUS.md, ARCHITECTURE.md and OPERATIONS.md.
+
+
+## Browsers V7 mode navigation (2026-11-05)
+
+The separate bordered Live Browser card has been replaced with **截图操控 / 实时浏览器** view tabs in a common toolbar. Tab selection must never launch/stop Chromium; explicit start/restore buttons control the protected lifecycle. Disable capture selection whenever Headed is running or transitioning. Embedded noVNC uses the Xvfb 1366×900 aspect ratio instead of a fixed viewport-relative height, with no outer Live Browser component border. Preserve the V1 WebSocket upgrade fix, app-styled confirmation, full Profile ownership and Watch maintenance pause.

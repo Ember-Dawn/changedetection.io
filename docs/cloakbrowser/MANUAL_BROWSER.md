@@ -149,3 +149,10 @@ Only one active Live Browser controller is supported. If recovery fails, mainten
 ### Live Browser V1 WebSocket compatibility patch (2026-11-05)
 
 The noVNC RFB relay endpoint `/manual-browser/live/ws` must be registered as a Werkzeug WebSocket route (`websocket=True`), not an ordinary HTTP GET route. Otherwise the WebSocket Upgrade can be rejected with HTTP 400 before `simple_websocket.Server.accept` can complete the handshake. Keep existing operator/session/CSRF/same-origin checks and never publish VNC ports directly. The Live Browser start confirmation is an application-styled accessible modal, not a browser `confirm()` prompt. Verify the handshake returns 101 and noVNC connects on the deployed Docker instance.
+
+
+### V7 mode navigation and desktop sizing
+
+Browsers now presents **截图操控** and **实时浏览器** as compact tabs in a single mode bar. A tab click selects a view but does not switch Chromium between Headless and Headed; only **启动实时浏览器** (with confirmation) and **结束并恢复监控** change the running mode. The screenshot-control tab is unavailable while Live Browser is active or transitioning, preventing nonfunctional Headless controls from appearing. After restore, normal screenshot control is available again.
+
+The embedded noVNC desktop no longer has an enclosing pale bordered card. Its containing box follows the Xvfb 1366×900 aspect ratio rather than an unrelated `vh` height; noVNC continues to scale without cropping its RFB coordinates. Remaining black pixels **inside the remote desktop** may be due to Chromium not completely occupying the Xvfb screen, and cannot be fixed by removing a CSS border alone. The full-size **新窗口打开** option remains available.

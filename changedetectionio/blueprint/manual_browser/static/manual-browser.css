@@ -159,13 +159,22 @@
 #manual-browser-root .manual-details-copy{gap:10px}
 
 [hidden]{display:none!important}
-/* Live Browser V1: minimal desktop toolbar; existing screenshot controls unchanged. */
-.manual-live-panel{border:1px solid var(--border-color,#c9d1d9);border-radius:9px;padding:10px 13px;margin:0 0 12px}
-.manual-live-heading{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.manual-live-heading strong{margin-right:auto}
-#manual-live-status{font-size:12px;opacity:.8}
-#manual-live-frame{margin-top:12px;min-height:520px;height:min(76vh,850px);background:#121720;border-radius:7px;overflow:hidden}
-#manual-live-iframe{width:100%;height:100%;border:0}
+/* V7: compact shared mode selector; no standalone framed Live Browser card. */
+#manual-browser-root .manual-modebar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;min-height:36px}
+#manual-browser-root .manual-mode-tabs{display:inline-flex;align-items:center;gap:3px;padding:3px;border-radius:9px;background:rgba(7,19,42,.30)}
+#manual-browser-root .manual-mode-tab{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:0;background:transparent;color:var(--mb-muted);font:inherit;font-weight:650;font-size:12px;padding:8px 12px;min-height:33px;border-radius:7px;cursor:pointer}
+#manual-browser-root .manual-mode-tab svg{width:15px;height:15px}
+#manual-browser-root .manual-mode-tab[aria-selected="true"]{background:rgba(87,154,220,.20);color:#f0f7ff;box-shadow:inset 0 0 0 1px rgba(142,195,249,.20)}
+#manual-browser-root .manual-mode-tab:not(:disabled):hover{color:#fff;background:rgba(87,154,220,.13)}
+#manual-browser-root .manual-mode-tab:disabled{opacity:.55;cursor:not-allowed}
+#manual-browser-root .manual-mode-tab:focus-visible{outline:2px solid #62b8ff;outline-offset:2px}
+#manual-browser-root .manual-live-heading{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+#manual-live-status{font-size:12px;color:var(--mb-muted);white-space:nowrap}
+#manual-browser-root .manual-live-panel{margin:0;padding:0;border:0;background:transparent;min-width:0}
+#manual-live-frame{width:100%;aspect-ratio:1366 / 900;height:auto;background:#111827;overflow:hidden;border-radius:7px}
+#manual-live-iframe{display:block;width:100%;height:100%;aspect-ratio:1366 / 900;border:0}
+#manual-browser-root .manual-live-placeholder{padding:22px 16px;color:var(--mb-muted);font-size:12px;background:rgba(7,19,42,.20);border-radius:7px}
+#manual-browser-root #manual-live-message{margin:0 0 8px;color:#efce93}
 
 /* Live Browser: accessible application-styled confirmation (native <dialog> semantics). */
 #manual-browser-root .manual-live-dialog{width:min(430px,calc(100vw - 36px));max-width:none;max-height:calc(100vh - 36px);overflow:auto;margin:auto;padding:0;border:1px solid rgba(150,175,216,.45);border-radius:12px;background:#1e2c43;color:#e9f1ff;box-shadow:0 24px 75px rgba(0,0,0,.52)}
