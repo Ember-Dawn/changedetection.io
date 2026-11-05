@@ -123,7 +123,11 @@ def construct_blueprint(datastore):
             data=request.get_json(silent=True)
             if not isinstance(data,dict):raise RuleError('Expected JSON request')
             rule=data.get('rule')
-            if rule is None:rule=load(data.get('rule_id',''))
+            if rule is None:
+                rule=load(data.get('rule_id',''))
+            else:
+                from changedetectionio.product_extraction.registry import validate
+                rule=validate(rule)
             url=str(data.get('url') or '').strip()
             html=data.get('html')
             screenshot=None
@@ -151,6 +155,9 @@ def construct_blueprint(datastore):
                         from changedetectionio.product_extraction.viewport import desktop_viewport
                         await stepper.page.set_viewport_size(desktop_viewport())
                         await stepper.call_action(action_name='Goto site',selector=None,optional_value=None)
+                        delay = rule.get('page', {}).get('extra_wait_seconds', 0)
+                        if delay:
+                            await stepper.page.wait_for_timeout(delay * 1000)
                         from changedetection_cloak_shared.page_readiness import challenge_kind
                         html_result=await stepper.page.content()
                         if challenge_kind(html_result,url=stepper.page.url):

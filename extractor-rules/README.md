@@ -44,3 +44,7 @@ Rule identity is the stable, Git-friendly `id` (`rules/<id>.json`), not a UUID. 
 JSON rules only extract product facts. The evaluator supports seven `price_mode` and six `stock_mode` choices, cumulative percentages, current-stock filters, and AND/OR where appropriate; first valid measurements establish baselines rather than sending alerts. See [Stock & Price rules](../docs/product-extraction/STOCK_PRICE_RULES.md), [events and dispatch](../docs/product-extraction/RESTOCK_AND_ALERTS.md), and [message templates](../docs/product-extraction/NOTIFICATION_TEMPLATES.md).
 
 **Known audited mismatch (2026-11-04):** the old form/API files still mention `alert_mode` and `target_price`; the new evaluator expects `price_mode` and `stock_mode`. Do not assume the old API examples work without integration testing.
+
+## Rule-dependent page wait (optional)
+
+The JSON v1 registry accepts `"page": {"extra_wait_seconds": 5}`; value must be an integer from 0 to 30. This adds browser post-navigation wait before HTML/screenshot capture. Omit the property to preserve the existing behavior. New Stock & Price Watches use an explicit selected rule (automatically suggested by URL in Edit > Watch) or the built-in extractor. Existing rules and Watch bindings are not rewritten.

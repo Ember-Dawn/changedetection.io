@@ -72,6 +72,18 @@
     "enabled": {
       "type": "boolean",
       "default": true
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extra_wait_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30,
+          "description": "Additional seconds after page navigation, before extracting HTML and screenshot."
+        }
+      }
     }
   },
   "$defs": {

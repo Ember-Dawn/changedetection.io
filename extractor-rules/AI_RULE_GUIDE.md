@@ -8,7 +8,7 @@
 2. 在 HTML 中定位能稳定唯一匹配主商品的 CSS / XPath / JSON-LD 字段；库存识别要分清有货、无货和未知。**不要只凭截图猜 CSS 类名。**
 3. 输出单个符合下文规范的完整 JSON。域名、路径和字段选择器必须来自真实依据；不确定的字段请说明，不要杜撰。
 4. 在 **Product Extractors → Import JSON → Dry run** 粘贴 HTML 或输入可访问的测试 URL，检查真实提取结果、匹配数量、字段来源。无误后点击 **Validate & save**。
-5. 把保存的规则绑定到 `Product purchase alerts` Watch（`Auto` 或 `Selected rule only`）；规则存储在 Git 可追踪的 `extractor-rules/rules/<id>.json`。
+5. 把保存的规则绑定到 `Product purchase alerts` Watch（`Selected rule only`）；规则存储在 Git 可追踪的 `extractor-rules/rules/<id>.json`。
 
 **给 AI 的交付要求：** 提供 (a) 完整可解析 JSON，(b) 各选择器来自哪个 DOM 元素、为何不会选中分期/附加商品，(c) 库存判断的原始证据和适用条件，(d) 尚不能确定的字段、可能失效点，(e) Dry Run 预期结果及是否真的测试过。不要输出需要执行 Python/JavaScript 的规则。
 
@@ -46,6 +46,8 @@
 }
 ```
 
+**可选：** 在根级添加 `"page": {"extra_wait_seconds": 5}`，无此需求可完全省略；必须先部署支持该字段的程序版本。
+
 **此处的 example.com/选择器仅用于示意，不是实站规则**。可直接执行的离线示例在 `examples/sample-product.html` 和 `examples/sample-product-rule.json`。
 
 ### 顶层属性
@@ -59,6 +61,7 @@
 | `match.domains` | 是 | 1～30 个域名，不带 scheme、路径、端口。匹配本域名及其子域名；不支持任意 `*` 域名。 |
 | `match.path_patterns` | 否 | 对 URL **路径**进行 glob 匹配，如 `/product/*`；省略时相当于 `*`。不包括查询参数。 |
 | `fields` | 是 | 一个或多个受支持的字段，不能包含任意自定义键。 |
+| `page.extra_wait_seconds` | 否 | 非负整数，0～30；浏览器导航后额外等待秒数，默认为不指定。仅配置抓取等待，不影响提取语义及价格库存基线。 |
 
 字段支持：`price`、`currency`、`in_stock`、`stock_quantity`、`title`、`sku`、`pickup`、`shipping`。为了用于价格/库存监控，最终至少要提取到**有效价格或明确库存状态**之一；二者都没有时，Dry Run 会报错。`stock_quantity` 存在时，若 `in_stock` 未识别，引擎可由数量是否大于 0 推断库存状态。
 

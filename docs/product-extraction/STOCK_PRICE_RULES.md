@@ -41,7 +41,7 @@ With a price rule and a stock **event** rule (restock/sold-out/any-change), `com
 
 ## 4. Reliability and examples
 
-- First reliable measurements establish baselines; no alert on the initial observation. Changes to monitoring settings or extraction rule signature rebaseline.
+- First reliable measurements establish baselines; no alert on the initial observation. Changes to monitoring settings or semantic extraction fields may rebaseline; changes only to rule name, URL match patterns, or `page.extra_wait_seconds` do not.
 - Unknown stock is neither in nor out of stock. Missing/invalid price is not zero. Missing inputs never invent a stock or price event.
 - Detected currency changes block price comparisons until the extractor or currency is corrected. Reliable stock transitions may still notify for an OR rule.
 - Reliable prices and stock states are retained independently; no notification is necessary for updating the latest values.
@@ -64,3 +64,11 @@ The WebUI rule help and its Copy Markdown action use this same document. JSON ex
 The policy rules above determine **when to notify**, not how to render a message. Six current built-ins cover general changes, product Plain Text, compact changes, Telegram HTML (compact / all details), and Telegram Rich (all details). Compatible newly created product Watches use HTML Compact by default when all effective destinations are Telegram and no notification fields are supplied. Selecting a template changes Format immediately; **Apply to editor** copies Title and Body; the normal Save is still necessary. Existing Watches do not automatically inherit library edits.
 
 See [NOTIFICATION_TEMPLATES.md](NOTIFICATION_TEMPLATES.md) for templates, Chinese names, dialogs, dynamic display fields and links. See [RESTOCK_AND_ALERTS.md](RESTOCK_AND_ALERTS.md) for notification event evaluation and dispatch.
+
+## 5. Rule selection, fetch wait and rule errors
+
+- For new Stock & Price alerts Watches, the editor suggests the single enabled JSON rule matching the URL using `match.domains` and `match.path_patterns`. Existing Watch selections are left untouched. If there are zero or multiple matches, choose manually.
+- Select **Selected rule only** to require the chosen JSON rule; **Built-in** uses metadata/plugins. Legacy stored `auto` configurations remain readable, but Auto is not offered for new configurations.
+- An optional JSON property `"page": {"extra_wait_seconds": 5}` adds 5 seconds after browser navigation. Integer range: 0–30. Wait precedence: explicitly configured Watch delay (including 0) > JSON rule > global delay > fetcher default. Non-browser fetchers ignore rendering delays.
+- A selected rule with missing/invalid required price or stock status is a failure, not a false out-of-stock event. The first rule error queues a notification; continued failures are quiet after successful delivery; recovery queues one notification. Failed delivery is retried on later checks, subject to a short retry interval. These operational notices use the configured destination and are independent of user-facing price/stock templates.
+- A solely changed waiting time does not rebaseline price/stock history. The first check after upgrading old full-JSON signatures adopts extraction-only signatures without a forced baseline reset.

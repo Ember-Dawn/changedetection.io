@@ -69,6 +69,7 @@ $(document).ready(() => {
             data: {
                 url: url,
                 fetch_backend: $('input[name="fetch_backend"]:checked').val() || '',
+                processor: $('input[name="processor"]:checked').val() || $('#processor').val() || '',
                 csrf_token: $('#new-watch-form input[name="csrf_token"]').val() || '',
             },
             dataType: 'json',

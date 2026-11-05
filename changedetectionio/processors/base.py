@@ -255,10 +255,32 @@ class difference_detection_processor():
 
         # Configurable per-watch or global extra delay before extracting text (for webDriver types)
         system_webdriver_delay = self.datastore.data['settings']['application'].get('webdriver_delay', None)
-        if self.watch.get('webdriver_delay'):
+        if self.watch.get('webdriver_delay') is not None:
             self.fetcher.render_extract_delay = self.watch.get('webdriver_delay')
-        elif system_webdriver_delay is not None:
-            self.fetcher.render_extract_delay = system_webdriver_delay
+        else:
+            rule_wait = None
+            if self.watch.get('processor') == 'restock_diff':
+                from changedetectionio.product_extraction.registry import choose
+                config = self.get_extra_watch_config('restock_diff.json').get('restock_diff') or {}
+                for tag_uuid in self.watch.get('tags', []):
+                    tag = self.datastore.data['settings']['application']['tags'].get(tag_uuid, {})
+                    if tag.get('overrides_watch'):
+                        config = tag.get('processor_config_restock_diff') or config
+                        break
+                from changedetectionio.product_extraction.models import RuleError
+                try:
+                    rule = choose(self.watch.get('url'), config.get('extraction_mode') or 'rule',
+                                  config.get('extraction_rule_id') or '')
+                except RuleError as exc:
+                    from changedetectionio.processors.exceptions import ProductRuleException
+                    raise ProductRuleException(message=f'Product rule configuration: {exc}',
+                                               url=self.watch.get('url')) from exc
+                if rule:
+                    rule_wait = rule.get('page', {}).get('extra_wait_seconds')
+            if rule_wait is not None:
+                self.fetcher.render_extract_delay = rule_wait
+            elif system_webdriver_delay is not None:
+                self.fetcher.render_extract_delay = system_webdriver_delay
 
         if self.watch.get('webdriver_js_execute_code') is not None and self.watch.get('webdriver_js_execute_code').strip():
             self.fetcher.webdriver_js_execute_code = self.watch.get('webdriver_js_execute_code')

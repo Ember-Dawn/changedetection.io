@@ -18,7 +18,7 @@ The current-stock options (`in_stock`, `out_of_stock`) are filters for price rul
 
 ## Reliable baselines and events
 
-- The **first reliable measurement establishes the baseline, without alerting**. Changing the configured policy or extraction-rule signature also rebaselines.
+- The **first reliable measurement establishes the baseline, without alerting**. Changing the configured policy or semantically significant extraction fields also rebaselines; page wait and descriptive metadata changes do not.
 - A missing/invalid price must not be treated as zero; unknown stock (`null`) must not be interpreted as in stock or out of stock. Missing inputs never fabricate a change or transition.
 - Known currency changes prevent unsafe cross-currency price comparisons. A reliable stock event may still qualify under OR.
 - The Watch saves event-specific comparison details in `purchase_alert_state` separately from the current display data in `restock`.
@@ -57,3 +57,7 @@ The extraction modes are `auto`, `rule` and `builtin`; rule Dry Run does not mod
 ## Maintenance and verification
 
 Relevant paths are `purchase_alert.py` (policy), `restock_diff/__init__.py` (display tokens), `notification_service.py` (dispatch), and the template/Telegram handler. Run the product presentation and Telegram format/contract tests, plus real browser/Telegram acceptance tests after deploying. The policy tests exercise the evaluator but cannot substitute for full WebUI/API and live Telegram acceptance testing. Never describe offline JSON/Jinja2 validation as successful Telegram delivery.
+
+## Rule failure notifications
+
+The first selected-rule extraction/configuration failure is queued as an operational alert. A successfully delivered failure message is not repeated while the rule remains broken. A successful later extraction queues one recovery notification. If delivery fails, the alert remains eligible for retry on subsequent checks. Telegram-only destinations use a linked product title in HTML; non-Telegram or mixed destinations get a short plain-text message with the URL. These messages do not use the normal price/stock notification template. Paused Watches do not check.

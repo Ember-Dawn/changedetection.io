@@ -74,6 +74,7 @@
     </div>
 
     <div class="box-wrap inner">
+        <script>window.productRuleMatchURL = {{ url_for('ui.ui_edit.product_rule_match')|tojson }};</script>
         <form class="pure-form pure-form-stacked"
               action="{{ url_for('ui.ui_edit.edit_page', uuid=uuid, next = request.args.get('next'), unpause_on_save = request.args.get('unpause_on_save'), tag = request.args.get('tag')) }}" method="POST">
              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

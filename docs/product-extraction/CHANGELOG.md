@@ -58,3 +58,11 @@ This file records **historical** changes. Current behavior: [Stock & Price rules
 - Added two built-in Telegram product presets: HTML with expandable blockquote and Rich JSON with details. Both prioritize watch title, formatted price, stock and product URL; rules and trigger explanation appear in details.
 - Added a Telegram-only Rich Message adapter using private short-lived JSON template files and existing Apprise destinations. A format selected for non-Telegram destinations is rejected instead of silently sending Rich JSON to unrelated services.
 - Telegram-specific sending requires a real Docker/Apprise/Telegram smoke test. No UI-rendering or real Telegram delivery acceptance has been claimed in the offline checks.
+
+## 2026-11 — Rule-based wait, editor matching and failure alerts
+
+- Added optional `page.extra_wait_seconds` (0–30) to JSON Schema and runtime validator; browser fetch and rule Dry Run support the wait.
+- Stock & Price alerts editor suggests uniquely matching rules by URL, preserving existing selections. Removed Auto from new choices; retained legacy backend support.
+- Added extraction-only signatures to prevent waiting/metadata changes from rebasing stock/price tracking. Old signatures are adopted safely.
+- Added first-failure/one-recovery operational notifications with delivery acknowledgement and later retry for failed delivery.
+- Existing shop JSON files and Watches are not migrated.

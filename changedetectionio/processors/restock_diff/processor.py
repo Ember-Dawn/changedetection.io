@@ -1,5 +1,5 @@
 from ..base import difference_detection_processor
-from ..exceptions import ProcessorException
+from ..exceptions import ProcessorException, ProductRuleException
 from . import Restock
 from loguru import logger
 from changedetectionio.content_fetchers.exceptions import checksumFromPreviousCheckWasTheSame
@@ -425,28 +425,34 @@ class perform_site_check(difference_detection_processor):
         )
         # Resolve the rule before checksum fast-path so rule edits take effect
         # even when the server returns identical HTML.
-        from changedetectionio.product_extraction import choose, signature, evaluate, RuleError
+        from changedetectionio.product_extraction import choose, evaluate, RuleError
+        from changedetectionio.product_extraction.registry import extraction_signature
         _extra_config = self.get_extra_watch_config('restock_diff.json')
         restock_settings = _extra_config.get('restock_diff') or {
             'price_mode': 'none', 'stock_mode': 'restock',
             'combine_mode': 'and', 'price_follow_changes': True, 'price_threshold': None,
-            'extraction_mode': 'auto', 'extraction_rule_id': '',
+            'extraction_mode': 'rule', 'extraction_rule_id': '',
         }
         for tag_uuid in watch.get('tags', []):
             tag = self.datastore.data['settings']['application']['tags'].get(tag_uuid, {})
             if tag.get('overrides_watch'):
                 restock_settings = tag.get('processor_config_restock_diff') or restock_settings
                 break
-        selected_mode = restock_settings.get('extraction_mode') or 'auto'
+        selected_mode = restock_settings.get('extraction_mode') or 'rule'
         selected_id = restock_settings.get('extraction_rule_id') or ''
         try:
             active_rule = choose(watch.get('url'), selected_mode, selected_id)
         except RuleError as exc:
-            raise ProcessorException(message=f'Product rule configuration: {exc}',
+            raise ProductRuleException(message=f'Product rule configuration: {exc}',
                 url=watch.get('url'), status_code=self.fetcher.get_last_status_code(),
                 screenshot=self.fetcher.screenshot, xpath_data=self.fetcher.xpath_data) from exc
-        active_signature = signature(active_rule)
-        rule_changed = active_signature != watch.get('product_rule_signature')
+        active_signature = extraction_signature(active_rule)
+        old_signature = watch.get('product_rule_signature')
+        legacy_signature = watch.get('product_rule_signature_kind') != 'extraction-v1'
+        rule_changed = old_signature != active_signature
+        # The previous signature hashed metadata and wait settings too. Avoid a
+        # one-time false baseline reset when upgrading persisted Watch data.
+        baseline_rule_changed = rule_changed and not legacy_signature
         # Group Tag overrides can change without setting watch.was_edited; they
         # must also bypass the unchanged-HTML fast path.
         from .purchase_alert import policy_signature, PurchaseAlertConfigurationError
@@ -464,6 +470,7 @@ class perform_site_check(difference_detection_processor):
             not watch.was_edited and
             not rule_changed and
             not policy_changed and
+            not (watch.get('product_rule_alert_state') or {}).get('failed') and
             (watch.get('purchase_alert_state') or {}).get('status') != 'unknown' and
             self.last_raw_content_checksum and
             not raw_changed):
@@ -472,7 +479,8 @@ class perform_site_check(difference_detection_processor):
 
         # Unset any existing notification error
         update_obj = {'last_notification_error': False, 'last_error': False,
-                      'restock': Restock(), 'product_rule_signature': active_signature}
+                      'restock': Restock(), 'product_rule_signature': active_signature,
+                      'product_rule_signature_kind': 'extraction-v1'}
 
         self.screenshot = self.fetcher.screenshot
         self.xpath_data = self.fetcher.xpath_data
@@ -523,9 +531,18 @@ class perform_site_check(difference_detection_processor):
                     'rule_id': product.rule_id,
                 }
             except RuleError as exc:
-                raise ProcessorException(message=f'Product extraction rule failed: {exc}',
+                raise ProductRuleException(message=f'Product extraction rule failed: {exc}',
                     url=watch.get('url'), status_code=self.fetcher.get_last_status_code(),
                     screenshot=self.fetcher.screenshot, xpath_data=self.fetcher.xpath_data) from exc
+
+        if active_rule is not None:
+            if restock_settings.get('price_mode', 'none') != 'none' and itemprop_availability.get('price') is None:
+                raise ProductRuleException(message='Product extraction rule failed: price is unavailable',
+                    url=watch.get('url'), screenshot=self.fetcher.screenshot, xpath_data=self.fetcher.xpath_data)
+            if (restock_settings.get('stock_mode', 'restock') != 'none' and
+                    all(itemprop_availability.get(k) is None for k in ('in_stock', 'pickup', 'shipping'))):
+                raise ProductRuleException(message='Product extraction rule failed: stock status is unavailable',
+                    url=watch.get('url'), screenshot=self.fetcher.screenshot, xpath_data=self.fetcher.xpath_data)
 
         # Try built-in extraction first, this will scan metadata in the HTML
         # On Linux, this runs in a subprocess to prevent lxml/extruct memory leaks
@@ -686,7 +703,7 @@ class perform_site_check(difference_detection_processor):
             changed_detected, purchase_state, alert_reason = evaluate_purchase_alert(
                 restock_settings, update_obj['restock'],
                 watch.get('purchase_alert_state'),
-                reset_baseline=bool(rule_changed and watch.get('product_rule_signature')),
+                reset_baseline=bool(baseline_rule_changed and old_signature),
             )
         except PurchaseAlertConfigurationError as exc:
             raise ProcessorException(

@@ -15,6 +15,19 @@ from changedetectionio.llm.evaluator import get_llm_config as _get_llm_config
 def construct_blueprint(datastore: ChangeDetectionStore, update_q, queuedWatchMetaData):
     edit_blueprint = Blueprint('ui_edit', __name__, template_folder="../ui/templates")
 
+    @edit_blueprint.route('/product-rule-match', methods=['GET'])
+    @login_optionally_required
+    def product_rule_match():
+        from flask import jsonify
+        from changedetectionio.product_extraction.registry import matching_rules
+        url = (request.args.get('url') or '').strip()[:4096]
+        try:
+            found = matching_rules(url)
+        except ValueError:
+            found = []
+        return jsonify({'matches': [{'id': info['id'], 'name': info['name']}
+                                    for info in found]})
+
     def _watch_tags(watch):
         """(uuid, tag) for this watch's tags, in its own tag order, skipping UUIDs we don't know."""
         tags = datastore.data['settings']['application'].get('tags', {})

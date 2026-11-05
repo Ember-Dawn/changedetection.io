@@ -97,3 +97,10 @@ title and a typed RichText `url` object for the short product link.
 ## Product purchase-policy integration status (reviewed 2026-11-04)
 
 The current `processors/restock_diff/forms.py`, `processor.py` and `api.yaml` use the expanded `price_mode` / `stock_mode` / `price_threshold` contract from `purchase_alert.py`; previous notes claiming those files still rely on `alert_mode` / `target_price` were out of date. Validate the integrated form, API and evaluator in tests when modifying their behavior. Old configurations are not automatically migrated. Offline fixture tests do not prove end-to-end browser or Telegram delivery.
+
+## Product rule page waits and operational failures (2026-11)
+
+- JSON Schema v1 accepts optional `page.extra_wait_seconds` (integer 0–30), with the registry validator and JSON Schema kept in sync. Watch-level explicit wait including 0 overrides rule-level extra wait.
+- The Watch stock/price editor suggests a unique URL-matching selected rule without silently changing existing bindings. Auto is removed from new UI choices; legacy stored auto is still understood.
+- The extraction-only signature (rule ID + fields) avoids resetting price/stock baselines for waits, names or URL patterns. Handle older stored signatures without forced reset.
+- Product rule failures use a separate persisted and delivery-acknowledged failure/recovery notifier. Never interpret unavailable price/stock as zero or out-of-stock. Do not change existing commodity notification templates to implement operational notices.

@@ -1,5 +1,5 @@
 from blinker import signal
-from .processors.exceptions import ProcessorException
+from .processors.exceptions import ProcessorException, ProductRuleException
 import changedetectionio.content_fetchers.exceptions as content_fetchers_exceptions
 from changedetectionio.processors.text_json_diff.processor import FilterNotFoundInResponse, PDFNotAvailableFromFetcher
 from changedetectionio import html_tools
@@ -225,6 +225,9 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                         watch.save_xpath_data(data=e.xpath_data)
                         e.xpath_data = None  # Free memory immediately
                     datastore.update_watch(uuid=uuid, update_obj={'last_error': e.message})
+                    if isinstance(e, ProductRuleException):
+                        from changedetectionio.product_rule_alerts import failure
+                        failure(datastore, notification_q, uuid, e.message)
                     process_changedetection_results = False
 
                 except PDFNotAvailableFromFetcher as e:
@@ -343,6 +346,9 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                     datastore.update_watch(uuid=uuid, update_obj={'last_error': False})
                     from changedetectionio.verification_alerts import clear_after_success
                     clear_after_success(datastore, notification_q, uuid)
+                    if watch.get('processor') == 'restock_diff':
+                        from changedetectionio.product_rule_alerts import recovered
+                        recovered(datastore, notification_q, uuid)
                     cleanup_error_artifacts(uuid, datastore)
                     
                 except content_fetchers_exceptions.BrowserConnectError as e:
@@ -692,6 +698,9 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                     datastore.update_watch(uuid=uuid, update_obj=final_updates)
                     from changedetectionio.verification_alerts import clear_after_success
                     clear_after_success(datastore, notification_q, uuid)
+                    if watch.get('processor') == 'restock_diff':
+                        from changedetectionio.product_rule_alerts import recovered
+                        recovered(datastore, notification_q, uuid)
 
                     # NOW clear fetcher content - after all processing is complete
                     # This is the last point where we need the fetcher data

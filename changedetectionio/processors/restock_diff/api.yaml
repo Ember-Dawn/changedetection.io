@@ -30,8 +30,8 @@ components:
           description: Used when both price monitoring and stock event monitoring are enabled.
         extraction_mode:
           type: string
-          enum: [auto, rule, builtin]
-          default: auto
+          enum: [rule, builtin]
+          default: rule
         extraction_rule_id:
           type: string
           description: Product extraction rule ID when extraction_mode is rule.
@@ -44,7 +44,7 @@ paths:
           source: |
             curl -X POST 'http://localhost:5000/api/v1/watch' \
               -H 'x-api-key: YOUR_API_KEY' -H 'Content-Type: application/json' \
-              -d '{"url":"https://example.com/product", "processor":"restock_diff", "processor_config_restock_diff":{"price_mode":"below", "price_threshold":1300, "stock_mode":"in_stock", "price_follow_changes":true}}'
+              -d '{"url":"https://example.com/product", "processor":"restock_diff", "processor_config_restock_diff":{"price_mode":"below", "price_threshold":1300, "stock_mode":"in_stock", "price_follow_changes":true, "extraction_mode":"rule", "extraction_rule_id":"example-store"}}'
         - lang: 'Python'
           label: 'Track any stock status change'
           source: |
@@ -52,7 +52,8 @@ paths:
             response = requests.post('http://localhost:5000/api/v1/watch',
                 headers={'x-api-key': 'YOUR_API_KEY'},
                 json={'url': 'https://example.com/product', 'processor': 'restock_diff',
-                      'processor_config_restock_diff': {'price_mode': 'none', 'stock_mode': 'any_change'}})
+                      'processor_config_restock_diff': {'price_mode': 'none', 'stock_mode': 'any_change',
+                                                       'extraction_mode': 'builtin'}})
             print(response.json())
   /watch/{uuid}:
     put:

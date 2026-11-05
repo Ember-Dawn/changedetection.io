@@ -8,3 +8,7 @@ class ProcessorException(Exception):
         self.html_content = html_content
         self.xpath_data = xpath_data
         return
+
+
+class ProductRuleException(ProcessorException):
+    """A selected product rule could not provide reliable required data."""

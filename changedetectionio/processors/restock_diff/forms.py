@@ -35,10 +35,9 @@ class RestockSettingsForm(Form):
         ('or', _l('OR — either condition may trigger')),
     ], default='and')
     extraction_mode = RadioField(_l('Product extraction mode'), choices=[
-        ('auto', _l('Auto: matching custom rule, otherwise built-in')),
         ('rule', _l('Selected rule only (error on failure)')),
         ('builtin', _l('Built-in metadata and plugins only')),
-    ], default='auto')
+    ], default='rule')
     extraction_rule_id = SelectField(_l('Selected rule'),
         choices=[('', _l('Select rule'))], validate_choice=False)
 
@@ -55,6 +54,12 @@ class RestockSettingsForm(Form):
             })
         except PurchaseAlertConfigurationError as exc:
             self.price_mode.errors.append(str(exc))
+            valid = False
+        if self.extraction_mode.data == 'rule' and not self.extraction_rule_id.data:
+            self.extraction_rule_id.errors.append('Select a product extraction rule or choose Built-in.')
+            valid = False
+        if self.extraction_mode.data == 'auto':
+            self.extraction_mode.errors.append('Legacy Auto mode: select a specific rule or Built-in before saving.')
             valid = False
         return valid
 
@@ -173,6 +178,76 @@ class processor_settings_form(processor_text_json_diff_form):
               const threshold = root.querySelector('input[name="'+prefix+'price_threshold"]');
               if (threshold) threshold.required = !['none','any_change'].includes(price);
             }
+            const ruleSelect = document.querySelector('select[name="'+prefix+'extraction_rule_id"]');
+            const urlInput = document.querySelector('input[name="url"]');
+            const ruleRadio = document.querySelector('input[name="'+prefix+'extraction_mode"][value="rule"]');
+            const modeInputs = document.querySelectorAll('input[name="'+prefix+'extraction_mode"]');
+            let autoMatched = false;
+            let applyingAutomaticSelection = false;
+            let manualRule = Boolean(ruleSelect && ruleSelect.value) ||
+                Array.from(modeInputs).some(input => input.checked && input.value !== 'rule');
+            let latestRequest = 0;
+            const hint = document.createElement('span');
+            hint.className = 'purchase-note';
+            hint.setAttribute('role', 'status');
+            if (ruleSelect) {
+              ruleSelect.closest('fieldset').appendChild(hint);
+              ruleSelect.addEventListener('change', () => {
+                if (applyingAutomaticSelection) return;
+                manualRule = Boolean(ruleSelect.value); autoMatched = false; hint.textContent = '';
+              });
+            }
+            modeInputs.forEach(input => input.addEventListener('change', () => { manualRule = true; autoMatched = false; }));
+            async function matchRule() {
+              if (!urlInput || !ruleSelect || !window.productRuleMatchURL) return;
+              const requestId = ++latestRequest;
+              const url = urlInput.value.trim();
+              if (!url || !/^https?:\/\//i.test(url)) return;
+              try {
+                const response = await fetch(window.productRuleMatchURL + '?url=' + encodeURIComponent(url), {credentials:'same-origin'});
+                if (!response.ok) return;
+                const data = await response.json();
+                if (requestId !== latestRequest) return;
+                if (manualRule && !autoMatched) {
+                  const match = data.matches.find(item => item.id === ruleSelect.value);
+                  hint.textContent = match ? 'Selected rule matches this URL.' :
+                    (data.matches.length === 1 ? 'URL matches ' + data.matches[0].name + '; current selection kept.' :
+                    data.matches.length ? 'Multiple rules match this URL; current selection kept.' :
+                    'No matching rule for this URL; current selection kept.');
+                  return;
+                }
+                if (data.matches.length === 1) {
+                  applyingAutomaticSelection = true;
+                  ruleSelect.value = data.matches[0].id;
+                  ruleSelect.dispatchEvent(new Event('change', {bubbles:true}));
+                  applyingAutomaticSelection = false;
+                  manualRule = false;
+                  autoMatched = true;
+                  if (ruleRadio) ruleRadio.checked = true;
+                  hint.textContent = 'Automatically matched by URL: ' + data.matches[0].name;
+                } else {
+                  if (autoMatched) {
+                    ruleSelect.value = '';
+                    if (window.CDSelect) window.CDSelect.sync(ruleSelect);
+                  }
+                  autoMatched = false;
+                  hint.textContent = data.matches.length ? 'Multiple rules match this URL; select one manually.' : 'No matching rule; select a rule or Built-in.';
+                }
+              } catch (_) { hint.textContent = 'Rule matching unavailable; select manually.'; }
+            }
+            if (urlInput) {
+              let matchTimer;
+              urlInput.addEventListener('input', () => {
+                clearTimeout(matchTimer);
+                matchTimer = setTimeout(matchRule, 400);
+              });
+              urlInput.addEventListener('change', () => {
+                clearTimeout(matchTimer);
+                matchRule();
+              });
+            }
+            // Do not rewrite existing Watch configuration on initial load.
+            if (ruleSelect && !ruleSelect.value && !manualRule) matchRule();
             document.addEventListener('change', function(event) {
               if (event.target.name && event.target.name.startsWith(prefix)) syncPurchaseMode();
             });

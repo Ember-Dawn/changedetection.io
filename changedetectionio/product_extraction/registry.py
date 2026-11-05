@@ -100,8 +100,14 @@ def validate(rule):
         raise RuleError('Invalid path_patterns')
     if 'enabled' in rule and not isinstance(rule['enabled'],bool):
         raise RuleError('enabled must be boolean')
-    if set(rule)-{'schema_version','id','name','match','fields','enabled'}:
+    if set(rule)-{'schema_version','id','name','match','fields','enabled','page'}:
         raise RuleError('Unsupported top-level rule properties')
+    page = rule.get('page', {})
+    if not isinstance(page, dict) or set(page) - {'extra_wait_seconds'}:
+        raise RuleError('page only supports extra_wait_seconds')
+    if 'extra_wait_seconds' in page and (type(page['extra_wait_seconds']) is not int or
+                                          not 0 <= page['extra_wait_seconds'] <= 30):
+        raise RuleError('page.extra_wait_seconds must be an integer from 0 to 30')
     fields = rule.get('fields')
     if not isinstance(fields, dict) or not fields or not set(fields).issubset(ALLOWED_FIELDS):
         raise RuleError('Unknown or empty product fields')
@@ -243,3 +249,16 @@ def choose(url,mode='auto',rid=''):
 def signature(rule):
     if not rule:return 'builtin'
     return hashlib.sha256(json.dumps(rule,sort_keys=True,ensure_ascii=False).encode('utf-8')).hexdigest()
+
+
+def extraction_signature(rule):
+    """Hash only extraction semantics; metadata and page waits do not reset baselines."""
+    if rule is None:
+        return 'builtin'
+    payload = {'id': rule['id'], 'fields': rule['fields']}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest()
+
+
+def matching_rules(url):
+    """The same URL matcher used by scheduled checks and the Watch editor."""
+    return [info for info in list_rules() if info['enabled'] and matches(load(info['id']), url)]

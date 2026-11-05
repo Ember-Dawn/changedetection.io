@@ -104,6 +104,14 @@ def construct_blueprint(datastore: ChangeDetectionStore):
         resolved_fetcher = browser_config.resolve_backend(fetcher_name, datastore)
         logger.debug(f"Add-watch snapshot: fetching '{url}' using '{fetcher_name}' (resolved: '{resolved_fetcher}')")
 
+        request_product_mode = request.form.get('processor') == 'restock_diff'
+        rule_wait = 0
+        if request_product_mode:
+            from changedetectionio.product_extraction.registry import matching_rules, load
+            unique_matches = matching_rules(url)
+            if len(unique_matches) == 1:
+                rule_wait = load(unique_matches[0]['id']).get('page', {}).get('extra_wait_seconds', 0)
+
         async def _fetch_snapshot():
             keepalive_ms = 30 * 1000
             browser, playwright_context = await acquire_browser_for_fetcher(
@@ -115,6 +123,10 @@ def construct_blueprint(datastore: ChangeDetectionStore):
             try:
                 await stepper.connect(proxy=None)
                 await stepper.call_action(action_name="Goto site", selector=None, optional_value=None)
+                # A product preview uses the uniquely matched enabled rule's optional
+                # post-navigation wait. Other preview modes remain fast.
+                if request_product_mode and rule_wait:
+                    await stepper.page.wait_for_timeout(rule_wait * 1000)
                 # Keep the upstream one-shot navigation + screenshot timeline.
                 # Manual control handles interactive verification; do not hold
                 # this HTTP request for 2+15 additional seconds.
