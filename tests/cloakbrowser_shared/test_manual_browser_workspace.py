@@ -82,3 +82,22 @@ class ManualBrowserDiagnosticsContractTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[2] / 'integrations/cloakbrowser-shared/changedetection_cloak_shared/manual_session.py').read_text(encoding='utf-8')
         for field in ('screenshot_ms', 'dispatch_ms', 'frame_with_metrics', 'userAgent', 'devicePixelRatio'):
             self.assertIn(field, source)
+
+class ManualBrowserCdpContractTests(unittest.TestCase):
+    def test_cdp_is_additive_and_has_themed_selection(self):
+        html = (BASE / 'templates/manual-browser.html').read_text(encoding='utf-8')
+        self.assertRegex(html, r'id="manual-frame-engine"[^>]*data-custom-select')
+        self.assertEqual(html.count('value="cdp"'), 1)
+        self.assertIn('id="manual-transport-mode"', html)
+        self.assertIn('value="http"', html)
+        self.assertIn('CDP Screencast', html)
+
+    def test_cdp_stays_on_browser_manager_loop_and_does_not_expose_debug_port(self):
+        base = Path(__file__).resolve().parents[2]
+        session = (base / 'integrations/cloakbrowser-shared/changedetection_cloak_shared/manual_session.py').read_text()
+        screencast = (base / 'integrations/cloakbrowser-shared/changedetection_cloak_shared/manual_screencast.py').read_text()
+        self.assertIn('manager.call_sync(self._start_screencast', session)
+        self.assertIn('new_cdp_session(page)', screencast)
+        self.assertIn("'Page.startScreencast'", screencast)
+        self.assertIn("'Page.screencastFrameAck'", screencast)
+        self.assertNotIn('remote-debugging-port', screencast)

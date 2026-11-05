@@ -47,7 +47,7 @@ This repository is a modified changedetection.io deployment. **Read this file fi
 
 ## Current vs planned
 
-Current human control is a real Chromium/Playwright Page, displayed through Socket.IO binary JPEG frame delivery with authenticated HTTP polling fallback; mouse/keyboard actions use ordered Socket.IO messages with HTTP fallback. **It is not a native streamed desktop.** CDP screencast or Xvfb/noVNC remain unimplemented research options. Do not describe them as present functionality.
+Current human control is a real Chromium/Playwright Page, displayed through Socket.IO binary JPEG frame delivery with authenticated HTTP polling fallback; mouse/keyboard actions use ordered Socket.IO messages with HTTP fallback. **It is not a native streamed desktop.** An optional, experimental CDP Screencast producer now provides an additional JPEG source over the existing authenticated Socket.IO frame channel; it does not provide a native streamed desktop, change the mouse/keyboard input path, or bypass verification. Xvfb/noVNC remain unimplemented. The CDP path requires real CloakBrowser acceptance testing and falls back to WS JPEG if unsupported.
 
 ## Manual frontend development
 

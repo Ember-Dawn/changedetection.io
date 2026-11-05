@@ -62,3 +62,6 @@ The custom `Product Extractors` sidebar manages declarative JSON rules in the Do
 The intended product monitoring policy uses seven price and six stock modes, including current-state filters, stock transitions, AND/OR and cumulative percentage thresholds. First reliable measurements establish baselines. Notification layout is independent of the shared CloakBrowser Context/Page and CAPTCHA flows. See [Stock & Price rules](../product-extraction/STOCK_PRICE_RULES.md), [event and delivery semantics](../product-extraction/RESTOCK_AND_ALERTS.md), and [Telegram/product templates](../product-extraction/NOTIFICATION_TEMPLATES.md).
 
 **Integration limitation:** the audited checkout still has legacy fields in form/processor defaults/API schema while the evaluator uses new policy fields. Verify and reconcile before claiming new modes work end to end.
+
+
+**Experimental manual screen capture:** Browsers optionally supports **CDP Screencast** as a third picture source (alongside default WebSocket JPEG screenshots and HTTP compatibility polling). This is not a Headed desktop or separate browser. Consult [MANUAL_BROWSER.md](MANUAL_BROWSER.md) for fallbacks and real-Docker verification; CDP compatibility with the deployed CloakBrowser version is not yet proven.

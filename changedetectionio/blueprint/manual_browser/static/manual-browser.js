@@ -14,6 +14,10 @@
     // CDSelect is initialized after the scripts load; sync handles later changes.
     if (window.CDSelect) window.CDSelect.sync(transportMode);
   }
+  const frameMode = $('manual-frame-engine');
+  try {config.frameEngine = localStorage.getItem('changedetection.manual-frame-engine') === 'cdp' ? 'cdp' : 'jpeg';}
+  catch (_) {config.frameEngine = 'jpeg';}
+  if (frameMode) {frameMode.value = config.frameEngine; if (window.CDSelect) window.CDSelect.sync(frameMode);}
   let existing = null;
   let stream, layout, input, transport;
 
@@ -79,6 +83,7 @@
     ready() { stream.socketReady(); },
     fallback() { stream.socketFallback(); },
     frame(data, ack) { stream.socketFrame(data, ack); },
+    engineFallback() {stream.engineFallback();},
     state(mode) {const node = $('manual-transport'); if (node) node.textContent = mode;},
   });
   core.setTransport(transport);
@@ -89,6 +94,22 @@
     if (!core.active()) return;
     if (config.transport === 'http') {transport.close(); stream.socketFallback();}
     else transport.start();
+  });
+  if (frameMode) frameMode.addEventListener('change', event => {
+    config.frameEngine = event.target.value === 'cdp' ? 'cdp' : 'jpeg';
+    try {localStorage.setItem('changedetection.manual-frame-engine', config.frameEngine);} catch (_) {}
+    if (!core.active()) return;
+    if (config.transport === 'http' && config.frameEngine === 'cdp') {
+      config.transport = 'auto';
+      if (transportMode) {transportMode.value = 'auto'; if (window.CDSelect) window.CDSelect.sync(transportMode);}
+      try {localStorage.setItem('changedetection.manual-transport', 'auto');} catch (_) {}
+    }
+    if (config.transport === 'http') return;
+    transport.close();
+    stream.socketFallback();
+    // The server owns CDP cleanup. Allow the old producer to release its
+    // CDPSession before opening the replacement viewer connection.
+    setTimeout(() => {if (core.active() && config.transport !== 'http') transport.start();}, 250);
   });
   const copyUrl = $('manual-copy-url');
   const currentUrl = $('manual-detail');

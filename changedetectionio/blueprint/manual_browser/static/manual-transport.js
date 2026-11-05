@@ -28,11 +28,12 @@
       const ticket = core.snapshot(), cycle = epoch;
       connecting = true;
       const auth = {csrf: config.csrf, session: ticket.token, generation:core.state().generation};
+      const frameAuth = {...auth, frame_engine:config.frameEngine === 'cdp' ? 'cdp' : 'jpeg'};
       const options = {path: config.socketioPath || '/socket.io',
         transports:['websocket'], reconnection:false, forceNew:true, auth, timeout:3500};
       try {
         input = window.io('/manual-input', options);
-        frames = window.io('/manual-frames', options);
+        frames = window.io('/manual-frames', {...options, auth:frameAuth});
       } catch (_) { fail(); return; }
       const good = () => {
         if (cycle !== epoch || !core.valid(ticket)) return;
@@ -54,6 +55,9 @@
         if (hooks.frame) hooks.frame(data, () => {
           if (active && frames && cycle === epoch) frames.emit('frame_ack', {seq:data.seq});
         });
+      });
+      frames.on('engine_fallback', data => {
+        if (cycle === epoch && hooks.engineFallback) hooks.engineFallback(data && data.engine);
       });
       frames.on('stream_end', fail);
       timeout = setTimeout(() => {if (!active) fail();}, 4500);

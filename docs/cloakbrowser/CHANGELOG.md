@@ -102,3 +102,11 @@ For future source changes, append a new entry with date (if known), specific pat
 - Condense the diagnostics view to three primary performance metrics with optional detailed timings and collapsible usage instructions; keep all existing counters and transport controls.
 - Show only the live User-Agent in the browser environment section, with its existing copy action; remove redundant Platform/Viewport/DPR rows.
 - Add a copyable current URL, a theme-matched thin details scrollbar and responsive compact layouts. No browser, Socket.IO, Profile or monitoring behavior changes.
+
+
+## 2026-11-05: Experimental CDP Screencast option
+
+- Added `changedetection_cloak_shared/manual_screencast.py` to create and dispose a CDPSession for the same manual Page, receive `Page.screencastFrame`, acknowledge CDP frame IDs, and retain only the most recent pending JPEG.
+- The `/manual-frames` Socket.IO producer may use CDP as a frame source, with an initial-frame timeout and fallback to ordinary WebSocket JPEG screenshots. The established HTTP path, mouse/keyboard handling, single browser/Profile and 15-minute session lifetime remain unchanged.
+- The themed manual detail dropdown offers **CDP Screencast（实验性）** without making it the default; mode changes restart only the frame transport. Incoming frames identify their source and CDP capture-duration fields are not fabricated.
+- Validation in authoring environment: Node frontend tests, manual workspace contract tests, CDP fake-session lifecycle tests and syntax checks. Real CloakBrowser/Chromium and actual FPS **not tested**; this is an opt-in experimental feature.

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from loguru import logger
 from .manager import manager, _ContextLease
 from .page_readiness import page_challenge
+from .manual_screencast import ManualScreencast
 
 _SESSION_SECONDS = 15 * 60
 _MAX_FRAME_BYTES = 3 * 1024 * 1024
@@ -37,6 +38,8 @@ class _Session:
     address: str
     closed: bool = False
     pointer_down: bool = False
+    screencast: object = None
+    screencast_id: str = ""
 
 
 class ManualSessionManager:
@@ -199,7 +202,16 @@ class ManualSessionManager:
                 return None
             session.closed = True
         try:
-            await session.lease.close()
+            try:
+                if session.screencast is not None:
+                    await session.screencast.stop()
+            except Exception as exc:
+                logger.warning('Manual CDP cleanup failed: {}', type(exc).__name__)
+            finally:
+                session.screencast = None
+                session.screencast_id = ""
+                # A CDP teardown failure must not strand the Page permit.
+                await session.lease.close()
         finally:
             with self._guard:
                 if self._session is session:
@@ -217,6 +229,45 @@ class ManualSessionManager:
 
     def close(self, token, owner):
         return manager.call_sync(self._close_owned(token, owner), timeout=25)
+
+    async def _start_screencast(self, token, owner):
+        session = self._get(token, owner)
+        # Do not allow an old stream producer to detach a new CDP session.
+        if session.screencast is not None:
+            await session.screencast.stop()
+            session.screencast = None
+            session.screencast_id = ''
+        producer = ManualScreencast(session.page)
+        await producer.start()
+        session.screencast = producer
+        session.screencast_id = secrets.token_urlsafe(12)
+        return session.screencast_id
+
+    def start_screencast(self, token, owner):
+        return manager.call_sync(self._start_screencast(token, owner), timeout=15)
+
+    async def _read_screencast(self, token, owner, stream_id):
+        session = self._get(token, owner)
+        if not stream_id or stream_id != session.screencast_id or session.screencast is None:
+            raise ManualSessionError('CDP stream has ended')
+        return await session.screencast.next_frame(timeout=1.0)
+
+    def read_screencast(self, token, owner, stream_id):
+        return manager.call_sync(self._read_screencast(token, owner, stream_id), timeout=4)
+
+    async def _stop_screencast(self, token, owner, stream_id):
+        session = self._session
+        if (not session or session.closed or session.token != token or
+                session.owner != owner or session.screencast_id != stream_id):
+            return
+        producer = session.screencast
+        session.screencast = None
+        session.screencast_id = ''
+        if producer is not None:
+            await producer.stop()
+
+    def stop_screencast(self, token, owner, stream_id):
+        return manager.call_sync(self._stop_screencast(token, owner, stream_id), timeout=12)
 
     async def _frame_timed(self, token, owner):
         session = self._get(token, owner)

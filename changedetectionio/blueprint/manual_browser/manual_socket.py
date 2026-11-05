@@ -123,12 +123,16 @@ class ManualFramesNamespace(Namespace):
         if credentials is None:
             return False
         sid = request.sid
+        engine = auth.get('frame_engine', 'jpeg') if isinstance(auth, dict) else 'jpeg'
+        if engine not in {'jpeg', 'cdp'}:
+            return False
         with self._lock:
             if self._clients:
                 return False  # One viewer, one JPEG producer per manual Page.
             client = {'identity': credentials, 'sid': sid, 'alive': True,
                       'active': True, 'last_input': time.monotonic(),
-                      'ack': threading.Event(), 'seq': 0}
+                      'ack': threading.Event(), 'seq': 0, 'engine': engine,
+                      'stream_id': None}
             self._clients[sid] = client
         self.socketio.start_background_task(self._produce, client)
 
@@ -163,48 +167,84 @@ class ManualFramesNamespace(Namespace):
     def _produce(self, client):
         token, owner, generation = client['identity']
         self.socketio.sleep(0.1)  # Allow the namespace CONNECT packet to finish.
-        while client['alive']:
-            if not client['active']:
-                self.socketio.sleep(0.2)
-                continue
-            started = time.monotonic()
-            try:
-                manual_sessions.authorize(token, owner, generation)
-                jpeg, metrics = manual_sessions.frame_with_metrics(token, owner)
+        engine = client['engine']
+        try:
+            if engine == 'cdp':
+                try:
+                    manual_sessions.authorize(token, owner, generation)
+                    client['stream_id'] = manual_sessions.start_screencast(token, owner)
+                except Exception as exc:
+                    logger.info('CDP Screencast unavailable; using JPEG stream: {}', type(exc).__name__)
+                    engine = 'jpeg'
+                    self.socketio.emit('engine_fallback', {'engine': 'jpeg'},
+                                       to=client['sid'], namespace=FRAME_NS)
+            first_frame_deadline = time.monotonic() + 5
+            while client['alive']:
+                if not client['active']:
+                    # A hidden viewer should not exhaust the CDP initial-frame
+                    # deadline merely by staying paused.
+                    if engine == 'cdp' and client['seq'] == 0:
+                        first_frame_deadline = time.monotonic() + 5
+                    self.socketio.sleep(0.2)
+                    continue
+                started = time.monotonic()
+                try:
+                    manual_sessions.authorize(token, owner, generation)
+                    if engine == 'cdp':
+                        result = manual_sessions.read_screencast(token, owner, client['stream_id'])
+                        if result is None:
+                            # No new frames on a static page is legitimate. Only
+                            # first-frame timeout is considered unsupported.
+                            if client['seq'] == 0 and time.monotonic() > first_frame_deadline:
+                                manual_sessions.stop_screencast(token, owner, client['stream_id'])
+                                client['stream_id'] = None
+                                engine = 'jpeg'
+                                self.socketio.emit('engine_fallback', {'engine': 'jpeg'},
+                                                   to=client['sid'], namespace=FRAME_NS)
+                            continue
+                        jpeg, metrics = result
+                    else:
+                        jpeg, metrics = manual_sessions.frame_with_metrics(token, owner)
+                        metrics['engine'] = 'jpeg'
+                    if not client['alive']:
+                        break
+                    client['ack'].clear()
+                    client['seq'] += 1
+                    self.socketio.emit('frame', {'seq': client['seq'], 'jpeg': jpeg,
+                                                 **metrics,
+                                                 'previous_ack_ms': client.get('ack_ms')},
+                                       to=client['sid'], namespace=FRAME_NS)
+                    sent_at = time.monotonic()
+                    deadline = sent_at + 6
+                    while client['alive'] and not client['ack'].is_set() and time.monotonic() < deadline:
+                        self.socketio.sleep(0.02)
+                    if not client['alive'] or not client['ack'].is_set():
+                        break
+                    client['ack_ms'] = round((time.monotonic() - sent_at) * 1000)
+                except Exception as exc:
+                    logger.debug('Manual frame stream stopped: {}', type(exc).__name__)
+                    break
                 if not client['alive']:
                     break
-                client['ack'].clear()
-                client['seq'] += 1
-                self.socketio.emit('frame', {'seq': client['seq'], 'jpeg': jpeg,
-                                             **metrics,
-                                             'previous_ack_ms': client.get('ack_ms')},
+                if engine == 'jpeg':
+                    idle = time.monotonic() - client['last_input']
+                    delay = 0.1 if idle < 3.5 else 0.2 if idle < 15 else 0.5
+                    self.socketio.sleep(max(0.0, delay - (time.monotonic() - started)))
+        finally:
+            client['alive'] = False
+            if client['stream_id']:
+                try:
+                    manual_sessions.stop_screencast(token, owner, client['stream_id'])
+                except Exception:
+                    pass
+            with self._lock:
+                if self._clients.get(client['sid']) is client:
+                    self._clients.pop(client['sid'], None)
+            try:
+                self.socketio.emit('stream_end', {'error': 'Frame stream stopped'},
                                    to=client['sid'], namespace=FRAME_NS)
-                sent_at = time.monotonic()
-                # One frame in flight; stall instead of queueing unlimited JPEGs.
-                deadline = time.monotonic() + 6
-                while client['alive'] and not client['ack'].is_set() and time.monotonic() < deadline:
-                    self.socketio.sleep(0.02)
-                if not client['alive'] or not client['ack'].is_set():
-                    break
-                client['ack_ms'] = round((time.monotonic() - sent_at) * 1000)
-            except Exception as exc:
-                logger.debug('Manual frame stream stopped: {}', type(exc).__name__)
-                break
-            if not client['alive']:
-                break
-            idle = time.monotonic() - client['last_input']
-            delay = 0.1 if idle < 3.5 else 0.2 if idle < 15 else 0.5
-            self.socketio.sleep(max(0.0, delay - (time.monotonic() - started)))
-        client['alive'] = False
-        with self._lock:
-            self._clients.pop(client['sid'], None)
-        # A transport failure is terminal for this frame channel; the client
-        # falls back to HTTP, rather than leaving a stale second producer.
-        try:
-            self.socketio.emit('stream_end', {'error': 'Frame stream stopped'},
-                               to=client['sid'], namespace=FRAME_NS)
-        except Exception:
-            pass
+            except Exception:
+                pass
 
 
 def register_manual_socketio(socketio):

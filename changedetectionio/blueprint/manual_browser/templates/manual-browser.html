@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/custom-select.css') }}">
-<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=9) }}">
+<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=10) }}">
 <main id="manual-browser-root" class="box manual-workspace">
   <header class="manual-header">
     <div class="manual-header-copy">
@@ -104,6 +104,8 @@
               </div>
             </details>
             <div class="manual-transport-row">
+              <div class="manual-transport-setting"><label for="manual-frame-engine">画面引擎</label><select id="manual-frame-engine" data-custom-select aria-label="人工浏览器画面引擎"><option value="jpeg">WebSocket JPEG（默认）</option><option value="cdp">CDP Screencast（实验性）</option></select></div>
+              <span id="manual-frame-engine-status" class="manual-section-hint">当前：WebSocket JPEG</span>
               <span class="manual-transport-current"><span class="manual-status-dot" aria-hidden="true"></span>画面/输入：<strong id="manual-transport">HTTP</strong></span>
               <div class="manual-transport-setting"><label for="manual-transport-mode">传输偏好</label><select id="manual-transport-mode" data-custom-select aria-label="人工操控传输偏好"><option value="auto">自动 · WebSocket 优先</option><option value="http">仅 HTTP</option></select></div>
             </div>
@@ -117,7 +119,7 @@
             <div class="manual-usage-body">
               <p>点击画面可操作鼠标，滚轮用于页面滚动；画面获得焦点后可以使用键盘。也可以通过上方的文字输入栏发送内容。</p>
               <p>15 分钟无人工操作后会话自动结束。关闭当前网页标签后，仍可在有效期内恢复会话。</p>
-              <p>画面优先使用 WebSocket JPEG 推送，失败时回退 HTTP 截图轮询；不是原生视频流。WebSocket 的画面响应包含服务端截图总耗时，Chromium 截图与调度开销分开显示；上一帧确认包含网络往返和前端消费。HTTP 模式的画面响应为请求往返。FPS 是最近 5 秒内已显示帧的滑动统计，空闲时可能主动降至约 2 FPS。</p>
+              <p>默认画面使用 WebSocket JPEG；可选择实验性 CDP Screencast（仅改变画面来源），不可用时回退 WS JPEG。WebSocket 失败仍回退 HTTP；不是原生视频流。WebSocket 的画面响应包含服务端截图总耗时，Chromium 截图与调度开销分开显示；上一帧确认包含网络往返和前端消费。HTTP 模式的画面响应为请求往返。FPS 是最近 5 秒内已显示帧的滑动统计，空闲时可能主动降至约 2 FPS。</p>
             </div>
           </details>
         </div>
@@ -129,7 +131,7 @@
 window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token(), 'fixedViewport': fixed_viewport, 'socketioPath': get_socketio_path() ~ '/socket.io'} | tojson }};
 </script>
 {% for script in ['manual-core.js', 'manual-transport.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js'] %}
-<script defer src="{{ url_for('manual_browser.static', filename=script, v=9) }}"></script>
+<script defer src="{{ url_for('manual_browser.static', filename=script, v=10) }}"></script>
 {% endfor %}
 <script defer src="{{ url_for('static', filename='js/custom-select.js') }}"></script>
 {% endblock %}

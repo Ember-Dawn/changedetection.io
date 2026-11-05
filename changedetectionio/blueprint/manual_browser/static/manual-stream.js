@@ -162,19 +162,25 @@
       ++run;
       frameRequest = null;
       message('WebSocket 不可用，已回退 HTTP 画面');
+      $safe('manual-frame-engine-status', '当前：HTTP 截图');
       if (active && !paused) nextFrame(0);
       if (active) nextStatus(0);
     }
     function socketFrame(data, ack) {
       if (!transport || !transport.isActive()) { ack(); return; }
       if (!data || typeof data.seq !== 'number' || !data.jpeg) { ack(); return; }
-      $safe('manual-frame-latency', `${data.capture_ms ?? '—'} ms 服务端`);
+      $safe('manual-frame-engine-status', data.engine === 'cdp' ? '当前：CDP Screencast' : '当前：WebSocket JPEG');
+      $safe('manual-frame-latency', typeof data.capture_ms === 'number' ? `${data.capture_ms} ms 服务端` : '事件驱动 · CDP');
       $safe('manual-screenshot-ms', typeof data.screenshot_ms === 'number' ? `${data.screenshot_ms} ms` : '—');
       $safe('manual-dispatch-ms', typeof data.dispatch_ms === 'number' ? `${data.dispatch_ms} ms` : '—');
       $safe('manual-frame-bytes', typeof data.bytes === 'number' ? `${Math.round(data.bytes / 1024)} KiB` : '—');
       $safe('manual-ack-ms', typeof data.previous_ack_ms === 'number' ? `${data.previous_ack_ms} ms` : '—');
       const blob = new Blob([data.jpeg], {type:'image/jpeg'});
       displayBlob(blob, core.snapshot(), run, ack);
+    }
+    function engineFallback() {
+      message('CDP Screencast 不可用，已回退 WebSocket JPEG 画面');
+      $safe('manual-frame-engine-status', '当前：WebSocket JPEG（CDP 回退）');
     }
     function interaction() {
       lastHumanAt = Date.now();
@@ -274,7 +280,7 @@
       stop();
       active = false;
     }
-    return {start,stop,setTransport,socketReady,socketFallback,socketFrame,suspend,resumeFrames,visibilityChanged,shutdown,coverFrame,interaction,requestRefresh,actionCompleted};
+    return {start,stop,setTransport,socketReady,socketFallback,socketFrame,engineFallback,suspend,resumeFrames,visibilityChanged,shutdown,coverFrame,interaction,requestRefresh,actionCompleted};
   }
   window.ManualBrowser.createStream = createStream;
 })();

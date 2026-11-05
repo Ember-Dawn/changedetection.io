@@ -33,7 +33,7 @@ function setup(fetcher) {
   let nextTimer = 0;
   const timers = new Map();
   const ctx = {
-    console, Promise, Math, URL:{createObjectURL:()=>`blob:${Math.random()}`,revokeObjectURL:()=>{}},
+    console, Promise, Math, Blob, Uint8Array, URL:{createObjectURL:()=>`blob:${Math.random()}`,revokeObjectURL:()=>{}},
     window:{ManualBrowser:{},innerHeight:900,addEventListener(type,cb){handlers[`window:${type}`]=cb;},removeEventListener(){}},
     document:{hidden:false,activeElement:null,getElementById:element,addEventListener(type,cb){handlers[`document:${type}`]=cb;}},
     fetch:fetcher,
@@ -346,5 +346,52 @@ test('WebSocket JPEG metadata is shown without treating screenshot time as netwo
   assert.equal(sim.element('manual-dispatch-ms').textContent,'41 ms');
   assert.equal(sim.element('manual-frame-bytes').textContent,'2 KiB');
   assert.equal(sim.element('manual-ack-ms').textContent,'77 ms');
+  stream.shutdown();
+});
+
+test('experimental CDP screencast mode is authenticated and isolated to frame connection',async()=>{
+  const sim=setup(async url=>url.endsWith('/open') ? ok({session:'cdp-test',generation:3}):ok());
+  sim.load('manual-core.js');sim.load('manual-transport.js');
+  const connections=[];
+  sim.ctx.window.io = (namespace, options)=>{
+    const events={};
+    const socket={namespace,options,events,disconnected:false,
+      on(name,fn){events[name]=fn;},removeAllListeners(){},disconnect(){this.disconnected=true;},
+      emit(){}};
+    connections.push(socket);return socket;
+  };
+  const core=sim.ctx.window.ManualBrowser.createCore({api:'/manual-browser/'});
+  await core.connect('https://example.org','');
+  const fallbacks=[];
+  const transport=sim.ctx.window.ManualBrowser.createTransport(core,
+    {csrf:'csrf',frameEngine:'cdp'}, {engineFallback:engine=>fallbacks.push(engine)});
+  transport.start();
+  assert.equal(connections[0].namespace,'/manual-input');
+  assert.equal(connections[0].options.auth.frame_engine,undefined);
+  assert.equal(connections[1].namespace,'/manual-frames');
+  assert.equal(connections[1].options.auth.frame_engine,'cdp');
+  connections[0].events.connect();connections[1].events.connect();
+  connections[1].events.engine_fallback({engine:'jpeg'});
+  assert.deepEqual(fallbacks,['jpeg']);
+  assert.equal(transport.isActive(),true,'CDP failure should not disconnect input');
+  transport.close();
+});
+
+test('CDP frames reuse JPEG display with separate engine timing and acknowledgement',async()=>{
+  const sim=setup(async url=>url.endsWith('/open')?ok({session:'cdp',generation:1}):ok({generation:1}));
+  sim.load('manual-core.js');sim.load('manual-stream.js');
+  const core=sim.ctx.window.ManualBrowser.createCore({api:'/manual-browser/'});
+  await core.connect('https://example.org','');
+  const stream=sim.ctx.window.ManualBrowser.createStream(core,{});
+  stream.setTransport({isActive:()=>true,isConnecting:()=>false,close(){},view(){},interaction(){},start(){}});
+  stream.start();
+  let ackCount=0;
+  stream.socketFrame({seq:1,jpeg:new Uint8Array(20),engine:'cdp',capture_ms:null,
+    screenshot_ms:null,dispatch_ms:null,bytes:20},()=>ackCount++);
+  assert.equal(sim.element('manual-frame-engine-status').textContent,'当前：CDP Screencast');
+  assert.equal(sim.element('manual-screenshot-ms').textContent,'—');
+  assert.equal(sim.element('manual-frame-latency').textContent,'事件驱动 · CDP');
+  sim.element('manual-frame').onload();
+  assert.equal(ackCount,1);
   stream.shutdown();
 });

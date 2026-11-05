@@ -48,7 +48,7 @@ The container may write Profile files as UID 0. A host non-root user seeing `Per
 - This is JPEG image streaming over Socket.IO with HTTP polling fallback, not 30/60 FPS video, remote desktop, audio, or OS-window control.
 - Popup-based sign-in flows may not work because untracked popups are closed.
 - Human verification remains subject to target-site policies and may be requested again; no automatic CAPTCHA-solving guarantee.
-- Xvfb + noVNC and CDP screencast remain research options. Socket.IO JPEG delivery is implemented, but no CDP screencast is enabled. They are not part of the current image or deployed remote-control code. Preserve the current working HTTP method until any alternative is explicitly implemented/tested.
+- Xvfb + noVNC remain research options. An optional **experimental CDP Screencast** source now exists alongside the default Socket.IO JPEG screenshot producer and the HTTP fallback. CDP still delivers JPEG frames over Socket.IO, is not OS-level remote desktop/video, and has not been validated in the operator's live CloakBrowser deployment. Preserve the existing modes.
 
 ## Frontend verification after round 2 refactor
 
@@ -119,3 +119,13 @@ Both Browsers and Product Extractors use a shared, keyboard-operable themed drop
 - WebSocket/HTTP mode preference is grouped with the active transport and still uses the shared themed CDSelect. The multi-paragraph help is collapsed by default; neither help nor metric expansion affects the underlying Session or browser.
 - Browser environment **displays only the live Page's full User-Agent and copy button**. Platform, viewport and DPR are intentionally no longer displayed; backend metadata fields are retained for compatibility. User-Agent is page-observed and is not necessarily the HTTP request header.
 - The details panel uses compact spacing, responsive metric cards, and a scoped thin scrollbar. The URL and UA are rendered as text, never HTML; neither is automatically copied to another service.
+
+
+## 2026-11-05: Experimental CDP Screencast frame source
+
+- In **会话详情 → 画面引擎**, choose **WebSocket JPEG（默认）** or **CDP Screencast（实验性）**. This selection is stored in the operator browser's localStorage, not in the persistent Profile. Existing **传输偏好 → 仅 HTTP** remains available. Selecting CDP while HTTP is active switches transport preference to automatic WebSocket; losing the WebSocket connection still safely falls back to HTTP.
+- The optional `changedetection_cloak_shared/manual_screencast.py` attaches an internal Playwright CDPSession to the already-leased manual Page (not a new browser). Frame events are Base64-decoded to bounded JPEG bytes, sent on the existing authenticated Socket.IO frame namespace, with an at-most-one-frame local buffer and existing client consumption acknowledgement. CDP `screencastFrameAck` is independent of the browser UI acknowledgement. Input is unchanged and remains on its own authenticated namespace.
+- CDP creation, event callbacks and stop/detach run exclusively on BrowserManager's asyncio loop. Switching frame modes may recreate the *frame connection*, not the manual Page or its Profile. When CDP startup fails or no first frame arrives within five seconds, the frame producer falls back to WS JPEG without disconnecting mouse input. A static page may legitimately emit no *subsequent* CDP frames; last image is retained.
+- Closing a manual session stops CDP before releasing the original Page lease. CDP cleanup failures must not block lease closure. Old stream cleanup uses a stream identifier so it cannot detach a newer CDP stream. The existing 15-minute session timeout is unaffected by frame events.
+- Metrics: CDP does not use `page.screenshot()`, so screenshot/dispatch timing show `—` and frame response shows event-driven CDP rather than pretending to measure Chromium screenshot time. JPEG frame size and displayed FPS remain available. Switching engines retains the final image until the new frame arrives.
+- For acceptance on the Docker host: test CDP first-frame delivery, scrolling and navigation, static pages, switching CDP ↔ WS JPEG, HTTP fallback, closing/resuming manual sessions, window/tab hiding, other Watch checks and repeated browser restarts. Measure actual CPU, memory, FPS and video smoothness; local mock tests **do not** establish CloakBrowser 0.7.0 compatibility or a performance improvement.
