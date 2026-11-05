@@ -1,5 +1,146 @@
 // The template library is a copy-on-select editor helper. Applying a template
 // never saves Watch/Tag/Global settings; users still click the page's Save.
+// Preview uses allowlisted DOM nodes. Never inject rendered Watch HTML via innerHTML.
+function notificationPreviewSafeUrl(value) {
+    try {
+        var url = new URL(value, window.location.origin);
+        return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+    } catch (_) { return null; }
+}
+function notificationPreviewAppendText(parent, value) {
+    parent.appendChild(document.createTextNode(String(value == null ? '' : value)));
+}
+function notificationPreviewSafeHtml(parent, markup, format) {
+    var tags = new Set(['b','strong','i','em','u','s','strike','del','a','code','pre','blockquote','br']);
+    if (format === 'html' || format === 'htmlcolor') {
+        ['p','div','span','ul','ol','li','h1','h2','h3','h4','hr'].forEach(function(tag) { tags.add(tag); });
+    }
+    var doc = new DOMParser().parseFromString(String(markup), 'text/html');
+    function copy(source, dest) {
+        Array.from(source.childNodes).forEach(function(node) {
+            if (node.nodeType === 3) { notificationPreviewAppendText(dest, node.textContent); return; }
+            if (node.nodeType !== 1) return;
+            var tag = node.localName.toLowerCase();
+            if (!tags.has(tag)) { copy(node, dest); return; }
+            var element = document.createElement(tag === 'strike' ? 's' : tag);
+            if (tag === 'a') {
+                var href = notificationPreviewSafeUrl(node.getAttribute('href') || '');
+                if (href) { element.href = href; element.target = '_blank'; element.rel = 'noopener noreferrer'; }
+            }
+            if ((format === 'html' || format === 'htmlcolor') && (tag === 'span' || tag === 'div')) {
+                // Preserve only simple foreground/background colors, not arbitrary CSS.
+                var style = node.getAttribute('style') || '';
+                style.split(';').forEach(function(declaration) {
+                    var parts = declaration.split(':');
+                    if (parts.length !== 2) return;
+                    var property = parts[0].trim().toLowerCase();
+                    var color = parts[1].trim();
+                    if ((property === 'color' || property === 'background-color') &&
+                        /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.,%\s]+\)|[a-z]{3,20})$/i.test(color) &&
+                        !/url|expression|var/i.test(color)) {
+                        element.style[property === 'color' ? 'color' : 'backgroundColor'] = color;
+                    }
+                });
+            }
+            if (tag === 'blockquote' && node.hasAttribute('expandable')) {
+                var details = document.createElement('details');
+                var summary = document.createElement('summary');
+                summary.textContent = 'Expand quote';
+                details.appendChild(summary);
+                copy(node, details);
+                dest.appendChild(details);
+                return;
+            }
+            copy(node, element);
+            dest.appendChild(element);
+        });
+    }
+    copy(doc.body, parent);
+}
+function notificationPreviewMarkdown(parent, value, telegram) {
+    // Conservative inline renderer: escaped MarkdownV2 punctuation is literal;
+    // unsupported constructs remain visible rather than being misrepresented.
+    var input = String(value || '');
+    var pattern = telegram
+        ? /\\([_\*\[\]()~`>#+\-=|{}.!\\])|\*([^*\n]+)\*|__([^\n]+)__|_([^_\n]+)_|~([^~\n]+)~|`([^`\n]+)`|\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g
+        : /\*\*([^*\n]+)\*\*|\*([^*\n]+)\*|`([^`\n]+)`|\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
+    var last = 0, match;
+    while ((match = pattern.exec(input))) {
+        notificationPreviewAppendText(parent, input.slice(last, match.index));
+        var tag, content, href;
+        if (telegram) {
+            if (match[1]) { notificationPreviewAppendText(parent, match[1]); last = pattern.lastIndex; continue; }
+            tag = match[2] ? 'b' : match[3] ? 'u' : match[4] ? 'i' : match[5] ? 's' : match[6] ? 'code' : 'a';
+            content = match[2] || match[3] || match[4] || match[5] || match[6] || match[7]; href = match[8];
+        } else {
+            tag = match[1] ? 'b' : match[2] ? 'i' : match[3] ? 'code' : 'a';
+            content = match[1] || match[2] || match[3] || match[4]; href = match[5];
+        }
+        var child = document.createElement(tag);
+        notificationPreviewAppendText(child, content);
+        if (href && notificationPreviewSafeUrl(href)) {
+            child.href = notificationPreviewSafeUrl(href);
+            child.target = '_blank'; child.rel = 'noopener noreferrer';
+        }
+        parent.appendChild(child);
+        last = pattern.lastIndex;
+    }
+    notificationPreviewAppendText(parent, input.slice(last));
+}
+function notificationPreviewRich(parent, raw) {
+    var documentData = JSON.parse(raw);
+    if (!documentData || !Array.isArray(documentData.blocks) || !documentData.blocks.length) throw new Error('Invalid Rich message JSON.');
+    var unsupported = new Set(), count = 0;
+    function addText(dest, text) {
+        if (typeof text === 'string') { notificationPreviewAppendText(dest, text); return; }
+        if (text && typeof text === 'object' && text.type === 'url' && typeof text.text === 'string') {
+            var link = document.createElement('a');
+            notificationPreviewAppendText(link, text.text);
+            var href = notificationPreviewSafeUrl(text.url || '');
+            if (href) { link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer'; }
+            dest.appendChild(link);
+            return;
+        }
+        notificationPreviewAppendText(dest, '[Unsupported rich text]');
+        unsupported.add('text');
+    }
+    function blocks(items, parentNode, depth) {
+        if (depth > 16 || !Array.isArray(items) || items.length > 500) throw new Error('Rich message exceeds preview limits.');
+        items.forEach(function(block) {
+            if (++count > 500) throw new Error('Rich message exceeds preview limits.');
+            if (!block || typeof block !== 'object') { unsupported.add('invalid'); return; }
+            var node;
+            if (block.type === 'details') {
+                node = document.createElement('details');
+                var heading = document.createElement('summary');
+                notificationPreviewAppendText(heading, block.summary || 'Details');
+                node.appendChild(heading);
+                blocks(block.blocks || [], node, depth + 1);
+            } else if (block.type === 'heading' || block.type === 'paragraph') {
+                node = document.createElement(block.type === 'heading' ? 'strong' : 'div');
+                addText(node, block.text);
+            } else {
+                unsupported.add(String(block.type || 'unknown'));
+                node = document.createElement('div');
+                notificationPreviewAppendText(node, '[Unsupported preview block: ' + String(block.type || 'unknown') + ']');
+            }
+            parentNode.appendChild(node);
+        });
+    }
+    blocks(documentData.blocks, parent, 0);
+    return Array.from(unsupported);
+}
+function notificationPreviewRender(parent, value, format) {
+    parent.replaceChildren();
+    if (format === 'telegram_rich') return notificationPreviewRich(parent, value);
+    if (format === 'telegram_html' || format === 'html' || format === 'htmlcolor') {
+        notificationPreviewSafeHtml(parent, value, format);
+    } else if (format === 'telegram_markdownv2' || format === 'markdown') {
+        notificationPreviewMarkdown(parent, value, format === 'telegram_markdownv2');
+    } else notificationPreviewAppendText(parent, value);
+    return [];
+}
+
 function setupNotificationTemplateLibrary() {
     var $select = $('#notification-template-select');
     if (!$select.length) return;
@@ -24,6 +165,26 @@ function setupNotificationTemplateLibrary() {
     syncRichTitleVisibility();
     var $message = $('#notification-template-message');
     var $result = $('#notification-template-preview-result');
+    var previewSequence = 0, previewRequest = null, previewData = null;
+    var $previewContent = $('#notification-template-preview-content');
+    function setPreviewOpen(open) {
+        $previewContent.prop('hidden', !open);
+        $('#notification-template-preview-collapse').text(open ? 'Collapse' : 'Expand').attr('aria-expanded', String(open));
+    }
+    function setPreviewTab(tab) {
+        var rendered = tab !== 'raw';
+        $('#notification-preview-rendered').prop('hidden', !rendered);
+        $('#notification-preview-raw').prop('hidden', rendered);
+        $('#notification-preview-rendered-tab').attr('aria-selected', String(rendered)).toggleClass('button-secondary', !rendered);
+        $('#notification-preview-raw-tab').attr('aria-selected', String(!rendered)).toggleClass('button-secondary', rendered);
+    }
+    function markPreviewStale() {
+        if (previewData) $('#notification-preview-stale').prop('hidden', false);
+    }
+    $('#notification-template-preview-collapse').on('click', function() {setPreviewOpen($previewContent.prop('hidden'));});
+    $('#notification-preview-rendered-tab').on('click', function() {setPreviewTab('rendered');});
+    $('#notification-preview-raw-tab').on('click', function() {setPreviewTab('raw');});
+    $title.add($body).add($format).on('input.notificationPreview change.notificationPreview', markPreviewStale);
     var watchMatch = (typeof notification_base_url === 'string' ? notification_base_url : '').match(/\/notification\/send-test\/([^/?]+)/);
     function say(value) { $message.text(value || ''); }
     function selected() { return templates.find(function(t) { return t.id === $select.val(); }); }
@@ -147,7 +308,7 @@ function setupNotificationTemplateLibrary() {
         setFormat(item.format);
         applyingTemplate = false;
         setPending('');
-        $result.hide();
+        markPreviewStale();
         say('Copied title, body and format to editor. Click the page Save button to apply.');
     }
     $title.add($body).add($format).on('input.notificationPresetMatch change.notificationPresetMatch', function() {
@@ -224,21 +385,41 @@ function setupNotificationTemplateLibrary() {
         if (!item.title.trim() || !item.body.trim()) {
             say('Enter a title and body before previewing.'); return;
         }
-        $result.hide(); say('Rendering preview (nothing will be sent)...');
-        $.ajax({url:previewEndpoint,type:'POST',contentType:'application/json',headers:headers,
+        var sequence = ++previewSequence;
+        if (previewRequest) previewRequest.abort();
+        say('Rendering preview (nothing will be sent)...');
+        previewRequest = $.ajax({url:previewEndpoint,type:'POST',contentType:'application/json',headers:headers,
             data:JSON.stringify(Object.assign({},item, {watch_uuid:watchMatch ? watchMatch[1] : null}))})
             .done(function(data) {
-                // Do NOT insert rendered template HTML into the DOM. Page-provided
-                // title/price/description can contain untrusted markup.
+                if (sequence !== previewSequence) return;
+                previewData = data;
                 $('#notification-template-preview-title').text(data.title);
-                $('#notification-template-preview-body').text(data.body);
+                $('#notification-preview-raw-title').text(data.title);
+                $('#notification-preview-raw-body').text(data.body);
+                var warnings = [];
+                try {
+                    warnings = notificationPreviewRender(document.getElementById('notification-template-preview-body'), data.body, data.format);
+                } catch (err) {
+                    $('#notification-template-preview-body').text(data.body);
+                    warnings = ['Unable to render this format: ' + err.message + '. See Raw for the source.'];
+                }
+                var $warning = $('#notification-preview-warning');
+                $warning.text(warnings.length ? 'Approximate preview: ' + warnings.join(', ') :
+                    (data.format && data.format.indexOf('telegram_') === 0 ? 'Telegram formatting is approximate; actual clients may differ.' : ''));
+                $warning.prop('hidden', !$warning.text());
                 $('#notification-template-preview-source').text(data.source === 'watch'
                     ? 'Using current Watch data; no notification sent.'
                     : 'Using example data; no notification sent.');
-                $result.show(); say('');
-            }).fail(function(xhr) {
+                $('#notification-preview-stale').prop('hidden',
+                    current().title === item.title && current().body === item.body && current().format === item.format);
+                $result.prop('hidden', false);
+                setPreviewOpen(true);
+                say('');
+            }).fail(function(xhr, status) {
+                if (sequence !== previewSequence || status === 'abort') return;
+                markPreviewStale();
                 say((xhr.responseJSON && xhr.responseJSON.error) || 'Preview failed.');
-            });
+            }).always(function() { if (sequence === previewSequence) previewRequest = null; });
     });
     reload();
 }

@@ -84,3 +84,9 @@ This file records **historical** changes. Current behavior: [Stock & Price rules
 - Fixed first-page-load saves of existing JSON rules: the rule index and revision map are populated from the API before save is enabled. Previously this could submit `overwrite: false` and `expected_signature: null` for an existing Newegg rule, yielding HTTP 409.
 - The save API now returns stable `RULE_ID_CONFLICT` and `RULE_REVISION_CONFLICT` codes. ID collisions can display the existing custom Overwrite dialog; changed revisions require reloading instead of silently overwriting.
 - Added a revision parameter to the Product Extractors JavaScript URL to avoid stale browser cache and removed outdated Auto-mode wording. Added Node DOM/fetch behavioral tests and updated Python contract checks. Watch data and extraction rules are not migrated.
+
+### Collapsible notification Rendered / Raw preview (2026-11-05)
+
+- Replaced the large fixed preview display with a collapsible, content-sized panel and a scroll limit for long messages.
+- Added Rendered (safe format-aware view for Text, HTML, Telegram HTML, Markdown/MarkdownV2 and supported Rich blocks) and Raw (post-Jinja2 title/body) tabs. No Telegram bubble simulation or actual send.
+- Added stale preview indicators, overlapping-request protection, unsupported Rich warnings, and conservative URL/tag validation. Existing notification destinations, templates and Watch state are unchanged.

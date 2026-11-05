@@ -266,12 +266,53 @@
           .notification-template-dialog-actions {display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
           #notification-template-dialog-error {color:#c53a3a;font-size:.875rem}
         </style>
-        <div id="notification-template-preview-result" style="display:none;margin-top:10px;border:1px solid #aaa;border-radius:5px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere">
-            <strong>Preview (no notification sent)</strong>
-            <div id="notification-template-preview-source" class="pure-form-message-inline"></div>
-            <h4 id="notification-template-preview-title"></h4>
-            <div id="notification-template-preview-body"></div>
-        </div>
+        <section id="notification-template-preview-result" class="notification-preview" hidden aria-label="Notification preview">
+            <div class="notification-preview-header">
+                <strong>Notification Preview</strong><span class="notification-preview-status">Not sent</span>
+                <button type="button" id="notification-template-preview-collapse" class="pure-button button-secondary button-xsmall" aria-expanded="true" aria-controls="notification-template-preview-content">Collapse</button>
+            </div>
+            <div id="notification-template-preview-content">
+                <div class="notification-preview-toolbar" role="tablist" aria-label="Preview display mode">
+                    <button type="button" id="notification-preview-rendered-tab" role="tab" aria-selected="true" aria-controls="notification-preview-rendered" class="pure-button button-xsmall">Rendered</button>
+                    <button type="button" id="notification-preview-raw-tab" role="tab" aria-selected="false" aria-controls="notification-preview-raw" class="pure-button button-secondary button-xsmall">Raw</button>
+                    <span id="notification-preview-stale" role="status" hidden>Preview out of date — click Preview to refresh.</span>
+                </div>
+                <div class="notification-preview-scroll">
+                    <div id="notification-preview-rendered" role="tabpanel" aria-labelledby="notification-preview-rendered-tab">
+                        <div id="notification-template-preview-title" class="notification-preview-title"></div>
+                        <div id="notification-template-preview-body" class="notification-preview-body"></div>
+                    </div>
+                    <div id="notification-preview-raw" role="tabpanel" aria-labelledby="notification-preview-raw-tab" hidden>
+                        <div class="notification-preview-raw-label">Title</div><pre id="notification-preview-raw-title"></pre>
+                        <div class="notification-preview-raw-label">Body</div><pre id="notification-preview-raw-body"></pre>
+                    </div>
+                </div>
+                <div id="notification-template-preview-source" class="pure-form-message-inline notification-preview-footnote"></div>
+                <div id="notification-preview-warning" class="pure-form-message-inline notification-preview-warning" role="status" hidden></div>
+            </div>
+        </section>
+        <style>
+          .notification-preview[hidden], .notification-preview [hidden] {display:none!important}
+          .notification-preview {margin-top:10px;border:1px solid #8888;border-radius:8px;padding:12px;max-width:100%;box-sizing:border-box;overflow-wrap:anywhere}
+          .notification-preview-header {display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+          .notification-preview-header button {margin-left:auto}
+          .notification-preview-status {font-size:.77rem;opacity:.72;border:1px solid #8886;border-radius:20px;padding:2px 8px}
+          .notification-preview-toolbar {display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:12px 0 8px}
+          #notification-preview-stale {font-size:.8rem;opacity:.8;margin-left:8px}
+          .notification-preview-scroll {max-height:360px;overflow:auto;overscroll-behavior:contain;padding:10px;border:1px solid #8885;border-radius:6px}
+          .notification-preview-title {font-weight:700;margin-bottom:9px;white-space:pre-wrap}
+          .notification-preview-title:empty {display:none}
+          .notification-preview-body {white-space:pre-wrap;line-height:1.5;overflow-wrap:anywhere}
+          .notification-preview-body a {text-decoration:underline;color:inherit}
+          .notification-preview-body blockquote {border-left:3px solid #999;padding-left:10px;margin:8px 0}
+          .notification-preview-body pre, .notification-preview-raw-label + pre {white-space:pre-wrap;overflow-wrap:anywhere;margin:3px 0 10px;font:inherit}
+          .notification-preview-body code {font-family:monospace;background:#8882;padding:0 2px}
+          .notification-preview-body details {border:1px solid #8885;border-radius:5px;padding:6px 9px;margin:7px 0}
+          .notification-preview-body summary {cursor:pointer}
+          .notification-preview-raw-label {font-weight:600;font-size:.85rem}
+          .notification-preview-footnote {margin-top:8px;font-size:.8rem;opacity:.8}
+          .notification-preview-warning {margin-top:6px;font-size:.8rem}
+        </style>
     </div>
 
                         <div class="pure-control-group grey-form-border">

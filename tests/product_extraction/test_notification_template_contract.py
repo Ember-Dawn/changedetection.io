@@ -14,6 +14,20 @@ class NotificationTemplateContract(unittest.TestCase):
         self.assertIn('notification-template-select', form)
         self.assertIn('notification-template-preview-result', form)
 
+    def test_preview_layout_and_keyboard_controls(self):
+        form = (ROOT / 'changedetectionio/templates/_common_fields.html').read_text()
+        js = (ROOT / 'changedetectionio/static/js/notifications.js').read_text()
+        for name in ('notification-template-preview-collapse', 'notification-preview-rendered-tab',
+                     'notification-preview-raw-tab', 'notification-preview-rendered',
+                     'notification-preview-raw', 'notification-preview-stale'):
+            self.assertIn(name, form)
+        self.assertIn('max-height:360px', form)
+        self.assertIn('setPreviewTab(', js)
+        self.assertIn('setPreviewOpen(', js)
+        self.assertIn('previewRequest.abort()', js)
+        self.assertIn('current().body === item.body', js)
+        self.assertIn(".attr('aria-selected'", js)
+
     def test_preview_does_not_trigger_notification(self):
         source = (ROOT / 'changedetectionio/blueprint/ui/notification.py').read_text()
         section = source.split('def notification_template_preview():', 1)[1].split('# AJAX endpoint for sending a test', 1)[0]
@@ -21,12 +35,20 @@ class NotificationTemplateContract(unittest.TestCase):
         self.assertNotIn('datastore.commit(', section)
         self.assertIn('render_jinja(', section)
 
-    def test_js_text_only_preview_and_csrf(self):
+    def test_safe_format_preview_and_csrf(self):
         js = (ROOT / 'changedetectionio/static/js/notifications.js').read_text()
-        self.assertIn("$('#notification-template-preview-body').text(data.body)", js)
+        self.assertIn('notificationPreviewRender(', js)
+        self.assertIn('document.createTextNode(', js)
+        self.assertIn('notificationPreviewSafeUrl(', js)
+        self.assertIn('notificationPreviewRich(', js)
+        self.assertIn('notificationPreviewMarkdown(', js)
+        self.assertIn('previewSequence', js)
+        self.assertIn('notification-preview-stale', js)
+        self.assertIn('notification-preview-raw-title', js)
         self.assertIn("'X-CSRFToken': csrf", js)
         self.assertIn('setupNotificationTemplateLibrary()', js)
         self.assertNotIn("$('#notification-template-preview-body').html(data.body)", js)
+        self.assertNotIn('parent.innerHTML =', js)
 
     def test_purchase_alert_saves_reference_for_notifications(self):
         file = ROOT / 'changedetectionio/processors/restock_diff/purchase_alert.py'
