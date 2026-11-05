@@ -97,4 +97,3 @@ title and a typed RichText `url` object for the short product link.
 ## Product purchase-policy integration status (reviewed 2026-11-04)
 
 The current `processors/restock_diff/forms.py`, `processor.py` and `api.yaml` use the expanded `price_mode` / `stock_mode` / `price_threshold` contract from `purchase_alert.py`; previous notes claiming those files still rely on `alert_mode` / `target_price` were out of date. Validate the integrated form, API and evaluator in tests when modifying their behavior. Old configurations are not automatically migrated. Offline fixture tests do not prove end-to-end browser or Telegram delivery.
-
