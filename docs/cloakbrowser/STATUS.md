@@ -52,3 +52,11 @@ Product Stock & Price form/processor/API fields were reported aligned in the 202
 - UI code now uses a shared Screenshot Control / Live Browser tab bar and removes the standalone pale bordered Live Browser card. The remote canvas is displayed at the Xvfb 1366:900 aspect ratio. Tabs are view selection only; switching the actual browser still requires the explicit confirmed start or restore action.
 - Screenshot controls are withheld during Headed operation, while the previous manual input/stream implementation remains intact.
 - **Host acceptance remains needed** for final desktop geometry/black margins, tab focus and interaction, and a successful Live Browser exit/re-entry. The operator has already shown that the earlier WebSocket route fix allows in-app noVNC to display the Google page.
+
+## Headed X11 window fit (2026-11-05)
+
+- Implemented X11 move/resize and geometry verification to address the
+  reported bottom black strip beneath the Chromium window.
+- **Still requires host visual acceptance**: confirm the strip disappears,
+  input coordinates remain accurate, and normal Headless restoration works.
+- No Watch gate, Profile, VNC socket or authentication change.

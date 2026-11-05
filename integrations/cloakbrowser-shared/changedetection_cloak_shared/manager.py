@@ -444,6 +444,9 @@ class BrowserManager:
                     self._unhealthy = False
                     self._state = BrowserState.RUNNING
                     self._started_at = time.monotonic()
+                    if self._live_mode:
+                        from .headed_geometry import fit_headed_window
+                        await fit_headed_window()
                     logger.info('Shared CloakBrowser generation {} running; Profile {}', generation, profile)
                     return
                 except asyncio.TimeoutError as exc:

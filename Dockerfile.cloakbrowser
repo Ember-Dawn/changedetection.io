@@ -118,6 +118,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxslt1.1 \
     xvfb \
     x11vnc \
+    xdotool \
     novnc \
     # For presenting price amounts correctly in the restock/price detection overview
     locales \

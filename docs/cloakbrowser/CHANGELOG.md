@@ -144,3 +144,9 @@ For future source changes, append a new entry with date (if known), specific pat
 - While Headed is active or transitioning, the screenshot-control tab is disabled to prevent exposing controls for a stopped Headless context. Once restored, the screenshot tab becomes available again. The original screenshot toolbar and text input remain unchanged.
 - Remove the Live Browser component's pale outer border, padding and nested card treatment. Use a 1366:900 aspect-ratio canvas in place of the old fixed `76vh` height to reduce display-side letterboxing without cropping remote input coordinates. Black areas generated *inside* the remote Xvfb/Chromium desktop may still require host-side window geometry testing.
 - No change to Profile, BrowserManager mode switching, VNC websocket authorization, Watch maintenance gate or browser security model. UI tests are not a substitute for Docker visual acceptance.
+
+### 2026-11-05 — Live Browser black strip correction
+
+- Add `xdotool` and best-effort Chromium X11 window fitting at startup, with
+  diagnostic before/after geometry. Preserve 1366×900 Xvfb and noVNC
+  proportional scaling; do not crop canvas or change Watch/Profile lifecycle.
