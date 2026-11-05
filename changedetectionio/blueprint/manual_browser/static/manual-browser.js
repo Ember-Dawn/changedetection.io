@@ -90,6 +90,20 @@
     if (config.transport === 'http') {transport.close(); stream.socketFallback();}
     else transport.start();
   });
+  const copyUrl = $('manual-copy-url');
+  const currentUrl = $('manual-detail');
+  if (copyUrl && currentUrl) {
+    copyUrl.addEventListener('click', async () => {
+      const url = currentUrl.textContent.trim();
+      if (!url || url === '—') return;
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('Clipboard unavailable');
+        await navigator.clipboard.writeText(url);
+        copyUrl.textContent = '已复制';
+        setTimeout(() => {copyUrl.textContent = '复制网址';}, 1500);
+      } catch (_) {message('复制失败，请手动选择网址后复制');}
+    });
+  }
   const copyUa = $('manual-copy-ua');
   if (copyUa) copyUa.addEventListener('click', async () => {
     const ua = $('manual-ua').textContent;

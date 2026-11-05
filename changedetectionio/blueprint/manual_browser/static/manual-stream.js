@@ -66,7 +66,9 @@
       $safe('manual-cookies', '—');
       $safe('manual-local-storage', '—');
       $safe('manual-detail', '—');
-      for (const id of ['manual-ua','manual-platform','manual-viewport','manual-dpr']) $safe(id, '—');
+      $safe('manual-ua', '—');
+      const copyUrl = $('manual-copy-url');
+      if (copyUrl) copyUrl.disabled = true;
       const copyUa = $('manual-copy-ua');
       if (copyUa) copyUa.disabled = true;
       coverFrame(reason);
@@ -217,10 +219,9 @@
         $safe('manual-local-storage', String(data.local_storage_keys ?? '未知'));
         $('manual-remaining').textContent = `空闲剩余 ${Math.floor(data.seconds_remaining / 60)}:${String(data.seconds_remaining % 60).padStart(2, '0')}`;
         $safe('manual-detail', data.url || '—');
+        const copyUrl = $('manual-copy-url');
+        if (copyUrl) copyUrl.disabled = !data.url;
         $safe('manual-ua', data.user_agent || '暂不可用');
-        $safe('manual-platform', data.platform || '暂不可用');
-        $safe('manual-viewport', data.width && data.height ? `${data.width} × ${data.height}` : '暂不可用');
-        $safe('manual-dpr', Number.isFinite(data.device_pixel_ratio) ? String(data.device_pixel_ratio) : '暂不可用');
         const copyUa = $('manual-copy-ua');
         if (copyUa) copyUa.disabled = !data.user_agent;
         if (hooks.status) hooks.status(data);

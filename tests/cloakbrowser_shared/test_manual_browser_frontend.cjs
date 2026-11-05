@@ -303,7 +303,7 @@ test('Socket.IO missing uses original HTTP transport without opening sockets',as
   assert.ok(calls.some(url=>url.endsWith('/action')));
 });
 
-test('status exposes Page navigator fields and copy button only when UA exists',async()=>{
+test('status shows only Page user agent and controls copy availability',async()=>{
   const sim=setup(async url=>url.endsWith('/open') ? ok({session:'diag',generation:1}) : ok({
     generation:1,url:'https://example.net',seconds_remaining:899,
     user_agent:'Mozilla/5.0 TestChromium',platform:'Linux x86_64',
@@ -317,13 +317,13 @@ test('status exposes Page navigator fields and copy button only when UA exists',
   stream.start();
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(sim.element('manual-ua').textContent,'Mozilla/5.0 TestChromium');
-  assert.equal(sim.element('manual-platform').textContent,'Linux x86_64');
-  assert.equal(sim.element('manual-viewport').textContent,'1366 × 900');
-  assert.equal(sim.element('manual-dpr').textContent,'1.25');
+  assert.equal(sim.element('manual-detail').textContent,'https://example.net');
+  assert.equal(sim.element('manual-copy-url').disabled,false);
   assert.equal(sim.element('manual-copy-ua').disabled,false);
   stream.stop();
   assert.equal(sim.element('manual-ua').textContent,'—');
   assert.equal(sim.element('manual-copy-ua').disabled,true);
+  assert.equal(sim.element('manual-copy-url').disabled,true);
 });
 
 test('WebSocket JPEG metadata is shown without treating screenshot time as network RTT',async()=>{

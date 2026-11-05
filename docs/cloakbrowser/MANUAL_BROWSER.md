@@ -112,3 +112,10 @@ Both Browsers and Product Extractors use a shared, keyboard-operable themed drop
 - The transport preference select uses the existing `data-custom-select` enhancer. No second dropdown implementation or new JS framework was added. The native `<select>` remains the authoritative setting, including when changed with a keyboard.
 - The details panel now displays the current manual Page's `navigator.userAgent`, `navigator.platform`, `window.innerWidth/innerHeight`, and `window.devicePixelRatio`, with a copy-UA action. These are page-observed values, not necessarily the raw on-the-wire User-Agent request header. Navigations can temporarily make JavaScript evaluation unavailable; absent values are displayed as unavailable, not invented. The shared backend is still configured as Headless.
 - Benchmark WebSocket and HTTP on the same target Page and viewport in the actual deployment, separately under idle/scrolling conditions. This revision does not implement WebP, CDP Screencast, headful Chromium or video, nor guarantee a particular FPS or challenge outcome.
+
+## 2026-11-05: Compact session details (UI V4)
+
+- The collapsible session details now keep Profile/generation/cookie/storage counters, followed by a copyable actual URL, a three-metric performance overview (displayed FPS, frame response, input response), and optionally expanded detailed frame timings. The metric sources and five-second FPS calculation are unchanged.
+- WebSocket/HTTP mode preference is grouped with the active transport and still uses the shared themed CDSelect. The multi-paragraph help is collapsed by default; neither help nor metric expansion affects the underlying Session or browser.
+- Browser environment **displays only the live Page's full User-Agent and copy button**. Platform, viewport and DPR are intentionally no longer displayed; backend metadata fields are retained for compatibility. User-Agent is page-observed and is not necessarily the HTTP request header.
+- The details panel uses compact spacing, responsive metric cards, and a scoped thin scrollbar. The URL and UA are rendered as text, never HTML; neither is automatically copied to another service.

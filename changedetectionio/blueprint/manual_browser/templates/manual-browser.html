@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/custom-select.css') }}">
-<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=8) }}">
+<link rel="stylesheet" href="{{ url_for('manual_browser.static', filename='manual-browser.css', v=9) }}">
 <main id="manual-browser-root" class="box manual-workspace">
   <header class="manual-header">
     <div class="manual-header-copy">
@@ -82,37 +82,44 @@
             <div class="manual-detail-item"><span>Cookie（当前网站）</span><strong id="manual-cookies">—</strong></div>
             <div class="manual-detail-item"><span>LocalStorage 键数</span><strong id="manual-local-storage">—</strong></div>
           </div>
-          <div class="manual-detail-url"><span>当前实际网址</span><code id="manual-detail">—</code></div>
-          <div class="manual-detail-performance" aria-label="画面性能">
-            <span>画面响应：<strong id="manual-frame-latency">—</strong></span>
-            <span>Chromium 截图：<strong id="manual-screenshot-ms">—</strong></span>
-            <span>调度开销：<strong id="manual-dispatch-ms">—</strong></span>
-            <span>前端解码显示：<strong id="manual-display-ms">—</strong></span>
-            <span>图片大小：<strong id="manual-frame-bytes">—</strong></span>
-            <span>上一帧确认：<strong id="manual-ack-ms">—</strong></span>
-            <span>操作响应：<strong id="manual-action-latency">—</strong></span>
-            <span>显示帧率：<strong id="manual-fps">—</strong></span>
-            <span>画面/输入：<strong id="manual-transport">HTTP</strong></span>
-            <label for="manual-transport-mode">传输偏好</label>
-            <select id="manual-transport-mode" data-custom-select aria-label="人工操控传输偏好"><option value="auto">自动 · WebSocket 优先</option><option value="http">仅 HTTP</option></select>
-          </div>
-          <div class="manual-browser-environment" aria-label="当前 Page 浏览器环境">
-            <div class="manual-environment-heading"><strong>浏览器环境</strong><span>当前 Page 的 navigator 信息</span></div>
-            <div class="manual-environment-grid">
-              <span>运行模式</span><strong>Headless · Chromium</strong>
-              <span>Platform</span><code id="manual-platform">—</code>
-              <span>Viewport</span><code id="manual-viewport">—</code>
-              <span>设备像素比</span><code id="manual-dpr">—</code>
+          <section class="manual-detail-section" aria-label="当前网站">
+            <div class="manual-section-heading"><strong>当前实际网址</strong><button id="manual-copy-url" class="manual-btn manual-utility-btn" type="button" disabled aria-label="复制当前实际网址"><i data-feather="copy"></i> 复制网址</button></div>
+            <code id="manual-detail" class="manual-url-value" title="点击可查看完整网址">—</code>
+          </section>
+          <section class="manual-detail-section" aria-label="画面性能">
+            <div class="manual-section-heading"><strong>性能概览</strong><span class="manual-section-hint">最近 5 秒画面帧率</span></div>
+            <div class="manual-metrics-overview">
+              <div class="manual-metric-item"><span>显示帧率</span><strong id="manual-fps">—</strong></div>
+              <div class="manual-metric-item"><span>画面响应</span><strong id="manual-frame-latency">—</strong></div>
+              <div class="manual-metric-item"><span>操作响应</span><strong id="manual-action-latency">—</strong></div>
             </div>
-            <div class="manual-environment-heading"><strong>User-Agent</strong><button class="manual-btn manual-copy-ua" id="manual-copy-ua" type="button" disabled>复制 UA</button></div>
+            <details class="manual-subdetails" id="manual-performance-details">
+              <summary>详细性能指标 <i data-feather="chevron-down"></i></summary>
+              <div class="manual-metrics-extra">
+                <div><span>Chromium 截图</span><strong id="manual-screenshot-ms">—</strong></div>
+                <div><span>BrowserManager 调度</span><strong id="manual-dispatch-ms">—</strong></div>
+                <div><span>前端解码显示</span><strong id="manual-display-ms">—</strong></div>
+                <div><span>JPEG 大小</span><strong id="manual-frame-bytes">—</strong></div>
+                <div><span>上一帧确认</span><strong id="manual-ack-ms">—</strong></div>
+              </div>
+            </details>
+            <div class="manual-transport-row">
+              <span class="manual-transport-current"><span class="manual-status-dot" aria-hidden="true"></span>画面/输入：<strong id="manual-transport">HTTP</strong></span>
+              <div class="manual-transport-setting"><label for="manual-transport-mode">传输偏好</label><select id="manual-transport-mode" data-custom-select aria-label="人工操控传输偏好"><option value="auto">自动 · WebSocket 优先</option><option value="http">仅 HTTP</option></select></div>
+            </div>
+          </section>
+          <section class="manual-detail-section manual-browser-environment" aria-label="当前 Page 浏览器环境">
+            <div class="manual-section-heading"><strong>浏览器 User-Agent</strong><button class="manual-btn manual-utility-btn" id="manual-copy-ua" type="button" disabled><i data-feather="copy"></i> 复制 UA</button></div>
             <code id="manual-ua" class="manual-environment-ua">—</code>
-          </div>
-          <div class="manual-usage-notes">
-            <strong>使用说明</strong>
-            <p>点击画面可操作鼠标，滚轮用于页面滚动；画面获得焦点后可以使用键盘。也可以通过上方的文字输入栏发送内容。</p>
-            <p>15 分钟无人工操作后会话自动结束。关闭当前网页标签后，仍可在有效期内恢复会话。</p>
-            <p>画面优先使用 WebSocket JPEG 推送，失败时回退 HTTP 截图轮询；不是原生视频流。WebSocket 的画面响应包含服务端截图总耗时，Chromium 截图与调度开销分开显示；上一帧确认包含网络往返和前端消费。HTTP 模式的画面响应为请求往返。FPS 是最近 5 秒内已显示帧的滑动统计，空闲时可能主动降至约 2 FPS。</p>
-          </div>
+          </section>
+          <details class="manual-subdetails manual-usage-notes" id="manual-usage-details">
+            <summary>使用说明 <i data-feather="chevron-down"></i></summary>
+            <div class="manual-usage-body">
+              <p>点击画面可操作鼠标，滚轮用于页面滚动；画面获得焦点后可以使用键盘。也可以通过上方的文字输入栏发送内容。</p>
+              <p>15 分钟无人工操作后会话自动结束。关闭当前网页标签后，仍可在有效期内恢复会话。</p>
+              <p>画面优先使用 WebSocket JPEG 推送，失败时回退 HTTP 截图轮询；不是原生视频流。WebSocket 的画面响应包含服务端截图总耗时，Chromium 截图与调度开销分开显示；上一帧确认包含网络往返和前端消费。HTTP 模式的画面响应为请求往返。FPS 是最近 5 秒内已显示帧的滑动统计，空闲时可能主动降至约 2 FPS。</p>
+            </div>
+          </details>
         </div>
       </details>
     </div>
@@ -122,7 +129,7 @@
 window.manualBrowserConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token(), 'fixedViewport': fixed_viewport, 'socketioPath': get_socketio_path() ~ '/socket.io'} | tojson }};
 </script>
 {% for script in ['manual-core.js', 'manual-transport.js', 'manual-stream.js', 'manual-layout.js', 'manual-input.js', 'manual-browser.js'] %}
-<script defer src="{{ url_for('manual_browser.static', filename=script, v=8) }}"></script>
+<script defer src="{{ url_for('manual_browser.static', filename=script, v=9) }}"></script>
 {% endfor %}
 <script defer src="{{ url_for('static', filename='js/custom-select.js') }}"></script>
 {% endblock %}

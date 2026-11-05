@@ -96,3 +96,9 @@ For future source changes, append a new entry with date (if known), specific pat
 - Reuse existing CDSelect for transport preference instead of the native-looking dropdown; preserve localStorage preference and HTTP fallback.
 - Add current Page UA, Platform, Viewport and DPR plus a copy control in the collapsed session detail; the Page is still Headless. Display only non-secret browser metadata.
 - New tests cover status rendering, stream metrics and template/metadata contracts. Real Docker/Chromium FPS remains to be measured on the operator host.
+
+## 2026-11-05: Browsers session detail UI V4
+
+- Condense the diagnostics view to three primary performance metrics with optional detailed timings and collapsible usage instructions; keep all existing counters and transport controls.
+- Show only the live User-Agent in the browser environment section, with its existing copy action; remove redundant Platform/Viewport/DPR rows.
+- Add a copyable current URL, a theme-matched thin details scrollbar and responsive compact layouts. No browser, Socket.IO, Profile or monitoring behavior changes.

@@ -61,11 +61,22 @@ class ManualBrowserDiagnosticsContractTests(unittest.TestCase):
     def test_themed_transport_select_and_browser_diagnostics(self):
         html = (BASE / 'templates/manual-browser.html').read_text(encoding='utf-8')
         self.assertRegex(html, r'id="manual-transport-mode"[^>]*data-custom-select')
-        for element_id in ('manual-ua', 'manual-copy-ua', 'manual-platform', 'manual-viewport',
-                           'manual-dpr', 'manual-screenshot-ms', 'manual-dispatch-ms',
+        for element_id in ('manual-ua', 'manual-copy-ua', 'manual-copy-url', 'manual-screenshot-ms', 'manual-dispatch-ms',
                            'manual-display-ms', 'manual-frame-bytes', 'manual-ack-ms'):
             with self.subTest(element_id=element_id):
                 self.assertEqual(html.count('id="' + element_id + '"'), 1)
+
+    def test_compact_v4_details_contract(self):
+        html = (BASE / 'templates/manual-browser.html').read_text(encoding='utf-8')
+        css = (BASE / 'static/manual-browser.css').read_text(encoding='utf-8')
+        for element_id in ('manual-performance-details', 'manual-usage-details',
+                           'manual-copy-url', 'manual-fps', 'manual-transport-mode'):
+            self.assertEqual(html.count('id="' + element_id + '"'), 1)
+        for old_id in ('manual-platform', 'manual-viewport', 'manual-dpr'):
+            self.assertNotIn('id="' + old_id + '"', html)
+        self.assertIn('class="manual-metrics-overview"', html)
+        self.assertIn('scrollbar-width:thin', css)
+        self.assertIn('manual-environment-ua', css)
 
     def test_timed_capture_has_separate_execution_and_dispatch_durations(self):
         source = (Path(__file__).resolve().parents[2] / 'integrations/cloakbrowser-shared/changedetection_cloak_shared/manual_session.py').read_text(encoding='utf-8')
