@@ -99,6 +99,10 @@ def evaluate(rule,document):
     result = ProductData(rule_id=rule['id'])
     conditions = {}
     for field,spec in rule['fields'].items():
+        if field == 'currency' and 'literal' in spec:
+            result.currency = spec['literal']
+            result.field_details[field] = {'literal': spec['literal'], 'matches': None, 'selector': None, 'values': [spec['literal']]}
+            continue
         if 'condition' in spec:
             conditions[field] = spec['condition']
             continue

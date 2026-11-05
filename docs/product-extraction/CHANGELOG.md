@@ -1,3 +1,9 @@
+## 2026-11-05 — Product Extractors: fixed currency literal
+
+- `fields.currency` supports either existing selectors or a stand-alone `{"literal":"USD"}` object (recognized uppercase ISO 4217 code); mixing the two forms is rejected. No fallback behavior is added.
+- All existing JSON rules and their extraction signatures remain unchanged unless edited. The evaluator reports fixed currency without querying the page.
+- Updated runtime validation, JSON Schema, AI rule guide, README and focused regression tests. Existing Watch data and store rules are not migrated.
+
 # Product extraction changes
 
 ## 2026-11-04 — Notification template cleanup and Telegram-safe product defaults

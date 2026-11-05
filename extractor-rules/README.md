@@ -48,3 +48,7 @@ JSON rules only extract product facts. The evaluator supports seven `price_mode`
 ## Rule-dependent page wait (optional)
 
 The JSON v1 registry accepts `"page": {"extra_wait_seconds": 5}`; value must be an integer from 0 to 30. This adds browser post-navigation wait before HTML/screenshot capture. Omit the property to preserve the existing behavior. New Stock & Price Watches use an explicit selected rule (automatically suggested by URL in Edit > Watch) or the built-in extractor. Existing rules and Watch bindings are not rewritten.
+
+## Fixed currency (optional)
+
+For a store with a known currency, `fields.currency` may be `{"literal": "USD"}` (or another recognized uppercase ISO 4217 code). This is mutually exclusive with selector extraction; there is **no selector fallback**. Existing rules without this option remain valid and unchanged. See `AI_RULE_GUIDE.md`.

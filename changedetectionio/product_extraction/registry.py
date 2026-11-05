@@ -9,6 +9,7 @@ import re
 import tempfile
 import threading
 from urllib.parse import urlsplit
+from babel.core import get_global
 from .models import RuleError
 
 ID = re.compile(r'^[a-z][a-z0-9_-]{1,63}$')
@@ -114,6 +115,14 @@ def validate(rule):
     for name, spec in fields.items():
         if not isinstance(spec, dict):
             raise RuleError(f'{name}: field definition must be an object')
+        # Fixed currency is an alternative to selectors, never a fallback.
+        if name == 'currency' and 'literal' in spec:
+            value = spec['literal']
+            if (set(spec) != {'literal'} or not isinstance(value, str) or
+                    not re.fullmatch(r'[A-Z]{3}', value) or
+                    value not in get_global('all_currencies')):
+                raise RuleError('currency.literal must be a recognized uppercase ISO 4217 code and cannot be combined with selectors')
+            continue
         if 'condition' in spec:
             if name not in ('in_stock', 'pickup', 'shipping') or set(spec) != {'condition'}:
                 raise RuleError(f'{name}: conditions are only valid for stock and purchase channels')

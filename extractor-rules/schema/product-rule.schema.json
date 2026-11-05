@@ -67,6 +67,29 @@
       },
       "additionalProperties": {
         "$ref": "#/$defs/field"
+      },
+      "properties": {
+        "currency": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "literal"
+              ],
+              "properties": {
+                "literal": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$",
+                  "description": "Recognized ISO 4217 currency code (validated by server)."
+                }
+              }
+            },
+            {
+              "$ref": "#/$defs/field"
+            }
+          ]
+        }
       }
     },
     "enabled": {
@@ -183,6 +206,11 @@
         "condition": {
           "$ref": "#/$defs/condition"
         }
+      },
+      "not": {
+        "required": [
+          "literal"
+        ]
       }
     },
     "condition": {

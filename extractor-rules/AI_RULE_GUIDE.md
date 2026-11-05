@@ -63,7 +63,10 @@
 | `fields` | 是 | 一个或多个受支持的字段，不能包含任意自定义键。 |
 | `page.extra_wait_seconds` | 否 | 非负整数，0～30；浏览器导航后额外等待秒数，默认为不指定。仅配置抓取等待，不影响提取语义及价格库存基线。 |
 
-字段支持：`price`、`currency`、`in_stock`、`stock_quantity`、`title`、`sku`、`pickup`、`shipping`。为了用于价格/库存监控，最终至少要提取到**有效价格或明确库存状态**之一；二者都没有时，Dry Run 会报错。`stock_quantity` 存在时，若 `in_stock` 未识别，引擎可由数量是否大于 0 推断库存状态。
+字段支持：`price`、`currency`、`in_stock`、`stock_quantity`、`title`、`sku`、`pickup`、`shipping`。
+
+**货币字段的两种互斥写法：** `currency` 可以沿用已有 CSS/XPath/JSONPath/Regex 选择器，也可以直接配置 `"currency": {"literal": "USD"}`（Newegg 美国站等币种确定的页面）。固定值必须为服务端认可的**大写 ISO 4217 三字母代码**（如 `USD`、`EUR`、`GBP`），不是 `$` 等货币符号。`literal` **不能**与 `selectors`、`type`、`value`、`mapping`、`condition` 等属性同时出现；它不是选择器失败后的兜底。未配置 `currency` 时保持原有行为（可能为 `null`）。修改货币规则属于提取语义变化，现有 Watch 下一次成功检查可能重建告警基线，但不会清除历史记录。其他字段不支持该固定值语法；库存 `condition.op=literal` 是独立的三态布尔条件表达式。
+为了用于价格/库存监控，最终至少要提取到**有效价格或明确库存状态**之一；二者都没有时，Dry Run 会报错。`stock_quantity` 存在时，若 `in_stock` 未识别，引擎可由数量是否大于 0 推断库存状态。
 
 ### 字段选择器
 
