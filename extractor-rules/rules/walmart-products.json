@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "id": "walmart-products",
+  "name": "Walmart Products",
+  "enabled": true,
+  "match": {
+    "domains": [
+      "walmart.com"
+    ],
+    "path_patterns": [
+      "/ip/*"
+    ]
+  },
+  "fields": {
+    "price": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "[data-seo-id='hero-price']",
+          "extract": "text"
+        },
+        {
+          "type": "css",
+          "value": "[data-testid='price-wrap'] [itemprop='price']",
+          "extract": "text"
+        }
+      ]
+    },
+    "currency": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "[data-testid='price-wrap'] [itemprop='priceCurrency']",
+          "extract": "text"
+        }
+      ]
+    },
+    "shipping": {
+      "condition": {
+        "op": "exists",
+        "selector": {
+          "type": "xpath",
+          "value": "//label[@data-testid='shipping-tile']//*[@data-seo-id and contains(@data-seo-id,'intent')][contains(.,'Arrives') or contains(.,'As soon as')]"
+        },
+        "guard": {
+          "type": "xpath",
+          "value": "//label[@data-testid='shipping-tile']//*[@data-seo-id and contains(@data-seo-id,'intent')][contains(.,'Arrives') or contains(.,'As soon as') or contains(.,'Not available') or contains(.,'Out of stock')]"
+        }
+      }
+    },
+    "pickup": {
+      "condition": {
+        "op": "exists",
+        "selector": {
+          "type": "xpath",
+          "value": "//label[@data-testid='pickup-tile']//*[@data-seo-id and contains(@data-seo-id,'intent')][contains(.,'As soon as') or contains(.,'Ready')]"
+        },
+        "guard": {
+          "type": "xpath",
+          "value": "//label[@data-testid='pickup-tile']//*[@data-seo-id and contains(@data-seo-id,'intent')][contains(.,'As soon as') or contains(.,'Ready') or contains(.,'Not available') or contains(.,'Out of stock')]"
+        }
+      }
+    },
+    "in_stock": {
+      "condition": {
+        "op": "any",
+        "items": [
+          {
+            "op": "ref",
+            "field": "shipping"
+          },
+          {
+            "op": "ref",
+            "field": "pickup"
+          }
+        ]
+      }
+    },
+    "title": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "h1#main-title",
+          "extract": "text"
+        },
+        {
+          "type": "css",
+          "value": "h1[itemprop='name']",
+          "extract": "text"
+        }
+      ]
+    }
+  }
+}
