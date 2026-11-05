@@ -44,7 +44,7 @@ For shared scheduled fetches, `manager.py` uses a Page wrapper to inspect a load
 
 ## Source map for review
 
-- `integrations/cloakbrowser-shared/changedetection_cloak_shared/{manager,plugin,profile_manager,page_readiness,manual_session,backup}.py`
+- `integrations/cloakbrowser-shared/changedetection_cloak_shared/{manager,plugin,profile_manager,page_readiness,manual_session,manual_screencast,backup}.py`
 - `changedetectionio/blueprint/{browser_steps,add_watch_ui,manual_browser}/`
 - `changedetectionio/{worker,worker_pool,verification_alerts,notification_service}.py`
 - `changedetectionio/content_fetchers/playwright.py` for the persistent-context `viewport_size=None` screenshot fix.
@@ -61,7 +61,7 @@ The authenticated `/manual-browser/api/` HTTP routes remain available for sessio
 
 The two namespaces are registered from `realtime/socket_server.py` via `manual_socket.py`. Every connection validates password-protected login, CSRF, same-origin, owner token and browser generation before accepting commands or screenshot delivery. Input has sequential ACKs and uses the existing `ManualSessionManager.action()` URL/key/coordinate limits. Shared input locking prevents competing HTTP and WS mutation calls from executing concurrently. A disconnected controller releases any remote mouse button held down. Frames are JPEG byte attachments with one-frame-at-a-time client consumption ACK; a slow client does not accumulate queued snapshots. The frame producer never touches `last_active` and is stopped after session expiry/disconnect.
 
-HTTP remains a failover path on missing/disabled Socket.IO, rejected WebSocket upgrade or socket failure, and is not an automatic replayer of unconfirmed events. Screenshots and input can continue through HTTP while the websocket transport is not active. No CDP Screencast or OS-level remote desktop is installed.
+HTTP remains a failover path on missing/disabled Socket.IO, rejected WebSocket upgrade or socket failure, and is not an automatic replayer of unconfirmed events. Screenshots and input can continue through HTTP while the websocket transport is not active. An **optional experimental CDP Screencast** producer is implemented for the same leased manual Page; it sends JPEG frames via the existing authenticated Socket.IO channel and does not change input transport. CDP compatibility with live CloakBrowser is unverified. No OS-level remote desktop is installed.
 
 
 ### Experimental manual CDP frame producer (2026-11-05)

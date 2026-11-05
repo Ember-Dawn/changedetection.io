@@ -5,6 +5,7 @@ This repository is a modified changedetection.io deployment. **Read this file fi
 ## Source of truth and reading order
 
 1. [`docs/cloakbrowser/README.md`](docs/cloakbrowser/README.md): current behavior, scope and navigation.
+   [`docs/cloakbrowser/STATUS.md`](docs/cloakbrowser/STATUS.md): current progress, evidence and remaining validation.
 2. [`docs/cloakbrowser/ARCHITECTURE.md`](docs/cloakbrowser/ARCHITECTURE.md): concurrency, ownership, fetcher integration, reliability invariants.
 3. [`docs/cloakbrowser/MANUAL_BROWSER.md`](docs/cloakbrowser/MANUAL_BROWSER.md): authenticated control flow and lifecycle.
 4. [`docs/cloakbrowser/VERIFICATION.md`](docs/cloakbrowser/VERIFICATION.md): Google/Cloudflare detection and notification state.

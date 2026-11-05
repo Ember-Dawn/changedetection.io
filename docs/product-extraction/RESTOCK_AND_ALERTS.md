@@ -48,11 +48,11 @@ The display form `$890.00 (−11%, ↓ $110.00)` uses **one comparison baseline*
 
 The existing Worker/notification service and Apprise pipeline continue to gate and deliver notifications. Enqueueing does not guarantee arrival or exactly-once delivery. Preview is read-only, uses saved Watch context or sample data, and never queues a notification. Template choices are described in [NOTIFICATION_TEMPLATES.md](NOTIFICATION_TEMPLATES.md).
 
-## Unresolved Watch/Tag/API integration mismatch — audited 2026-11-04
+## Watch/Tag/API end-to-end validation outstanding — audited 2026-11-04
 
 **Source alignment (reviewed 2026-11-04):** `forms.py`, `processor.py`, and `api.yaml` now use `price_mode`, `stock_mode`, `price_threshold` and related expanded rule fields. Earlier notes claiming these files still used legacy `alert_mode` / `target_price` were out of date. Legacy stored configurations are not automatically migrated; revalidate the live deployment and test the complete rule path after upgrades.
 
-The extraction modes are `auto`, `rule` and `builtin`; rule Dry Run does not modify Watch history or alert baselines. Confirm Tag `overrides_watch` behavior on the actual deployed revision, given the mismatch above.
+The extraction modes are `auto`, `rule` and `builtin`; rule Dry Run does not modify Watch history or alert baselines. Confirm Tag `overrides_watch` behavior and legacy stored configuration handling on the actual deployed revision; the previous field-name mismatch claim is obsolete.
 
 ## Maintenance and verification
 

@@ -2,7 +2,7 @@
 
 ## What it is
 
-The **人工操作** control opens a real CloakBrowser Chromium **Page** in the existing persistent Context. It is **not** a static replica: Chromium loads the page, executes JavaScript and receives real Playwright mouse/keyboard commands. What the operator sees is a periodically fetched **JPEG screenshot** (HTTP polling), not a native streaming remote desktop. The global **Browsers** sidebar entry and Add Watch / existing Watch entry points use the same backend and Profile.
+The **人工操作** control opens a real CloakBrowser Chromium **Page** in the existing persistent Context. It is **not** a static replica: Chromium loads the page, executes JavaScript and receives real Playwright mouse/keyboard commands. The operator sees **JPEG frames** delivered by authenticated Socket.IO/WebSocket by default, with HTTP polling fallback and an optional experimental CDP Screencast frame source. None of these is an OS-level remote desktop. The global **Browsers** sidebar entry and Add Watch / existing Watch entry points use the same backend and Profile.
 
 Current implementation paths:
 
@@ -10,19 +10,21 @@ Current implementation paths:
 - `changedetectionio/blueprint/manual_browser/templates/manual-browser.html`: layout; screenshot area is intended to fill remaining changedetection.io viewport height.
 - `changedetectionio/blueprint/manual_browser/static/manual-browser.js`: lightweight UI entrypoint and event wiring.
 - `manual-core.js`: authenticated same-origin transport, per-login session token ownership, one ordered action queue, inspect/resume/switch/close lifecycle.
-- `manual-stream.js`: JPEG frame polling, status polling, retry/backoff and stale-frame cancellation.
+- `manual-transport.js`: authenticated Socket.IO input and binary frame transport, acknowledgements and HTTP fallback.
+- `manual-stream.js`: WebSocket frame consumption, HTTP JPEG polling fallback, status polling, retry/backoff and stale-frame cancellation.
 - `manual-input.js`: keyboard, pointer, drag, scroll, address navigation and screenshot-coordinate mapping.
 - `manual-layout.js`: full-height viewport and isolated manual Page viewport resize.
 - `manual-browser.css`: compact responsive layout, extracted from inline template styles.
 - `integrations/cloakbrowser-shared/changedetection_cloak_shared/manual_session.py`: manual Page, session lifetime and input execution on BrowserManager loop.
+- `integrations/cloakbrowser-shared/changedetection_cloak_shared/manual_screencast.py`: optional CDP Screencast session and JPEG frame buffering on that same loop.
 
 ## Using the UI
 
 1. Log in to changedetection.io with application password protection enabled; the manual API refuses anonymous access even if ordinary monitoring UI pages can be viewed.
 2. Open **Browsers** for a free-form URL, or click **人工操作** on a watch. A watch-bound session opens that watch's configured URL.
-3. Click **连接浏览器**. Mouse clicks, scrolling, typing, Enter/Backspace and navigation go to the real Page. URL changes are reflected in the editable address bar. The app displays current site Cookie **count**, LocalStorage **count**, current URL and Profile lock status, not secret values.
+3. Click **连接浏览器**. Mouse clicks, scrolling, typing, Enter/Backspace and navigation go to the real Page. URL changes are reflected in the editable address bar. The app displays current-site Cookie **count**, LocalStorage **count**, Profile lock state and the current Page User-Agent (not secrets). The address bar is the single current-URL display.
 4. If there is already a manual session belonging to the same login, choose **恢复已有会话** or explicitly close the old session before opening another URL. Recovering rotates the control token, invalidating the old tab's token.
-5. For an existing watch, **完成并重新检查** closes the manual Page and conditionally queues one check via the usual worker queue if not paused/running/queued. For a new watch or the global Browsers page, closing manual control is not a substitute for creating a watch; return to Add Watch and refresh the preview.
+5. For an existing watch, **完成并重新检查** is shown only when the entry Watch UUID matches the owned manual session’s actual Watch association; the server rejects a mismatched or general-session finish. A valid finish closes the manual Page and conditionally queues one check via the usual worker queue if not paused/running/queued. For a new watch or the global Browsers page, closing manual control is not a substitute for creating a watch; return to Add Watch and refresh the preview.
 
 A browser tab/window closing does not immediately destroy the server-side manual Page; it can be recovered by the same login until its session expires or is closed. **At most one manual session** is kept by the application. The manual Page occupies one of the shared `CLOAKBROWSER_MAX_PAGES` permits, so remaining slots can serve scheduled watches. For a watch-bound session the worker must not concurrently check that watch. Other watches are not automatically paused (they still share cookies, however).
 
@@ -64,7 +66,7 @@ These tests use a simulated DOM and mocked same-origin HTTP API; they cannot sub
 
 ## Browser workspace UI (Product Extractors-aligned)
 
-The Browsers page uses a compact dark interface with a unified header, status badge, address/navigation toolbar, action toolbar, large interactive viewport, and collapsible **文字输入** / **会话详情与使用说明** panels. Session recovery is displayed in a separate notice only when necessary. The visual language is aligned with Product Extractors while the screenshot remains the dominant, flexible-height area.
+The Browsers page uses a compact dark interface with navigation, always-visible **文字输入** controls, a large interactive viewport and collapsible **会话详情** and usage notes. Viewport, frame-engine and transport preferences are in the upper operation toolbar; the top address bar is authoritative. Session recovery is displayed in a separate notice only when necessary. The visual language is aligned with Product Extractors while the screenshot remains the dominant, flexible-height area.
 
 - The existing HTTP server API and the six JavaScript module boundaries are maintained. The template retains the existing element IDs consumed by `manual-core`, `manual-stream`, `manual-layout`, `manual-input`, and the entrypoint.
 - `manual-layout.js` still measures the actual root offset and sizes the Page viewport to the screenshot container; compact headers and collapsed details leave more room for the interactive Page.
@@ -76,10 +78,10 @@ The JPEG-over-HTTP fallback, authentication, ownership checks, BrowserManager qu
 ## 2026-11: Browser input and frame responsiveness
 
 - The **文字输入** toolbar is now a single non-collapsible row between navigation and the browser viewport. It has a bounded input width and quick Send, Enter and Backspace buttons. The viewport still fills all remaining available height.
-- The footer keeps a lightweight Profile/idle indication; the collapsible **会话详情** presents browser generation, Profile lock, Cookie count for the current site, LocalStorage key count for the current origin, a separately wrapped URL, and split usage notes. Neither number is a count of accounts or storage size.
+- The footer keeps a lightweight Profile/idle indication; the collapsible **会话详情** presents browser generation, Profile lock, Cookie count for the current site, LocalStorage key count for the current origin, performance metrics, User-Agent and usage notes (without a duplicate URL field). Neither number is a count of accounts or storage size.
 - `manual-input.js` notifies `manual-stream.js` once a remote action has completed. The stream prioritizes one screenshot after interaction, coalescing rapid operations and keeping at most one screenshot request outstanding in a given session. Navigation still suspends frames until the action completes.
-- JPEG polling now adapts its delay: about **180ms** after recent interaction, **450ms** in normal use and **1000ms** after prolonged inactivity, *plus* network/screenshot/decode time. Browser tabs that are hidden still suspend polling. Transient errors preserve the earlier retry/backoff rules.
-- The detail panel displays approximate frame HTTP round-trip, command completion time (including local queue wait), and observed frame display rate. These are diagnostic client-side observations, not guaranteed network or browser FPS benchmarks.
+- **Legacy HTTP fallback** JPEG polling adapts its delay: about **180ms** after recent interaction, **450ms** in normal use and **1000ms** after prolonged inactivity, *plus* network/screenshot/decode time. Browser tabs that are hidden still suspend polling. Transient errors preserve the earlier retry/backoff rules.
+- Historical HTTP-only diagnostics used approximate frame HTTP round-trip, command completion time and observed frame display rate; current WebSocket metrics separate screenshot, dispatch, acknowledgement and client display measurements. These are diagnostic client-side observations, not guaranteed network or browser FPS benchmarks.
 - Tests: `node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs` and `python -m unittest discover -s tests/cloakbrowser_shared -p test_manual_browser_workspace.py`. Check a real container to verify end-user latency and resource usage; faster polling can increase screenshot/CPU load.
 
 
@@ -111,19 +113,19 @@ Both Browsers and Product Extractors use a shared, keyboard-operable themed drop
 - HTTP fallback continues reporting HTTP screenshot round-trip time, with Chromium-only/dispatch timings unavailable. Do not compare HTTP RTT with WebSocket `capture_ms` as though they measure the same thing.
 - The transport preference select uses the existing `data-custom-select` enhancer. No second dropdown implementation or new JS framework was added. The native `<select>` remains the authoritative setting, including when changed with a keyboard.
 - The details panel now displays the current manual Page's `navigator.userAgent`, `navigator.platform`, `window.innerWidth/innerHeight`, and `window.devicePixelRatio`, with a copy-UA action. These are page-observed values, not necessarily the raw on-the-wire User-Agent request header. Navigations can temporarily make JavaScript evaluation unavailable; absent values are displayed as unavailable, not invented. The shared backend is still configured as Headless.
-- Benchmark WebSocket and HTTP on the same target Page and viewport in the actual deployment, separately under idle/scrolling conditions. This revision does not implement WebP, CDP Screencast, headful Chromium or video, nor guarantee a particular FPS or challenge outcome.
+- Benchmark WebSocket and HTTP on the same target Page and viewport in the actual deployment, separately under idle/scrolling conditions. The diagnostics revision did not itself add WebP, headful Chromium or video. A **later V5 revision did add experimental CDP Screencast**, documented below. Neither route guarantees a particular FPS or challenge outcome.
 
 ## 2026-11-05: Compact session details (UI V4)
 
-- The collapsible session details now keep Profile/generation/cookie/storage counters, followed by a copyable actual URL, a three-metric performance overview (displayed FPS, frame response, input response), and optionally expanded detailed frame timings. The metric sources and five-second FPS calculation are unchanged.
-- WebSocket/HTTP mode preference is grouped with the active transport and still uses the shared themed CDSelect. The multi-paragraph help is collapsed by default; neither help nor metric expansion affects the underlying Session or browser.
+- Historical V4 session details kept Profile/generation/cookie/storage counters and a copyable URL, followed by a three-metric performance overview (displayed FPS, frame response, input response), and optionally expanded detailed frame timings. The metric sources and five-second FPS calculation are unchanged.
+- At V4 the WebSocket/HTTP preference was grouped with the active transport and used shared themed CDSelect; V6 moved both transport and engine controls into the upper toolbar. The multi-paragraph help is collapsed by default; neither help nor metric expansion affects the underlying Session or browser.
 - Browser environment **displays only the live Page's full User-Agent and copy button**. Platform, viewport and DPR are intentionally no longer displayed; backend metadata fields are retained for compatibility. User-Agent is page-observed and is not necessarily the HTTP request header.
-- The details panel uses compact spacing, responsive metric cards, and a scoped thin scrollbar. The URL and UA are rendered as text, never HTML; neither is automatically copied to another service.
+- The details panel uses compact spacing, metric cards, and a scoped thin scrollbar. V6 removed the duplicate URL display; User-Agent is rendered as text, never HTML, and is only copied by explicit user action.
 
 
 ## 2026-11-05: Experimental CDP Screencast frame source
 
-- In **会话详情 → 画面引擎**, choose **WebSocket JPEG（默认）** or **CDP Screencast（实验性）**. This selection is stored in the operator browser's localStorage, not in the persistent Profile. Existing **传输偏好 → 仅 HTTP** remains available. Selecting CDP while HTTP is active switches transport preference to automatic WebSocket; losing the WebSocket connection still safely falls back to HTTP.
+- In the **upper operation toolbar → 画面引擎**, choose **WebSocket JPEG（默认）** or **CDP Screencast（实验性）**. This selection is stored in the operator browser's localStorage, not in the persistent Profile. Existing **传输偏好 → 仅 HTTP** remains available. Selecting CDP while HTTP is active switches transport preference to automatic WebSocket; losing the WebSocket connection still safely falls back to HTTP.
 - The optional `changedetection_cloak_shared/manual_screencast.py` attaches an internal Playwright CDPSession to the already-leased manual Page (not a new browser). Frame events are Base64-decoded to bounded JPEG bytes, sent on the existing authenticated Socket.IO frame namespace, with an at-most-one-frame local buffer and existing client consumption acknowledgement. CDP `screencastFrameAck` is independent of the browser UI acknowledgement. Input is unchanged and remains on its own authenticated namespace.
 - CDP creation, event callbacks and stop/detach run exclusively on BrowserManager's asyncio loop. Switching frame modes may recreate the *frame connection*, not the manual Page or its Profile. When CDP startup fails or no first frame arrives within five seconds, the frame producer falls back to WS JPEG without disconnecting mouse input. A static page may legitimately emit no *subsequent* CDP frames; last image is retained.
 - Closing a manual session stops CDP before releasing the original Page lease. CDP cleanup failures must not block lease closure. Old stream cleanup uses a stream identifier so it cannot detach a newer CDP stream. The existing 15-minute session timeout is unaffected by frame events.

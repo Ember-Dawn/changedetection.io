@@ -88,6 +88,10 @@ docker compose run --rm --no-deps \
 
 5. Restart and confirm website sessions, screenshot and watch results. A newer Chromium Profile may be incompatible with a downgraded browser binary. Restore is not an atomic transaction across a bind mount: partial failures require inspection; the CLI attempts rollback of newly written paths, but filesystem failure can prevent cleanup.
 
+## Manual transport / CDP acceptance status (2026-11-05)
+
+Source review and local mocked/contract tests cover V2–V6 WebSocket and experimental CDP wiring, but **do not establish live CloakBrowser compatibility or measured performance**. On the actual Docker host, compare WebSocket JPEG, experimental CDP and HTTP fallback with the same Page and viewport; exercise scroll/idle/navigation, screenshot first-frame timeout, switching, tab hide, session expiry, ownership, Watch-only finish, and input disconnect. Collect the built-in screenshot/dispatch/display metrics and Docker CPU/memory before claiming CDP is faster. Keep WebSocket JPEG selected by default until this acceptance passes.
+
 ## Local acceptance tests
 
 - `python -m unittest discover -s tests/cloakbrowser_shared -v` in an environment with required Python dependencies. Do not interpret import errors as test success.

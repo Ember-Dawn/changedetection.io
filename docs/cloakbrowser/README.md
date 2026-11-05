@@ -8,6 +8,7 @@ This fork packages changedetection.io and CloakBrowser **in one Docker service**
 
 | Read | For |
 | --- | --- |
+| [STATUS.md](STATUS.md) | Current implementation progress, validation and open work |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | BrowserManager architecture, event loop, Page/Tab concurrency and lifecycle |
 | [MANUAL_BROWSER.md](MANUAL_BROWSER.md) | Login protection, interactive browser, recovery and session ownership |
 | [VERIFICATION.md](VERIFICATION.md) | Google/Cloudflare challenges, watch states, Apprise/Telegram and limitations |
@@ -24,7 +25,7 @@ The repository root [`AGENTS.md`](../../AGENTS.md) is the recommended starting p
 - Python package versions are **pinned** (`cloakbrowser==0.7.0`, `changedetection.io-cloak-browser==0.1.1`). The CloakBrowser-managed Chromium binary is version-resolved/downloaded separately; check the running version using `python -m cloakbrowser info`.
 - Shared context Profile is bind-mounted at `./browser-profile:/browser-profile`. Binary/cache data is separate: `./cloakbrowser-home:/root/.cloakbrowser`. Watch settings and history are under `./datastore:/datastore`.
 - `FETCH_WORKERS=3` and default `CLOAKBROWSER_MAX_PAGES=3`. Each concurrent shared fetch leases **its own** Page, up to the available Page limit; queued checks wait. Pages close after checks, while the Profile/Context survives. A manual browser Page also consumes one permit.
-- The manual browser is reachable at **Browsers** in the sidebar and from relevant Add Watch / existing Watch entry points. It uses actual Chromium and sends JPEG screenshots through Socket.IO/WebSocket by default, with authenticated HTTP polling fallback. This is not a VNC/video desktop.
+- The manual browser is reachable from **Browsers** in the sidebar and Watch-specific entry points. The current default is authenticated Socket.IO/WebSocket JPEG screenshots with ordered Playwright input; HTTP screenshot/input fallback is preserved, and **CDP Screencast** is an optional, unverified experimental JPEG producer. The shared Chromium remains Headless; there is no VNC/video desktop.
 - Add Watch uses the normal browser-step screenshot flow without the previously added 2-second settling / 15-second challenge waits. Known challenge screenshots can be shown without saving them as normal baselines.
 - Shared scheduled watches attempt to detect known Google/Cloudflare verification pages **before** normal extraction, keep the last good content, and can notify via configured Apprise channels on first detection and later recovery. Detection and successful Telegram delivery are not guaranteed.
 
@@ -49,9 +50,9 @@ Do not overwrite an existing `.env` or remove an existing Profile. Read [OPERATI
 
 One shared Context deliberately shares site state; per-watch incompatible proxy/User-Agent settings cannot be isolated. One persistent Profile must never have multiple simultaneous writers. The free CloakBrowser license was observed to permit one concurrent browser *session*, not only one Page; separate `html_cloakbrowser` launches may contend with that limit. CAPTCHA challenges still require the website to accept a human interaction; manual control is not a guarantee of passage.
 
-### Round 2: frontend consolidation (2026-11-03)
+### Historical milestone: frontend consolidation (2026-11-03)
 
-Manual browser frontend was split into focused local JS modules and CSS. This is a maintainability / connection-state change only: underlying CloakBrowser, manual HTTP API, JPEG polling transport, watch scheduling, shared Profile and notification logic are unchanged. See [MANUAL_BROWSER.md](MANUAL_BROWSER.md) for file ownership and `node --test` checks. Real browser and Docker verification are still required on the deployment host.
+At that historical milestone the frontend was split into focused local JS modules and CSS; it still used HTTP polling then. Subsequent V2–V6 changes added Socket.IO input/frame delivery, experimental CDP capture, diagnostic metrics and UI updates. The original HTTP endpoints, shared Profile and watch scheduling are still retained. See [MANUAL_BROWSER.md](MANUAL_BROWSER.md) for file ownership and `node --test` checks. Real browser and Docker verification are still required on the deployment host.
 
 ## Git-tracked product extraction rules
 
@@ -61,7 +62,7 @@ The custom `Product Extractors` sidebar manages declarative JSON rules in the Do
 
 The intended product monitoring policy uses seven price and six stock modes, including current-state filters, stock transitions, AND/OR and cumulative percentage thresholds. First reliable measurements establish baselines. Notification layout is independent of the shared CloakBrowser Context/Page and CAPTCHA flows. See [Stock & Price rules](../product-extraction/STOCK_PRICE_RULES.md), [event and delivery semantics](../product-extraction/RESTOCK_AND_ALERTS.md), and [Telegram/product templates](../product-extraction/NOTIFICATION_TEMPLATES.md).
 
-**Integration limitation:** the audited checkout still has legacy fields in form/processor defaults/API schema while the evaluator uses new policy fields. Verify and reconcile before claiming new modes work end to end.
+**Integration validation still required:** the 2026-11-04 source review found form, processor and API schema aligned on the expanded `price_mode` / `stock_mode` fields; an earlier claim of legacy schema fields is obsolete. Historical stored configurations and the live Watch/Tag/API-to-notification path still require end-to-end verification. See [RESTOCK_AND_ALERTS.md](../product-extraction/RESTOCK_AND_ALERTS.md).
 
 
 **Experimental manual screen capture:** Browsers optionally supports **CDP Screencast** as a third picture source (alongside default WebSocket JPEG screenshots and HTTP compatibility polling). This is not a Headed desktop or separate browser. Consult [MANUAL_BROWSER.md](MANUAL_BROWSER.md) for fallbacks and real-Docker verification; CDP compatibility with the deployed CloakBrowser version is not yet proven.

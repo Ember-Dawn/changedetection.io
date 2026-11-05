@@ -10,7 +10,7 @@ This is a **feature and patch history**, reconstructed from the maintained sourc
 | 4. Screenshot fix | `changedetectionio/content_fetchers/playwright.py` handles `page.viewport_size=None` for persistent contexts | Incident: real WebUI preview returned HTTP 502 due to `NoneType` viewport indexing; see archived viewport note |
 | 5. Page readiness | Shared-browser Google/Cloudflare checks, initial optional wait and baseline protection | Subsequent patch **removed extra waits** from current Add Watch/monitoring behavior; archived note is historical |
 | 6. Human-operated browser | Authenticated manual session manager and `/manual-browser/` UI, JPEG frame polling, Playwright input, watch reservation, resume/switch, URL navigation | Same Profile/Context; manual session uses a Page permit, not separate browser |
-| 7. User experience | Manual buttons named **人工操作**, sidebar **Browsers** entry, compact navigation, URL sync, frame/status retry, full remaining-height view and Page viewport mapping | Current remote view remains screenshot polling; not noVNC/CDP streaming |
+| 7. User experience | Manual buttons named **人工操作**, sidebar **Browsers** entry, compact navigation, URL sync, frame/status retry, full remaining-height view and Page viewport mapping | At that historical milestone the view was HTTP screenshot polling; V2 later added WS JPEG and V5 added experimental CDP (still not noVNC) |
 | 8. Verification alert protection | Early challenge detection before shared XPath extraction, filter-failure fallback, Google/Cloudflare classification, deduplicated Apprise/Telegram queue alerts and recovery handling | Alert *queued* vs *delivered* is distinct; only operator can validate real Telegram delivery |
 | 9. Documentation consolidation | New root `AGENTS.md`, topic-centered authoritative docs, archived incident notes | **Documentation-only**; no browser/runtime behavior changes in this round |
 | 10. 2026-11-03 backend reliability/refactor round 1 | `manual_session.py`, `manager.py`, `page_readiness.py`, `verification_alerts.py`, notification queue consumer and Worker, targeted tests and docs | Single expiry supervisor survives token rotation; notification delivery acknowledgements with cooldown and pending expiry, stale-event rejection, recovery after final history persistence; retired unused preview wait helper. No UI or Docker changes. Synthetic tests only; real Chromium/Telegram acceptance required. |
@@ -110,6 +110,12 @@ For future source changes, append a new entry with date (if known), specific pat
 - The `/manual-frames` Socket.IO producer may use CDP as a frame source, with an initial-frame timeout and fallback to ordinary WebSocket JPEG screenshots. The established HTTP path, mouse/keyboard handling, single browser/Profile and 15-minute session lifetime remain unchanged.
 - The themed manual detail dropdown offers **CDP Screencast（实验性）** without making it the default; mode changes restart only the frame transport. Incoming frames identify their source and CDP capture-duration fields are not fabricated.
 - Validation in authoring environment: Node frontend tests, manual workspace contract tests, CDP fake-session lifecycle tests and syntax checks. Real CloakBrowser/Chromium and actual FPS **not tested**; this is an opt-in experimental feature.
+
+## 2026-11-05: Documentation status reconciliation
+
+- Added [STATUS.md](STATUS.md) to separate implemented V2–V6 features from experimental CDP and still-outstanding real-host acceptance.
+- Reconciled current manual transport/UI descriptions that still referred to HTTP-only polling, a duplicate URL field, or the former position of frame controls. Historical milestone descriptions remain historical.
+- Corrected the CloakBrowser README product-policy note: the 2026-11-04 source review found expanded fields aligned, while legacy stored data and true end-to-end behavior still need validation. No application runtime code was changed in this documentation pass.
 
 ## 2026-11-05: Browsers UI refinement V6
 
