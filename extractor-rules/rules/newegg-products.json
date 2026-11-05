@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "id": "newegg-products",
+  "name": "Newegg Products",
+  "enabled": true,
+  "match": {
+    "domains": [
+      "newegg.com"
+    ],
+    "path_patterns": [
+      "*/p/*"
+    ]
+  },
+  "fields": {
+    "price": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": ".product-buy-box .price-current_2026",
+          "extract": "text"
+        }
+      ]
+    },
+    "title": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "h1.product-title",
+          "extract": "text"
+        }
+      ]
+    },
+    "sku": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "ol li.is-active h2 em",
+          "extract": "text"
+        }
+      ]
+    },
+    "shipping": {
+      "condition": {
+        "op": "exists",
+        "selector": {
+          "type": "xpath",
+          "value": "//div[contains(@class,'product-buy-box')]//div[contains(@class,'product-ways-item')][.//div[@class='product-ways-name' and normalize-space()='Shipping']][contains(.,'delivery')]"
+        },
+        "guard": {
+          "type": "xpath",
+          "value": "//div[contains(@class,'product-buy-box')]//*[contains(@class,'btn-message') or contains(@class,'flags-body') or contains(@title,'Auto Notify') or (@class='product-ways-name' and normalize-space()='Shipping')]"
+        }
+      }
+    },
+    "in_stock": {
+      "condition": {
+        "op": "ref",
+        "field": "shipping"
+      }
+    }
+  }
+}

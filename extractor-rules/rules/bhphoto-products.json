@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "id": "bhphoto-products",
+  "name": "B&H Photo Video Products",
+  "enabled": true,
+  "match": {
+    "domains": [
+      "bhphotovideo.com"
+    ],
+    "path_patterns": [
+      "/c/product/*"
+    ]
+  },
+  "fields": {
+    "price": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "[data-selenium='pricingPrice']",
+          "extract": "text"
+        }
+      ]
+    },
+    "currency": {
+      "selectors": [
+        {
+          "type": "jsonpath",
+          "value": "$..offers.priceCurrency",
+          "extract": "text"
+        }
+      ]
+    },
+    "title": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "h1[data-selenium='productTitle']",
+          "extract": "text"
+        }
+      ]
+    },
+    "sku": {
+      "selectors": [
+        {
+          "type": "xpath",
+          "value": "normalize-space(substring-before(substring-after(//div[@data-selenium='codeCrumb'], 'BH #'), '•'))"
+        }
+      ]
+    },
+    "shipping": {
+      "condition": {
+        "op": "all",
+        "items": [
+          {
+            "op": "exists",
+            "selector": {
+              "type": "xpath",
+              "value": "//span[@data-selenium='stockStatus' and normalize-space()='In Stock']"
+            },
+            "guard": {
+              "type": "css",
+              "value": "[data-selenium='stockStatus']"
+            }
+          },
+          {
+            "op": "exists",
+            "selector": {
+              "type": "css",
+              "value": "[data-selenium='addToCartSection'] button[data-selenium='addToCartButton']"
+            },
+            "guard": {
+              "type": "css",
+              "value": "[data-selenium='addToCartSection']"
+            }
+          },
+          {
+            "op": "exists",
+            "selector": {
+              "type": "css",
+              "value": "[data-selenium='deliveryCommentsShipStoreInfo'] [data-selenium='deliverByMessage']"
+            },
+            "guard": {
+              "type": "css",
+              "value": "[data-selenium='deliveryCommentsShipStoreInfo']"
+            }
+          }
+        ]
+      }
+    },
+    "in_stock": {
+      "condition": {
+        "op": "ref",
+        "field": "shipping"
+      }
+    }
+  }
+}
