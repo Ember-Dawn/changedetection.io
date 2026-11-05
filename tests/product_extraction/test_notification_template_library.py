@@ -22,6 +22,16 @@ class TemplateLibraryTests(unittest.TestCase):
     def setUp(self):
         self.store = FakeStore()
 
+    def test_builtin_ids_names_and_order(self):
+        self.assertEqual([(item['id'], item['name']) for item in PRESETS], [
+            ('builtin-general', 'General webpage change'),
+            ('builtin-product-text', 'Product · Plain Text'),
+            ('builtin-compact', 'Compact change alert'),
+            ('builtin-product-html-compact', 'Telegram product · HTML (compact)'),
+            ('builtin-product-html-expanded', 'Telegram product · HTML (all details)'),
+            ('builtin-product-rich', 'Telegram product · Rich (all details)'),
+        ])
+
     def test_presets_render_with_sample_context(self):
         for preset in PRESETS:
             self.assertTrue(preset['title'])

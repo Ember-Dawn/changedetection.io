@@ -61,6 +61,6 @@ The WebUI rule help and its Copy Markdown action use this same document. JSON ex
 
 ## 5. Notification templates
 
-The policy rules above determine **when to notify**, not how to render a message. Seven current built-ins cover generic, product Plain Text, Telegram HTML (foldable / all details / compact), and Telegram Rich. Selecting a template changes Format immediately; **Apply to editor** copies Title and Body; the normal Save is still necessary. Existing Watches do not automatically inherit library edits.
+The policy rules above determine **when to notify**, not how to render a message. Six current built-ins cover general changes, product Plain Text, compact changes, Telegram HTML (compact / all details), and Telegram Rich (all details). Compatible newly created product Watches use HTML Compact by default when all effective destinations are Telegram and no notification fields are supplied. Selecting a template changes Format immediately; **Apply to editor** copies Title and Body; the normal Save is still necessary. Existing Watches do not automatically inherit library edits.
 
 See [NOTIFICATION_TEMPLATES.md](NOTIFICATION_TEMPLATES.md) for templates, Chinese names, dialogs, dynamic display fields and links. See [RESTOCK_AND_ALERTS.md](RESTOCK_AND_ALERTS.md) for notification event evaluation and dispatch.

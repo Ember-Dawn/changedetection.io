@@ -50,10 +50,10 @@ The existing Worker/notification service and Apprise pipeline continue to gate a
 
 ## Unresolved Watch/Tag/API integration mismatch — audited 2026-11-04
 
-**This is an actual source compatibility issue, not merely outdated prose.** The evaluator above uses `price_mode`, `stock_mode`, `price_threshold`, etc., but the audited `processors/restock_diff/forms.py`, parts of `processor.py`, and `processors/restock_diff/api.yaml` still refer to obsolete `alert_mode` / `target_price` values (`stock_only`, `price_only`, `stock_and_price`). Consequently the legacy UI/API examples must **not** be presented as verified working examples of the expanded rule engine. Verify the deployed revision, reconcile those files and update the API specification **in a separate tested source change**. No API correction is made by this documentation-only patch.
+**Source alignment (reviewed 2026-11-04):** `forms.py`, `processor.py`, and `api.yaml` now use `price_mode`, `stock_mode`, `price_threshold` and related expanded rule fields. Earlier notes claiming these files still used legacy `alert_mode` / `target_price` were out of date. Legacy stored configurations are not automatically migrated; revalidate the live deployment and test the complete rule path after upgrades.
 
 The extraction modes are `auto`, `rule` and `builtin`; rule Dry Run does not modify Watch history or alert baselines. Confirm Tag `overrides_watch` behavior on the actual deployed revision, given the mismatch above.
 
 ## Maintenance and verification
 
-Relevant paths are `purchase_alert.py` (policy), `restock_diff/__init__.py` (display tokens), `notification_service.py` (dispatch), and the template/Telegram handler. Run the product presentation and Telegram format/contract tests, plus real browser/Telegram acceptance tests after deploying. The older `tests/product_extraction/test_purchase_alert.py` contains legacy policy fixtures and cannot serve as proof the expanded policy passes until fixtures are migrated. Never describe offline JSON/Jinja2 validation as successful Telegram delivery.
+Relevant paths are `purchase_alert.py` (policy), `restock_diff/__init__.py` (display tokens), `notification_service.py` (dispatch), and the template/Telegram handler. Run the product presentation and Telegram format/contract tests, plus real browser/Telegram acceptance tests after deploying. The policy tests exercise the evaluator but cannot substitute for full WebUI/API and live Telegram acceptance testing. Never describe offline JSON/Jinja2 validation as successful Telegram delivery.

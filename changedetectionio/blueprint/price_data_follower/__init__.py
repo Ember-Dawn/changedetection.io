@@ -19,6 +19,11 @@ def construct_blueprint(datastore: ChangeDetectionStore, update_q: PriorityQueue
     def accept(uuid):
         datastore.data['watching'][uuid]['track_ldjson_price_data'] = PRICE_DATA_TRACK_ACCEPT
         datastore.data['watching'][uuid]['processor'] = 'restock_diff'
+        from changedetectionio.notification.templates import apply_product_notification_defaults
+        apply_product_notification_defaults(
+            datastore.data['watching'][uuid],
+            datastore.data['settings']['application'],
+        )
         datastore.data['watching'][uuid].clear_watch()
         datastore.data['watching'][uuid].commit()
         worker_pool.queue_item_async_safe(update_q, queuedWatchMetaData.PrioritizedItem(priority=1, item={'uuid': uuid}))

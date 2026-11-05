@@ -9,14 +9,19 @@ Templates store a `name`, `title`, `body` and `format` (custom templates also ha
 | Built-in preset | Format | Contents |
 | --- | --- | --- |
 | General webpage change | Generic default | Original generic notification |
-| Telegram product · HTML (foldable) | `telegram_html` | Clickable title, dynamic price/stock, expandable `<blockquote>` with rule/reason/reference |
-| Telegram product · HTML (all details) | `telegram_html` | Clickable title, price/stock and all auxiliary details directly visible |
-| Telegram product · HTML (compact) | `telegram_html` | Only clickable title and dynamic price/stock; **no** rules/reasons/details |
-| Product · Plain Text | `text` | Price/stock, inline rule/reason/reference, raw product URL; normal Notification Title handles the Watch title |
-| Telegram product · Rich details | `telegram_rich` | Clickable Watch heading (size 5), price and stock on separate lines, `Details` block |
+| Product · Plain Text | `text` | Price/stock, inline rule/reason/reference, raw product URL |
 | Compact change alert | `text` | Generic compact Watch/diff/link message |
+| Telegram product · HTML (compact) | `telegram_html` | Clickable title and dynamic price/stock, without auxiliary details |
+| Telegram product · HTML (all details) | `telegram_html` | Clickable title, price/stock, rule/reason/reference inline |
+| Telegram product · Rich (all details) | `telegram_rich` | Linked Watch heading (size 5), price/stock rows, native Details block |
 
-Seven built-ins are current. Earlier historical references to three presets describe an intermediate release.
+Six built-ins are listed in their display order. The removed `builtin-product-html` foldable preset is no longer selectable. Existing Watches containing a copied foldable body are not migrated or modified; custom templates are also untouched. The Rich preset retains ID `builtin-product-rich` despite its display name changing.
+
+### Default for new product Watches
+
+The single source of truth is `notification.templates.apply_product_notification_defaults`. On creation with `processor=restock_diff`, or on an existing Watch's explicit switch to that processor, the app copies `builtin-product-html-compact` **only if** the Watch still uses default/empty title, body and format, no notification field was explicitly supplied during creation, and **all effective notification URLs** are `tgram://` destinations. Effective targets resolve Watch, then first non-muted Tag, then Global. If the target list is empty, non-Telegram or mixed, existing generic defaults remain. A custom title/body/format, or an explicitly submitted notification field, always takes precedence.
+
+This is one-time initialization, not a permanent template reference. The system does not migrate existing product Watches on startup or when global notification destinations are changed. An exact Title/Body/Format match may be displayed as the selected template in the UI, but the Watch stores only the copied values; a manual edit clears a no-longer-matching UI selection.
 
 ## Selecting, applying and saving
 
@@ -54,7 +59,7 @@ This supports price-only (hide stock), stock-only (hide price), percentage-based
 | Format | Clickable title | Details |
 | --- | --- | --- |
 | Plain Text | No hidden-URL hyperlink. Show the URL separately; clients may auto-link it | Inline with emoji |
-| Telegram HTML | HTML `<a href="..."><b>title</b></a>` generated in Body, with escaped title and attribute | Optional expandable blockquote, all details inline, or **compact with none** |
+| Telegram HTML | HTML `<a href="..."><b>title</b></a>` generated in Body, with escaped title and attribute | All details inline or **compact with none** |
 | Telegram Rich | Typed RichText `url` inside a size-5 `heading` | Native `details` block |
 | Telegram MarkdownV2 | Valid escaped MarkdownV2 links can be used | No built-in dedicated product preset |
 

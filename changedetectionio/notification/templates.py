@@ -10,7 +10,6 @@ from changedetectionio.notification import (
 )
 from changedetectionio.jinja2_custom import create_jinja_env
 
-PRODUCT_HTML = '<a href="{{ (watch_open_url or watch_url)|e }}"><b>{{ watch_title|e }}</b></a>\n{% if purchase_alert.show_price %}💰 {{ purchase_alert.display_price|e }}{% if purchase_alert.display_change and not test_notification %} {{ purchase_alert.display_change|e }}{% endif %}\n{% endif %}{% if purchase_alert.show_stock %}{{ (purchase_alert.display_stock_current if test_notification else purchase_alert.display_stock)|e }}\n{% endif %}<blockquote expandable>🎯 {{ purchase_alert.rule_text|e }}\n🔔 {% if test_notification %}Test notification — no monitoring condition asserted{% else %}{{ purchase_alert.reason_text|e }}{% endif %}{% if purchase_alert.display_reference_price and not test_notification %}\n📊 Reference: {{ purchase_alert.display_reference_price|e }}{% endif %}</blockquote>'
 PRODUCT_HTML_EXPANDED = '<a href="{{ (watch_open_url or watch_url)|e }}"><b>{{ watch_title|e }}</b></a>\n{% if purchase_alert.show_price %}💰 {{ purchase_alert.display_price|e }}{% if purchase_alert.display_change and not test_notification %} {{ purchase_alert.display_change|e }}{% endif %}\n{% endif %}{% if purchase_alert.show_stock %}{{ (purchase_alert.display_stock_current if test_notification else purchase_alert.display_stock)|e }}\n{% endif %}🎯 {{ purchase_alert.rule_text|e }}\n🔔 {% if test_notification %}Test notification — no monitoring condition asserted{% else %}{{ purchase_alert.reason_text|e }}{% endif %}{% if purchase_alert.display_reference_price and not test_notification %}\n📊 Reference: {{ purchase_alert.display_reference_price|e }}{% endif %}'
 PRODUCT_HTML_COMPACT = '<a href="{{ (watch_open_url or watch_url)|e }}"><b>{{ watch_title|e }}</b></a>\n{% if purchase_alert.show_price %}💰 {{ purchase_alert.display_price|e }}{% if purchase_alert.display_change and not test_notification %} {{ purchase_alert.display_change|e }}{% endif %}\n{% endif %}{% if purchase_alert.show_stock %}{{ (purchase_alert.display_stock_current if test_notification else purchase_alert.display_stock)|e }}{% endif %}'
 PRODUCT_TEXT = '{% if purchase_alert.show_price %}💰 {{ purchase_alert.display_price }}{% if purchase_alert.display_change and not test_notification %} {{ purchase_alert.display_change }}{% endif %}\n{% endif %}{% if purchase_alert.show_stock %}{{ purchase_alert.display_stock_current if test_notification else purchase_alert.display_stock }}\n{% endif %}🎯 {{ purchase_alert.rule_text }}\n🔔 {% if test_notification %}Test notification — no monitoring condition asserted{% else %}{{ purchase_alert.reason_text }}{% endif %}{% if purchase_alert.display_reference_price and not test_notification %}\n📊 Reference: {{ purchase_alert.display_reference_price }}{% endif %}\n{{ watch_open_url or watch_url }}'
@@ -25,26 +24,69 @@ PRESETS = (
     dict(id='builtin-general', name='General webpage change',
          title=default_notification_title, body=default_notification_body,
          format=default_notification_format, builtin=True),
-    dict(id='builtin-product-html', name='Telegram product · HTML (foldable)',
-         title=PRODUCT_HTML_TITLE, body=PRODUCT_HTML,
-         format='telegram_html', builtin=True),
-    dict(id='builtin-product-html-expanded', name='Telegram product · HTML (all details)',
-         title=PRODUCT_HTML_TITLE, body=PRODUCT_HTML_EXPANDED,
-         format='telegram_html', builtin=True),
-    dict(id='builtin-product-html-compact', name='Telegram product · HTML (compact)',
-         title=PRODUCT_HTML_TITLE, body=PRODUCT_HTML_COMPACT,
-         format='telegram_html', builtin=True),
     dict(id='builtin-product-text', name='Product · Plain Text',
          title='{{ watch_title }}', body=PRODUCT_TEXT,
          format='text', builtin=True),
-    dict(id='builtin-product-rich', name='Telegram product · Rich details',
-         title=RICH_INTERNAL_TITLE, body=PRODUCT_RICH,
-         format='telegram_rich', builtin=True),
     dict(id='builtin-compact', name='Compact change alert',
          title='Watch alert: {{ watch_title or watch_url }}',
          body='{{ watch_title or watch_url }}\n{{ diff }}\n{{ watch_open_url or watch_url }}',
          format='text', builtin=True),
+    dict(id='builtin-product-html-compact', name='Telegram product · HTML (compact)',
+         title=PRODUCT_HTML_TITLE, body=PRODUCT_HTML_COMPACT,
+         format='telegram_html', builtin=True),
+    dict(id='builtin-product-html-expanded', name='Telegram product · HTML (all details)',
+         title=PRODUCT_HTML_TITLE, body=PRODUCT_HTML_EXPANDED,
+         format='telegram_html', builtin=True),
+    dict(id='builtin-product-rich', name='Telegram product · Rich (all details)',
+         title=RICH_INTERNAL_TITLE, body=PRODUCT_RICH,
+         format='telegram_rich', builtin=True),
 )
+
+# Watch defaults are copied only when all effective destinations use Telegram.
+# Do not invent a Telegram-only format for unset, mixed or non-Telegram targets.
+PRODUCT_DEFAULT_TEMPLATE_ID = 'builtin-product-html-compact'
+
+
+def apply_product_notification_defaults(watch, app_settings, *, explicit_fields=()):
+    """Initialize an uncustomized product Watch without changing existing settings.
+
+    Returns True only when a compatible preset was copied into the Watch.
+    Tag destinations follow the same Watch > first non-muted Tag > Global order
+    as notification_service._check_cascading_vars().
+    """
+    from changedetectionio.notification import USE_SYSTEM_DEFAULT_NOTIFICATION_FORMAT_FOR_WATCH
+
+    if watch.get('processor') != 'restock_diff':
+        return False
+    if set(explicit_fields).intersection({'notification_title', 'notification_body',
+                                           'notification_format'}):
+        return False
+    if watch.get('notification_title') or watch.get('notification_body'):
+        return False
+    if watch.get('notification_format') not in (None, '', USE_SYSTEM_DEFAULT_NOTIFICATION_FORMAT_FOR_WATCH):
+        return False
+    if watch.get('notification_muted'):
+        return False
+
+    urls = watch.get('notification_urls')
+    if not urls:
+        for tag_id in watch.get('tags') or ():
+            tag = (app_settings.get('tags') or {}).get(tag_id) or {}
+            if not tag.get('notification_muted') and tag.get('notification_urls'):
+                urls = tag['notification_urls']
+                break
+    if not urls:
+        urls = app_settings.get('notification_urls') or []
+    if not isinstance(urls, (list, tuple)) or not urls or not all(
+            isinstance(url, str) and url.strip().lower().startswith('tgram://') for url in urls):
+        return False
+
+    preset = next(item for item in PRESETS if item['id'] == PRODUCT_DEFAULT_TEMPLATE_ID)
+    watch['notification_title'] = preset['title']
+    watch['notification_body'] = preset['body']
+    watch['notification_format'] = preset['format']
+    return True
+
 
 MAX_TEMPLATES = 50
 

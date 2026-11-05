@@ -95,6 +95,12 @@ def construct_blueprint(datastore: ChangeDetectionStore, update_q, queuedWatchMe
             for p in processors.available_processors():
                 if p[0] == switch_processor:
                     datastore.data['watching'][uuid]['processor'] = switch_processor
+                    if switch_processor == 'restock_diff':
+                        from changedetectionio.notification.templates import apply_product_notification_defaults
+                        apply_product_notification_defaults(
+                            datastore.data['watching'][uuid],
+                            datastore.data['settings']['application'],
+                        )
                     flash(gettext("Switched to mode - {}.").format(p[1]))
                     datastore.clear_watch_history(uuid)
                     redirect(url_for('ui_edit.edit_page', uuid=uuid))

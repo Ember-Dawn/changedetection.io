@@ -1,5 +1,13 @@
 # Product extraction changes
 
+## 2026-11-04 — Notification template cleanup and Telegram-safe product defaults
+
+- Reduced built-ins from seven to six: removed the selectable foldable HTML preset, preserved existing copied Watch bodies and custom templates; reordered the six choices and renamed the Rich display label without changing its ID.
+- New or explicitly converted product Watches get HTML Compact on first initialization only when uncustomized and all effective notification destinations are Telegram. Existing Watch notification settings remain untouched; other destinations keep generic defaults.
+- Restored exact-match template selection in the editor without a new persisted template ID; selection and unsaved edits retain the Apply guard.
+- Corrected outdated documentation that described already-integrated `price_mode` / `stock_mode` fields as missing from forms, processor and API schema. Historic changelog entries below remain historical.
+
+
 This file records **historical** changes. Current behavior: [Stock & Price rules](STOCK_PRICE_RULES.md), [event/delivery evaluation](RESTOCK_AND_ALERTS.md), and [template guide](NOTIFICATION_TEMPLATES.md). The old mentions of three presets or old API schemas refer to earlier stages; they are not current instructions.
 
 ### Documentation consolidation and integration audit (2026-11-04)

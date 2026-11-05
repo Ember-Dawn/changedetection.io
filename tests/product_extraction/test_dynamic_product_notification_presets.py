@@ -74,7 +74,7 @@ class DynamicProductPresets(unittest.TestCase):
         self.assertIn('&lt;Ti&gt;', rendered)
 
     def test_both_html_variants_and_plain_text_follow_price_stock_flags(self):
-        for key in ('PRODUCT_HTML', 'PRODUCT_HTML_EXPANDED', 'PRODUCT_HTML_COMPACT', 'PRODUCT_TEXT'):
+        for key in ('PRODUCT_HTML_EXPANDED', 'PRODUCT_HTML_COMPACT', 'PRODUCT_TEXT'):
             for price, stock in ((True, False), (False, True), (True, True), (False, False)):
                 with self.subTest(key=key, price=price, stock=stock):
                     rendered = self.render(key, price, stock)
@@ -83,11 +83,9 @@ class DynamicProductPresets(unittest.TestCase):
                     self.assertEqual('−11%' in rendered, price)
                     self.assertNotIn('📦', rendered)
 
-    def test_details_are_only_in_expandable_or_inline_detail_presets(self):
-        fold = self.render('PRODUCT_HTML', True, True)
+    def test_details_are_only_in_inline_detail_preset(self):
         expanded = self.render('PRODUCT_HTML_EXPANDED', True, True)
         compact = self.render('PRODUCT_HTML_COMPACT', True, True)
-        self.assertIn('<blockquote expandable>', fold)
         self.assertNotIn('<blockquote', expanded)
         self.assertIn('🎯', expanded)
         self.assertNotIn('<blockquote', compact)
@@ -97,7 +95,7 @@ class DynamicProductPresets(unittest.TestCase):
         self.assertNotIn('View product', compact)
 
     def test_test_notification_does_not_claim_event_or_baseline(self):
-        for key in ('PRODUCT_HTML', 'PRODUCT_HTML_EXPANDED', 'PRODUCT_HTML_COMPACT', 'PRODUCT_TEXT'):
+        for key in ('PRODUCT_HTML_EXPANDED', 'PRODUCT_HTML_COMPACT', 'PRODUCT_TEXT'):
             with self.subTest(key=key):
                 result = self.render(key, True, True, True)
                 self.assertNotIn('−11%', result)

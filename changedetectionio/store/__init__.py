@@ -859,6 +859,13 @@ class ChangeDetectionStore(DatastoreUpdatesMixin, FileSavingDataStore):
             apply_extras['date_created'] = int(time.time())
 
         new_watch.update(apply_extras)
+        # New product Watches only: apply the compact Telegram preset when no
+        # notification field was supplied and every effective target is Telegram.
+        from changedetectionio.notification.templates import apply_product_notification_defaults
+        apply_product_notification_defaults(
+            new_watch, self.__data['settings']['application'],
+            explicit_fields=apply_extras.keys(),
+        )
 
         # Promote a pre-seeded directory into this watch's data_dir via a single rename()
         # (cheap: same filesystem, no copy). The seed must already be in final on-disk format.

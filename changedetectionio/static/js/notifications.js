@@ -53,7 +53,14 @@ function setupNotificationTemplateLibrary() {
         templates.forEach(function(t) {
             $select.append($('<option>').val(t.id).text((t.builtin ? 'Preset: ' : 'My template: ') + t.name));
         });
-        $select.val(selectId || '');
+        // Restore the selected preset only for an exact copy-on-select match.
+        // A Watch does not persist a template ID; never pretend that edited
+        // content is still linked to a library template.
+        var matched = templates.find(function(t) {
+            var value = current();
+            return t.title === value.title && t.body === value.body && t.format === value.format;
+        });
+        $select.val(selectId || (matched ? matched.id : ''));
         // Preserve edited form values when a template is saved/reloaded.
         if (pendingTemplateId && pendingTemplateId !== $select.val()) setPending('');
         updateButtons();
@@ -143,12 +150,20 @@ function setupNotificationTemplateLibrary() {
         $result.hide();
         say('Copied title, body and format to editor. Click the page Save button to apply.');
     }
+    $title.add($body).add($format).on('input.notificationPresetMatch change.notificationPresetMatch', function() {
+        if (applyingTemplate || pendingTemplateId || !$select.val()) return;
+        var item = selected(), value = current();
+        if (item && (item.title !== value.title || item.body !== value.body || item.format !== value.format)) {
+            $select.val('');
+            updateButtons();
+        }
+    });
     $select.on('change', function() {
         updateButtons();
         var item = selected();
         if (item) {
-            setFormat(item.format);
             setPending(item.id);
+            setFormat(item.format);
             say('Format updated for the selected template. Click Apply to editor to update its body.');
         } else {
             setPending('');
