@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "id": "bestbuy-products",
+  "name": "Best Buy Products",
+  "enabled": true,
+  "match": {
+    "domains": [
+      "bestbuy.com"
+    ],
+    "path_patterns": [
+      "/product/*"
+    ]
+  },
+  "page": {
+    "extra_wait_seconds": 5
+  },
+  "fields": {
+    "price": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "[data-testid='price-block-customer-price'][data-lu-target='customer_price'] .sr-only",
+          "extract": "text"
+        }
+      ]
+    },
+    "currency": {
+      "selectors": [
+        {
+          "type": "jsonpath",
+          "value": "$..offers[*].priceCurrency",
+          "extract": "text"
+        }
+      ]
+    },
+    "title": {
+      "selectors": [
+        {
+          "type": "css",
+          "value": "h1",
+          "extract": "text"
+        }
+      ]
+    },
+    "sku": {
+      "selectors": [
+        {
+          "type": "xpath",
+          "value": "//div[contains(concat(' ', normalize-space(@class), ' '), ' pr-200 ') and contains(concat(' ', normalize-space(@class), ' '), ' inline-block ') and starts-with(normalize-space(.), 'SKU:')]/text()[normalize-space() != '' and not(starts-with(normalize-space(.), 'SKU:'))]"
+        }
+      ]
+    },
+    "pickup": {
+      "condition": {
+        "op": "exists",
+        "selector": {
+          "type": "xpath",
+          "value": "//div[@data-brix-component-name='Selector' and @role='radio' and contains(concat(' ',normalize-space(@class),' '),' border-solid ')][.//span[normalize-space()='Pickup']][.//span[@data-testid='availabilityDateLabel' and normalize-space()!='' and not(contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'unavailable'))]]//span[@data-testid='availabilityDateLabel'][not(//button[starts-with(@data-testid,'pdp-sold-out-')])]"
+        },
+        "guard": {
+          "type": "xpath",
+          "value": "//button[starts-with(@data-testid,'pdp-sold-out-')] | //div[@data-brix-component-name='Selector' and @role='radio' and (contains(concat(' ',normalize-space(@class),' '),' border-solid ') or contains(concat(' ',normalize-space(@class),' '),' border-dashed '))][.//span[normalize-space()='Pickup']]//span[@data-testid='availabilityDateLabel' and normalize-space()!='']"
+        }
+      }
+    },
+    "shipping": {
+      "condition": {
+        "op": "exists",
+        "selector": {
+          "type": "xpath",
+          "value": "//div[@data-brix-component-name='Selector' and @role='radio' and contains(concat(' ',normalize-space(@class),' '),' border-solid ')][.//span[normalize-space()='Shipping']][.//span[@data-testid='availabilityDateLabel' and normalize-space()!='' and not(contains(translate(.,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'unavailable'))]]//span[@data-testid='availabilityDateLabel'][not(//button[starts-with(@data-testid,'pdp-sold-out-')])]"
+        },
+        "guard": {
+          "type": "xpath",
+          "value": "//button[starts-with(@data-testid,'pdp-sold-out-')] | //div[@data-brix-component-name='Selector' and @role='radio' and (contains(concat(' ',normalize-space(@class),' '),' border-solid ') or contains(concat(' ',normalize-space(@class),' '),' border-dashed '))][.//span[normalize-space()='Shipping']]//span[@data-testid='availabilityDateLabel' and normalize-space()!='']"
+        }
+      }
+    },
+    "in_stock": {
+      "condition": {
+        "op": "any",
+        "items": [
+          {
+            "op": "ref",
+            "field": "pickup"
+          },
+          {
+            "op": "ref",
+            "field": "shipping"
+          }
+        ]
+      }
+    }
+  }
+}
