@@ -35,7 +35,7 @@ V2: JSON 条件语法、Pickup/Shipping、多场景测试及合成示例请参�
 
 ## Duplicate imports, updates and deletion
 
-Rule identity is the stable, Git-friendly `id` (`rules/<id>.json`), not a UUID. Import only loads content into the editor. Saving a duplicate ID with identical data is a no-op; changes require an explicit overwrite confirmation and matching last-seen content revision. If another editor or Git changed the rule, reload before retrying. Duplicate creates a new ID. Delete asks for confirmation and refuses a rule referenced by an explicit Restock Watch or by the auto-selection URL matching of a Restock Watch; first remove those dependencies. Deleting a file is a Git working-tree change; the WebUI does not execute `git commit`.
+Rule identity is the stable, Git-friendly `id` (`rules/<id>.json`), not a UUID. Import only loads content into the editor. Saving an unchanged rule is a no-op. Editing the currently loaded ID saves directly with its last-seen revision; a new/imported/renamed rule that conflicts with another existing ID requires an in-page overwrite confirmation. Enter confirms and Escape cancels; all overwrites still require the matching last-seen content revision. If another editor or Git changed the rule, reload before retrying. Duplicate creates a new ID. Delete asks for confirmation and refuses a rule referenced by an explicit Restock Watch or by the auto-selection URL matching of a Restock Watch; first remove those dependencies. Deleting a file is a Git working-tree change; the WebUI does not execute `git commit`.
 
 `Copy data` copies just the normalized product fields; `Copy full JSON` includes field diagnostics but excludes any screenshot.
 

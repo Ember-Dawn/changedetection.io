@@ -119,8 +119,58 @@
     documentGeneration++;
     updateDirty();
   }
-  function confirmOverwrite() {
-    return !updateDirty() || window.confirm('Discard unsaved changes to this rule?');
+  // The dialog never invokes a browser-native confirm. It is the only confirmation
+  // surface for discarding edits, overwriting a different rule ID and deletion.
+  const dialog = $('px-confirm-dialog');
+  const dialogTitle = $('px-confirm-title');
+  const dialogDescription = $('px-confirm-description');
+  const dialogConfirm = $('px-confirm-accept');
+  const dialogCancel = $('px-confirm-cancel');
+  let dialogResolve = null;
+  let dialogPreviousFocus = null;
+  function closeDialog(accepted) {
+    if (!dialogResolve) return;
+    const resolve = dialogResolve;
+    dialogResolve = null;
+    dialog.hidden = true;
+    if (dialogPreviousFocus && document.contains(dialogPreviousFocus)) dialogPreviousFocus.focus();
+    dialogPreviousFocus = null;
+    resolve(accepted);
+  }
+  function askConfirm({title, description, confirm = 'Confirm', dangerous = false}) {
+    if (dialogResolve) return Promise.resolve(false);
+    dialogTitle.textContent = title;
+    dialogDescription.textContent = description;
+    dialogConfirm.textContent = confirm;
+    dialogConfirm.classList.toggle('px-button-danger', dangerous);
+    dialogConfirm.classList.toggle('px-button-primary', !dangerous);
+    dialogPreviousFocus = document.activeElement;
+    dialog.hidden = false;
+    dialogConfirm.focus();
+    return new Promise(resolve => { dialogResolve = resolve; });
+  }
+  dialogConfirm.addEventListener('click', () => closeDialog(true));
+  dialogCancel.addEventListener('click', () => closeDialog(false));
+  dialog.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      event.preventDefault(); event.stopPropagation(); closeDialog(false);
+    } else if (event.key === 'Enter' && !event.isComposing && event.keyCode !== 229) {
+      event.preventDefault(); event.stopPropagation(); closeDialog(true);
+    } else if (event.key === 'Tab') {
+      const target = document.activeElement;
+      if (event.shiftKey && target === dialogConfirm) {
+        event.preventDefault(); dialogCancel.focus();
+      } else if (!event.shiftKey && target === dialogCancel) {
+        event.preventDefault(); dialogConfirm.focus();
+      }
+    }
+  });
+  async function confirmDiscard() {
+    return !updateDirty() || await askConfirm({
+      title: 'Discard unsaved changes?',
+      description: 'Changes in the rule editor have not been saved.',
+      confirm: 'Discard', dangerous: true,
+    });
   }
   function lock(isBusy) {
     pending = isBusy;
@@ -168,8 +218,8 @@
     editorToggle.setAttribute('aria-expanded',String(expanded));
     editorToggle.textContent = expanded ? 'Collapse editor' : 'Expand editor';
   });
-  $('product-rule-new').addEventListener('click', () => {
-    if (pending || !confirmOverwrite()) return;
+  $('product-rule-new').addEventListener('click', async () => {
+    if (pending || !await confirmDiscard()) return;
     setSelected('');
     selector.dataset.currentId = '';
     $('product-rule-delete').disabled = true;
@@ -183,7 +233,7 @@
     if (pending) return;
     const id = selector.value;
     if (!id) {
-      if (!confirmOverwrite()) { setSelected(selector.dataset.currentId || ''); return; }
+      if (!await confirmDiscard()) { setSelected(selector.dataset.currentId || ''); return; }
       selector.dataset.currentId = '';
       $('product-rule-delete').disabled = true;
       fileInput.value = '';
@@ -192,7 +242,7 @@
       message('Ready for a new rule.');
       return;
     }
-    if (!confirmOverwrite()) { setSelected(selector.dataset.currentId || ''); return; }
+    if (!await confirmDiscard()) { setSelected(selector.dataset.currentId || ''); return; }
     const expectedGeneration = documentGeneration;
     lock(true);
     message(`Loading ${id}…`, 'busy');
@@ -210,8 +260,8 @@
       message(`Load failed: ${err.message}`, 'error');
     } finally { lock(false); }
   });
-  $('product-rule-import-trigger').addEventListener('click', () => {
-    if (!pending && confirmOverwrite()) fileInput.click();
+  $('product-rule-import-trigger').addEventListener('click', async () => {
+    if (!pending && await confirmDiscard()) fileInput.click();
   });
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files && fileInput.files[0];
@@ -248,7 +298,13 @@
     const currentId = selector.dataset.currentId || '';
     const isSame = existing && currentId === payload.id && !updateDirty();
     if (isSame) { message('Identical saved rule; nothing to update.', 'success'); return; }
-    if (existing && !window.confirm(`Rule ID "${payload.id}" already exists. Overwrite its JSON?\nThis affects Watches that use the rule.${overlapWarning(payload)}`)) return;
+    // The selected, loaded rule is already the user's explicit edit target.
+    // Only a *different* existing ID requires confirmation (new/import/rename).
+    if (existing && currentId !== payload.id && !await askConfirm({
+      title: 'Overwrite existing rule?',
+      description: `Rule ID "${payload.id}" already exists. Replacing it will affect Watches using that rule.${overlapWarning(payload)}`,
+      confirm: 'Overwrite', dangerous: true,
+    })) return;
     const submittedText = editor.value;
     const expectedGeneration = documentGeneration;
     lock(true);
@@ -286,7 +342,7 @@
   });
   $('product-rule-delete').addEventListener('click', async () => {
     const rid = selector.dataset.currentId;
-    if (pending || !rid || !confirmOverwrite()) return;
+    if (pending || !rid || !await confirmDiscard()) return;
     lock(true);
     try {
       const {references} = await request('api/' + encodeURIComponent(rid) + '/references');
@@ -295,7 +351,11 @@
         message(`Cannot delete ${rid}: referenced by ${references.length} Watches (${titles}). Unbind them first.`, 'error');
         return;
       }
-      if (!window.confirm(`Delete rule ${rid} from the Git-tracked rules directory? This cannot be undone outside Git.`)) return;
+      if (!await askConfirm({
+        title: 'Delete rule?',
+        description: `Delete ${rid} from the Git-tracked rules directory? This can only be recovered through Git or a backup.`,
+        confirm: 'Delete', dangerous: true,
+      })) return;
       await request('api/' + encodeURIComponent(rid) + '/delete', {expected_signature:revisions.get(rid)});
       await refreshRules('');
       selector.dataset.currentId = '';

@@ -1,3 +1,9 @@
+### Product Extractors save and custom confirmations (2026-11-05)
+
+- Editing the currently loaded rule now sends a revision-checked overwrite directly, without an unnecessary confirmation. New/imported/renamed IDs that conflict with a different existing rule still require explicit confirmation.
+- Replaced native confirmations for discard, conflicting overwrite and delete with an in-page dialog. Enter confirms, Escape cancels, Tab stays within the dialog, and focus returns to the triggering control.
+- Backend overwrite and optimistic revision checks are unchanged; Watch bindings and rule IDs are not migrated.
+
 ## 2026-11-05 — Product Extractors: fixed currency literal
 
 - `fields.currency` supports either existing selectors or a stand-alone `{"literal":"USD"}` object (recognized uppercase ISO 4217 code); mixing the two forms is rejected. No fallback behavior is added.

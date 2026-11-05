@@ -123,6 +123,17 @@
       </div>
     </details>
   </section>
+  <div id="px-confirm-dialog" class="px-dialog-overlay" hidden>
+    <section class="px-dialog" role="dialog" aria-modal="true" aria-labelledby="px-confirm-title" aria-describedby="px-confirm-description">
+      <h2 id="px-confirm-title"></h2>
+      <p id="px-confirm-description"></p>
+      <div class="px-dialog-actions">
+        <button type="button" class="px-button px-button-quiet" id="px-confirm-cancel">Cancel</button>
+        <button type="button" class="px-button px-button-primary" id="px-confirm-accept">Confirm</button>
+      </div>
+      <p class="px-dialog-hint">Enter to confirm · Esc to cancel</p>
+    </section>
+  </div>
 </main>
 <script src="{{ url_for('product_extractors.static', filename='product-extractors.js') }}" defer></script>
 <script defer src="{{ url_for('static', filename='js/custom-select.js') }}"></script>

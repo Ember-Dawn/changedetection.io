@@ -109,3 +109,12 @@
 
 /* The enhanced popup provides the only dropdown arrow. */
 #px-root .px-select-wrap:has(.cd-select)::after{display:none}
+
+/* Accessible, page-owned confirmation dialog; hidden must win over display. */
+#px-root .px-dialog-overlay[hidden]{display:none}
+#px-root .px-dialog-overlay{position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,9,24,.76)}
+#px-root .px-dialog{width:min(100%,440px);border:1px solid rgba(168,197,245,.34);border-radius:12px;padding:22px;background:#213253;box-shadow:0 20px 70px rgba(0,0,0,.5);color:#f1f6ff}
+#px-root .px-dialog h2{margin:0 0 12px;font-size:19px;font-weight:700}
+#px-root .px-dialog p{margin:0;line-height:1.55;font-size:13px;overflow-wrap:anywhere;color:#cfdbf1;white-space:pre-line}
+#px-root .px-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
+#px-root .px-dialog .px-dialog-hint{margin-top:12px;color:#afc0e0;font-size:11px;text-align:right}
