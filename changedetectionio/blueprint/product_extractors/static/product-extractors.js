@@ -28,6 +28,7 @@
   let rawResult = '';
   let resultData = null;
   let rulesIndex = [];
+  let rulesReady = false;
   const revisions = new Map();
   const fields = [
     ['price','Price'], ['currency','Currency'], ['in_stock','In stock'],
@@ -188,7 +189,12 @@
     let value;
     try { value = await response.json(); }
     catch (_) { throw new Error(`HTTP ${response.status}: invalid server response`); }
-    if (!response.ok) throw new Error((value && value.error) || `HTTP ${response.status}`);
+    if (!response.ok) {
+      const error = new Error((value && value.error) || `HTTP ${response.status}`);
+      error.status = response.status;
+      error.code = value && value.code;
+      throw error;
+    }
     return value;
   }
   function read() {
@@ -210,6 +216,7 @@
     setSelected(selectedId || '');
     countEl.textContent = `${(listing.rules || []).length} saved`;
     $('product-rule-delete').disabled = !selector.value;
+    rulesReady = true;
   }
 
   editor.addEventListener('input', updateDirty);
@@ -288,18 +295,24 @@
     const domains = (rule.match && rule.match.domains) || [];
     const other = rulesIndex.filter(item => item.id !== rule.id && item.enabled &&
       item.domains.some(domain => domains.some(candidate => domain === candidate || domain.endsWith('.'+candidate) || candidate.endsWith('.'+domain))));
-    return other.length ? `\nWarning: overlapping domain rules (${other.map(r => r.id).join(', ')}). Auto-mode Watches may need an explicit rule selection.` : '';
+    return other.length ? `\nWarning: overlapping domain rules (${other.map(r => r.id).join(', ')}). Select the intended rule explicitly in each Watch.` : '';
+  }
+  async function saveRule(payload, expectedSignature, overwrite) {
+    return request('api/save', {
+      rule: payload, expected_signature: expectedSignature, overwrite,
+    });
   }
   saveButton.addEventListener('click', async () => {
     if (pending) return;
+    if (!rulesReady) { message('Rule list is not loaded; reload this page before saving.', 'error'); return; }
     let payload;
     try { payload = read(); } catch (err) { message(err.message, 'error'); return; }
     const existing = rulesIndex.find(rule => rule.id === payload.id);
     const currentId = selector.dataset.currentId || '';
     const isSame = existing && currentId === payload.id && !updateDirty();
     if (isSame) { message('Identical saved rule; nothing to update.', 'success'); return; }
-    // The selected, loaded rule is already the user's explicit edit target.
-    // Only a *different* existing ID requires confirmation (new/import/rename).
+    // Editing the currently loaded ID is an explicit update. An imported/new ID
+    // colliding with another existing rule needs a separate confirmation.
     if (existing && currentId !== payload.id && !await askConfirm({
       title: 'Overwrite existing rule?',
       description: `Rule ID "${payload.id}" already exists. Replacing it will affect Watches using that rule.${overlapWarning(payload)}`,
@@ -310,10 +323,24 @@
     lock(true);
     message('Validating and saving rule…', 'busy');
     try {
-      const response = await request('api/save', {
-        rule:payload, expected_signature:existing ? revisions.get(payload.id) : null,
-        overwrite:Boolean(existing),
-      });
+      let response;
+      try {
+        response = await saveRule(payload, existing ? revisions.get(payload.id) : null, Boolean(existing));
+      } catch (err) {
+        if (err.status !== 409 || err.code !== 'RULE_ID_CONFLICT') throw err;
+        // Another editor may have created the same ID after our last listing.
+        // Refresh the revision and require explicit consent before overwriting.
+        await refreshRules(currentId);
+        const latestRevision = revisions.get(payload.id);
+        if (!latestRevision) throw new Error('The rule list changed; reload and try again.');
+        const confirmed = await askConfirm({
+          title: 'Overwrite existing rule?',
+          description: `Rule ID "${payload.id}" already exists on the server. Overwrite its current definition?`,
+          confirm: 'Overwrite', dangerous: true,
+        });
+        if (!confirmed) { message('Save cancelled; existing rule was not changed.'); return; }
+        response = await saveRule(payload, latestRevision, true);
+      }
       await refreshRules(response.rule.id);
       selector.dataset.currentId = response.rule.id;
       filenameEl.textContent = `Saved rule: ${response.rule.id}`;
@@ -322,8 +349,13 @@
         updateDirty();
       }
       message(`${response.status === 'unchanged' ? 'Unchanged' : response.status === 'updated' ? 'Updated' : 'Created'} ${response.rule.id}.${overlapWarning(response.rule)}`, 'success');
-    } catch (err) { message(`Save failed: ${err.message}`, 'error'); }
-    finally { lock(false); }
+    } catch (err) {
+      if (err.code === 'RULE_REVISION_CONFLICT') {
+        message('Rule changed on the server since it was loaded. Reload the rule before saving; no changes were overwritten.', 'error');
+      } else {
+        message(`Save failed: ${err.message}`, 'error');
+      }
+    } finally { lock(false); }
   });
   $('product-rule-duplicate').addEventListener('click', () => {
     if (pending) return;
@@ -406,5 +438,26 @@
     event.preventDefault();
     event.returnValue = '';
   });
+  // The server-rendered select is not a revision source. The first API/list
+  // request must complete before save/delete can be enabled.
+  async function initializeRules() {
+    lock(true);
+    message('Loading saved rules…', 'busy');
+    try {
+      await refreshRules('');
+      selector.dataset.currentId = '';
+      message('Select a saved rule or import a JSON file to begin.');
+    } catch (err) {
+      rulesReady = false;
+      message(`Failed to load rule revisions: ${err.message}. Reload the page to retry.`, 'error');
+    } finally {
+      lock(false);
+      if (!rulesReady) {
+        saveButton.disabled = true;
+        $('product-rule-delete').disabled = true;
+      }
+    }
+  }
   updateDirty();
+  initializeRules();
 })();

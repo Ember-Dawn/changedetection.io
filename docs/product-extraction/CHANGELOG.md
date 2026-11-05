@@ -78,3 +78,9 @@ This file records **historical** changes. Current behavior: [Stock & Price rules
 - Added extraction-only signatures to prevent waiting/metadata changes from rebasing stock/price tracking. Old signatures are adopted safely.
 - Added first-failure/one-recovery operational notifications with delivery acknowledgement and later retry for failed delivery.
 - Existing shop JSON files and Watches are not migrated.
+
+### Product Extractors initial revision loading and 409 save fix (2026-11-05)
+
+- Fixed first-page-load saves of existing JSON rules: the rule index and revision map are populated from the API before save is enabled. Previously this could submit `overwrite: false` and `expected_signature: null` for an existing Newegg rule, yielding HTTP 409.
+- The save API now returns stable `RULE_ID_CONFLICT` and `RULE_REVISION_CONFLICT` codes. ID collisions can display the existing custom Overwrite dialog; changed revisions require reloading instead of silently overwriting.
+- Added a revision parameter to the Product Extractors JavaScript URL to avoid stale browser cache and removed outdated Auto-mode wording. Added Node DOM/fetch behavioral tests and updated Python contract checks. Watch data and extraction rules are not migrated.

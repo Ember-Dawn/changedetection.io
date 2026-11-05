@@ -10,10 +10,14 @@ class RuleSaveDialogContract(unittest.TestCase):
     def test_loaded_rule_saves_without_confirmation_but_collision_asks(self):
         js = (UI / 'static/product-extractors.js').read_text()
         self.assertIn('currentId !== payload.id && !await askConfirm(', js)
-        self.assertIn('overwrite:Boolean(existing)', js)
-        self.assertIn('expected_signature:existing ? revisions.get(payload.id) : null', js)
+        self.assertIn('Boolean(existing)', js)
+        self.assertIn('existing ? revisions.get(payload.id) : null', js)
         self.assertNotIn('window.confirm(', js)
         self.assertNotIn('window.alert(', js)
+        self.assertIn('initializeRules();', js)
+        self.assertIn("await refreshRules('');", js)
+        self.assertIn("err.code !== 'RULE_ID_CONFLICT'", js)
+        self.assertIn("err.code === 'RULE_REVISION_CONFLICT'", js)
 
     def test_dialog_keyboard_and_accessibility(self):
         html = (UI / 'templates/product-extractors.html').read_text()
@@ -28,6 +32,15 @@ class RuleSaveDialogContract(unittest.TestCase):
         self.assertIn("event.key === 'Tab'", js)
         self.assertIn('dialogPreviousFocus.focus()', js)
         self.assertIn('.px-dialog-overlay[hidden]{display:none}', css)
+
+    def test_backend_uses_structured_conflicts(self):
+        source = (UI / '__init__.py').read_text()
+        self.assertIn("'RULE_ID_CONFLICT'", source)
+        self.assertIn("'RULE_REVISION_CONFLICT'", source)
+
+    def test_js_asset_has_revision(self):
+        html = (UI / 'templates/product-extractors.html').read_text()
+        self.assertIn("filename='product-extractors.js', v=", html)
 
     def test_registry_retains_revision_guard(self):
         registry = (ROOT / 'changedetectionio/product_extraction/registry.py').read_text()

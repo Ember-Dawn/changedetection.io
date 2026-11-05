@@ -111,7 +111,13 @@ def construct_blueprint(datastore):
                 overwrite=data.get('overwrite') is True, return_status=True)
             return jsonify({'rule':result,'revision':signature(result),'status':status})
         except RuleError as exc:
-            return jsonify({'error':str(exc)}),409 if 'changed' in str(exc).lower() or 'exists' in str(exc).lower() else 400
+            message = str(exc)
+            if message == 'Rule ID already exists with different content; confirm overwrite':
+                return jsonify({'error': message, 'code': 'RULE_ID_CONFLICT'}), 409
+            if message in ('Rule changed since opening; reload before overwriting',
+                           'Rule was deleted or renamed since opening'):
+                return jsonify({'error': message, 'code': 'RULE_REVISION_CONFLICT'}), 409
+            return jsonify({'error': message}), 400
         except (ValueError,OSError) as exc:
             return jsonify({'error':str(exc)}),400
 

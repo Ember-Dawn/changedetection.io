@@ -106,3 +106,10 @@ The current `processors/restock_diff/forms.py`, `processor.py` and `api.yaml` us
 - The Watch stock/price editor suggests a unique URL-matching selected rule without silently changing existing bindings. Auto is removed from new UI choices; legacy stored auto is still understood.
 - The extraction-only signature (rule ID + fields) avoids resetting price/stock baselines for waits, names or URL patterns. Handle older stored signatures without forced reset.
 - Product rule failures use a separate persisted and delivery-acknowledged failure/recovery notifier. Never interpret unavailable price/stock as zero or out-of-stock. Do not change existing commodity notification templates to implement operational notices.
+
+### Product Extractors save and revision contract (2026-11-05)
+
+- The server-rendered Current rule dropdown is not the source of truth for client-side rule revisions. On page initialization, `product-extractors.js` must load `/product-extractors/api/list` and populate both `rulesIndex` and `revisions` before permitting saves. Failure to load the list must fail closed.
+- Editing the currently loaded rule ID updates it with `overwrite: true` **and** the stored `expected_signature`; imported/new JSON with an existing ID requires the custom confirmation dialog. Do not bypass the registry's atomic revision guard.
+- API save uses `RULE_ID_CONFLICT` and `RULE_REVISION_CONFLICT` codes alongside HTTP 409. An ID conflict can be explicitly confirmed after refreshing revisions; a stale revision must require reload, never be silently overwritten.
+- The product rule dialog accepts Enter to confirm and Escape to cancel. Keep script asset cache-busting when changing editor behavior; run the behavioral Node test as well as Python contracts.
