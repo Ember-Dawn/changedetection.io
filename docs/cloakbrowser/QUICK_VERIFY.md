@@ -45,3 +45,10 @@ Because changedetection has a shared-password single-user identity, hiding manag
 - Long-press native context menus, image dragging and text selection are prevented **only** on the remote screenshot/viewport, not the remote text input or the rest of WebUI. Touch gestures, cancellation handling and session ownership remain unchanged.
 - Routine connected/disconnected copy beneath the Watch title is removed; connection status remains in the top-right indicator. Exceptional messages are still displayed for network errors or unsuccessful finish/recheck submission.
 - UI assets use versioned URLs to avoid old cached JavaScript/CSS after deployment. Test on narrow mobile widths, especially when the real mode uses the longer “完成并重新检查” label.
+
+
+## Mobile Via long-press and control sizing
+- Input and all control buttons share the same CSS height at each breakpoint; icon buttons are square and the SVG artwork is larger without increasing the button footprint.
+- Screenshot pixels are display-only (`pointer-events:none`), with gesture handling on the viewport. Scoped non-passive touch listeners cancel native touch actions when connected; context menus, selection and drag are blocked on the remote surface only.
+- This reduces Android Via image-context menus, but browser-owned menus cannot be universally suppressed by webpage code. Real device testing is required.
+- Asset query versions bumped to invalidate cached CSS/JavaScript.

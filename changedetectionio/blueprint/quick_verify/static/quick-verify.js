@@ -129,7 +129,7 @@ function contact(event) {return {x:event.clientX,y:event.clientY,startX:event.cl
 const length=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const middle=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
 screen.addEventListener('pointerdown',event=>{
-  if(!core.active() || event.target!==img || (event.pointerType==='mouse' && event.button!==0))return;
+  if(!core.active() || img.hidden || (event.pointerType==='mouse' && event.button!==0))return;
   event.preventDefault();
   screen.focus({preventScroll:true});
   screen.setPointerCapture(event.pointerId);
@@ -233,9 +233,15 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('blur',()=>{releaseRemote();resetGesture();});
 window.addEventListener('pagehide',()=>{releaseRemote();resetGesture();running++;if(currentUrl)URL.revokeObjectURL(currentUrl);});
+// The screenshot is visual-only; the viewport owns all touch and pointer input.
+for (const eventName of ['touchstart','touchmove']) {
+  screen.addEventListener(eventName, event => {
+    if (core.active() && !img.hidden && event.cancelable) event.preventDefault();
+  }, {passive:false});
+}
 // Suppress native long-press image menus and image drag, without affecting inputs.
 for (const element of [screen, img]) {
-  element.addEventListener('contextmenu', e => e.preventDefault());
+  element.addEventListener('contextmenu', e => {e.preventDefault();e.stopPropagation?.();}, true);
   element.addEventListener('dragstart', e => e.preventDefault());
   element.addEventListener('selectstart', e => e.preventDefault());
 }

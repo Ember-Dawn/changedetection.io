@@ -40,3 +40,43 @@
  .qv-bottom-row .qv-tools button {width:30px}
  .qv-bottom-row .qv-primary button {font-size:11px;padding:7px 2px}
 }
+
+/* Unified control dimensions, shared between test and real verification. */
+.qv-shell { --qv-size:40px; --qv-gap:7px; }
+.qv-input-row,.qv-bottom-row,.qv-tools,.qv-primary { gap:var(--qv-gap); align-items:center; min-width:0; }
+.qv-input-row input { height:var(--qv-size); min-height:var(--qv-size); padding:0 10px; min-width:0; font-size:15px; }
+.qv-input-row button,.qv-bottom-row .qv-tools button {
+ flex:0 0 var(--qv-size); width:var(--qv-size); height:var(--qv-size);
+ min-width:var(--qv-size); min-height:var(--qv-size); padding:0;
+ display:inline-flex; align-items:center; justify-content:center;
+}
+.qv-input-row svg,.qv-bottom-row .qv-tools svg {
+ width:24px; height:24px; flex:0 0 24px;
+}
+.qv-bottom-row .qv-primary { align-items:center; }
+.qv-bottom-row .qv-primary button {
+ height:var(--qv-size); min-height:var(--qv-size);
+ padding:0 6px; font-size:16px; font-weight:600;
+}
+.qv-screen { -webkit-tap-highlight-color:transparent; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+.qv-screen img { pointer-events:none; -webkit-user-drag:none; -webkit-touch-callout:none; touch-action:none; user-select:none; -webkit-user-select:none; }
+.qv-screen #qv-placeholder { pointer-events:none; }
+@media(max-width:600px) {
+ .qv-shell { --qv-size:38px; --qv-gap:5px; }
+ .qv-input-row input { height:var(--qv-size); padding:0 8px; }
+ .qv-input-row button,.qv-bottom-row .qv-tools button {
+  flex:0 0 var(--qv-size); width:var(--qv-size); height:var(--qv-size);
+  min-width:var(--qv-size); min-height:var(--qv-size); padding:0;
+ }
+ .qv-input-row svg,.qv-bottom-row .qv-tools svg {width:23px;height:23px;flex-basis:23px}
+ .qv-bottom-row .qv-primary button { height:var(--qv-size);font-size:15px;padding:0 3px; }
+}
+@media(max-width:350px) {
+ .qv-shell {--qv-size:34px;--qv-gap:4px}
+ .qv-input-row button,.qv-bottom-row .qv-tools button {
+  flex:0 0 var(--qv-size);width:var(--qv-size);height:var(--qv-size);
+  min-width:var(--qv-size);min-height:var(--qv-size);padding:0;
+ }
+ .qv-input-row svg,.qv-bottom-row .qv-tools svg {width:22px;height:22px;flex-basis:22px}
+ .qv-bottom-row .qv-primary button {font-size:13px}
+}

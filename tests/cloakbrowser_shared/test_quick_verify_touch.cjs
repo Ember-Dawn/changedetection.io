@@ -33,7 +33,7 @@ function harness() {
   }}};
   const context={window,document,URL:{revokeObjectURL(){}},setTimeout,clearTimeout,console};
   vm.runInNewContext(script,context);
-  const pointer=(type,id,x,y,extra={})=>elements.get('qv-screen').trigger(type,{pointerId:id,clientX:x,clientY:y,pointerType:'touch',target:elements.get('qv-frame'),preventDefault(){},...extra});
+  const pointer=(type,id,x,y,extra={})=>elements.get('qv-screen').trigger(type,{pointerId:id,clientX:x,clientY:y,pointerType:'touch',target:elements.get('qv-screen'),preventDefault(){},...extra});
   return {actions,elements,pointer};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -98,4 +98,21 @@ test('native context menu and image dragging are prevented only on remote surfac
     }
   }
   assert.equal((h.elements.get('qv-text').handlers.contextmenu||[]).length,0);
+});
+
+test('native touch behavior is cancelled on the remote viewport',()=>{
+  const h=harness(),surface=h.elements.get('qv-screen');
+  h.elements.get('qv-frame').hidden=false;
+  for(const type of ['touchstart','touchmove']) {
+    let blocked=false;
+    surface.trigger(type,{cancelable:true,preventDefault(){blocked=true;}});
+    assert.equal(blocked,true);
+  }
+  assert.equal((h.elements.get('qv-text').handlers.touchstart||[]).length,0);
+});
+test('viewport remains the active pointer target',async()=>{
+ const h=harness();
+ h.pointer('pointerdown',1,90,90);h.pointer('pointerup',1,90,90);
+ await tick();
+ assert.ok(h.actions.some(([name])=>name==='click'));
 });
