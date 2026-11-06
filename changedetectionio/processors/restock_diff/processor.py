@@ -470,7 +470,6 @@ class perform_site_check(difference_detection_processor):
             not watch.was_edited and
             not rule_changed and
             not policy_changed and
-            not (watch.get('product_rule_alert_state') or {}).get('failed') and
             (watch.get('purchase_alert_state') or {}).get('status') != 'unknown' and
             self.last_raw_content_checksum and
             not raw_changed):

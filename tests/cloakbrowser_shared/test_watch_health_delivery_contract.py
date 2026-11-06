@@ -84,5 +84,39 @@ class HealthNoticeTests(unittest.TestCase):
         self.assertFalse(alerts.delivery_is_current(self.store, pending))
 
 
+    def test_mixed_destinations_use_plaintext_without_signed_url(self):
+        service = sys.modules['changedetectionio.notification_service']
+        service._check_cascading_vars = lambda store, key, watch: ['tgram://example', 'mailto://hello@example.com']
+        alerts.on_result(self.store, self.queue, 'w', 'failure', 'degraded', 'failed', 'browser https://example.com/key?private=123 failed')
+        notice = self.queue.get_nowait()
+        self.assertEqual(notice['notification_format'], 'text')
+        self.assertIn('GPU <Pro>', notice['notification_body'])
+        self.assertNotIn('private=123', notice['notification_body'])
+        self.assertIn('[URL]', notice['notification_body'])
+
+    def test_duplicate_failures_do_not_enqueue_another_incident(self):
+        alerts.on_result(self.store, self.queue, 'w', 'failure', 'degraded', 'failed', 'HTTP 503')
+        first = self.queue.get_nowait()
+        alerts.acknowledge(self.store, first, True)
+        alerts.on_result(self.store, self.queue, 'w', 'failure', 'failed', 'failed', 'HTTP 503')
+        self.assertTrue(self.queue.empty())
+        self.assertEqual(self.store.data['watching']['w']['watch_health_alert']['failure_id'], first['health_failure_id'])
+
+    def test_failed_recovery_delivery_keeps_incident_until_ack(self):
+        alerts.on_result(self.store, self.queue, 'w', 'failure', 'degraded', 'failed', 'HTTP 503')
+        notice = self.queue.get_nowait()
+        alerts.acknowledge(self.store, notice, True)
+        alerts.on_result(self.store, self.queue, 'w', 'success', 'failed', 'healthy')
+        recovery = self.queue.get_nowait()
+        alerts.acknowledge(self.store, recovery, False)
+        state = self.store.data['watching']['w']['watch_health_alert']
+        self.assertFalse(state['active'])
+        self.assertTrue(state['notified'])
+        self.assertIsNone(state['pending'])
+        # A stale acknowledgement cannot accidentally clear the incident.
+        alerts.acknowledge(self.store, recovery, True)
+        self.assertEqual(self.store.data['watching']['w']['watch_health_alert']['failure_id'], notice['health_failure_id'])
+
+
 if __name__ == '__main__':
     unittest.main()

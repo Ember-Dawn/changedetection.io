@@ -227,7 +227,6 @@ class watch_base(dict):
             'previous_md5': False,
             'product_rule_signature': None,
             'product_rule_signature_kind': None,
-            'product_rule_alert_state': {},
             'purchase_alert_state': {},  # Last reliable product purchase qualification (JSON serializable)
             'processor': 'text_json_diff',  # could be restock_diff or others from .processors
             'price_change_threshold_percent': None,

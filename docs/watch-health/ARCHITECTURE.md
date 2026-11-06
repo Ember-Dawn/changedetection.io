@@ -62,9 +62,9 @@ Notification worker verifies event freshness, reports transport acknowledgements
 and retries on subsequent checks (minimum 300s and pending timeout 600s).
 No human-visible claim of guaranteed exactly-once Telegram delivery is made.
 Recognized challenges continue using the preexisting special verification notifier.
-Operational product-rule errors use **only** Watch Health. The former
-`product_rule_alerts.recovered()` call was removed from Worker so old state cannot
-cause an isolated recovery notification. Commodity price/stock alerts remain separate.
+Operational product-rule errors use **only** Watch Health. The former standalone `product_rule_alerts.py` notifier and its detached
+legacy tests have been removed. Product-rule check failure and recovery now use
+only the Watch Health lifecycle; old alert state is not migrated. Commodity price/stock alerts remain separate.
 A confirmed failure is assigned `failure_id`; only its successfully acknowledged
 failure event authorizes a recovery. Queued stale failure events are invalidated on
 success or recognized verification. Apprise `False` counts as delivery failure for

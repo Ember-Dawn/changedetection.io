@@ -52,3 +52,11 @@ Because changedetection has a shared-password single-user identity, hiding manag
 - Screenshot pixels are display-only (`pointer-events:none`), with gesture handling on the viewport. Scoped non-passive touch listeners cancel native touch actions when connected; context menus, selection and drag are blocked on the remote surface only.
 - This reduces Android Via image-context menus, but browser-owned menus cannot be universally suppressed by webpage code. Real device testing is required.
 - Asset query versions bumped to invalidate cached CSS/JavaScript.
+
+## Stylesheet consolidation (2026-11-06)
+
+The existing dark/two-row toolbar styles were consolidated into one rule group per
+component, with shared `--qv-size` and `--qv-gap` breakpoints. This is a style-only
+cleanup: remote pointer mapping, touch cancellation, session ownership and
+backend behavior are unchanged. A Node regression contract checks control
+selectors and responsive sizes. Real Via/Android acceptance is still required.

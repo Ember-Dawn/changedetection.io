@@ -90,3 +90,8 @@ This file records **historical** changes. Current behavior: [Stock & Price rules
 - Replaced the large fixed preview display with a collapsible, content-sized panel and a scroll limit for long messages.
 - Added Rendered (safe format-aware view for Text, HTML, Telegram HTML, Markdown/MarkdownV2 and supported Rich blocks) and Raw (post-Jinja2 title/body) tabs. No Telegram bubble simulation or actual send.
 - Added stale preview indicators, overlapping-request protection, unsupported Rich warnings, and conservative URL/tag validation. Existing notification destinations, templates and Watch state are unchanged.
+
+### 2026-11-06 — Obsolete product-rule notice cleanup
+
+- The independent `product_rule_alerts.py` failure/recovery notifier was removed after operational product-rule errors moved to Watch Health. Its obsolete alert tests and `product_rule_alert_state` model defaults/checksum guard were removed too. This does not change commodity price/stock alerts or extraction rule configuration. No datastore migration is included.
+- Historical first-failure/one-recovery notes above describe previous versions, **not** the current alert pipeline. See `docs/watch-health/ARCHITECTURE.md`.

@@ -1,82 +1,62 @@
-*{box-sizing:border-box}html{background:#121519;color:#e4e9ef;font-family:system-ui,-apple-system,Segoe UI,sans-serif}body{margin:0}button,input{font:inherit}button{border:1px solid #454c56;border-radius:9px;background:#303840;color:#e9edf3;padding:10px 14px;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}button:focus-visible,input:focus-visible,.qv-screen:focus-visible{outline:2px solid #63a5ee;outline-offset:2px}.qv-shell{max-width:1180px;margin:auto;padding:16px 16px max(20px,env(safe-area-inset-bottom));display:grid;gap:11px}.qv-header{display:flex;justify-content:space-between;align-items:center}.qv-eyebrow{font-size:10px;letter-spacing:.14em;color:#8d9cad}.qv-header h1{font-size:21px;margin:2px 0 0}.qv-status{font-size:12px;color:#9fb2c4}.qv-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qv-message{font-size:13px;color:#adc0d1;margin:0;min-height:1.4em}.qv-occupied{padding:12px;border:1px solid #816540;border-radius:9px;background:#30291f;font-size:13px}.qv-occupied p{margin:0 0 9px}.qv-inline,.qv-tools,.qv-primary,.qv-input-row{display:flex;gap:8px}.qv-screen{background:#080a0d;border:1px solid #3b434c;border-radius:10px;min-height:210px;max-height:70vh;overflow:auto;display:flex;align-items:flex-start;justify-content:flex-start;touch-action:none;position:relative;overscroll-behavior:contain}.qv-screen img{width:100%;height:auto;max-width:none;user-select:none;-webkit-user-select:none;touch-action:none}.qv-screen img[hidden]{display:none}.qv-screen #qv-placeholder{margin:auto;color:#99a6b3;font-size:13px;text-align:center;padding:50px 10px}.qv-hint,.qv-note{font-size:12px;color:#92a1b0;margin:0}.qv-input-row input{min-width:0;flex:1;background:#252c34;color:#eef3f8;border:1px solid #4b5560;border-radius:9px;padding:10px 12px}.qv-tools button{flex:1}.qv-primary button{flex:1}.qv-primary #qv-finish{background:#256caa;border-color:#3b82bd}.qv-primary #qv-close{background:#322e31}.qv-note{line-height:1.5}@media(max-width:600px){.qv-shell{padding:12px 10px max(16px,env(safe-area-inset-bottom));gap:9px}.qv-header h1{font-size:19px}.qv-screen{min-height:200px;max-height:62vh}.qv-hint{font-size:11px}.qv-primary button{padding:13px 10px}.qv-input-row button{padding:10px}.qv-tools button{padding:8px 4px;font-size:13px}}@media(orientation:landscape) and (max-height:550px){.qv-screen{max-height:65vh}}
+/* Quick Verify: dark, two-row remote control shared by real/test sessions. */
+* { box-sizing: border-box; }
+html { background: #121519; color: #e4e9ef; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+body { margin: 0; }
+button, input { font: inherit; }
+button { border: 1px solid #454c56; border-radius: 9px; background: #303840; color: #e9edf3; padding: 10px 14px; cursor: pointer; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, .qv-screen:focus-visible { outline: 2px solid #63a5ee; outline-offset: 2px; }
 
+/* Container, header and noninteractive helper text. */
+.qv-shell { --qv-size: 40px; --qv-gap: 7px; max-width: 1180px; margin: auto; padding: 16px 16px max(20px, env(safe-area-inset-bottom)); display: grid; gap: 11px; }
+.qv-header { display: flex; justify-content: space-between; align-items: center; }
+.qv-eyebrow { font-size: 10px; letter-spacing: .14em; color: #8d9cad; }
+.qv-header h1 { font-size: 21px; margin: 2px 0 0; }
+.qv-status { font-size: 12px; color: #9fb2c4; }
+.qv-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qv-message { font-size: 13px; color: #adc0d1; margin: 0; min-height: 1.4em; }
+.qv-message:empty { display: none; }
+.qv-occupied { padding: 12px; border: 1px solid #816540; border-radius: 9px; background: #30291f; font-size: 13px; }
+.qv-occupied p { margin: 0 0 9px; }
+.qv-inline { display: flex; gap: 8px; }
 .qv-test-banner { padding: 9px 12px; margin: 10px 0; border: 1px solid #b78c38; border-radius: 7px; background: #44361d; color: #f4d58c; font-size: 13px; }
+.qv-hint, .qv-note { font-size: 12px; color: #92a1b0; margin: 0; }
+.qv-note { line-height: 1.5; }
 
-/* Compact controls with canonical Lucide paths. Scroll/pinch keep the original
-   remote desktop viewport; only the screenshot's local size changes. */
-.qv-tools {align-items:center;gap:6px;justify-content:flex-start}
-.qv-tools button {flex:0 0 auto;width:38px;height:36px;padding:7px;display:inline-flex;align-items:center;justify-content:center}
-.qv-tools svg{width:18px;height:18px;display:block}
-.qv-screen{overflow:auto}
-.qv-screen img{flex:0 0 auto;object-fit:contain}
-.qv-primary #qv-close:disabled {opacity:.27}
+/* Screenshot is visual-only; the viewport owns remote mouse and touch gestures. */
+.qv-screen { background: #080a0d; border: 1px solid #3b434c; border-radius: 10px; min-height: 210px; max-height: 70vh; overflow: auto; display: flex; align-items: flex-start; justify-content: flex-start; position: relative; overscroll-behavior: contain; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.qv-screen img { width: 100%; height: auto; max-width: none; flex: 0 0 auto; object-fit: contain; pointer-events: none; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-touch-callout: none; }
+.qv-screen img[hidden] { display: none; }
+.qv-screen #qv-placeholder { margin: auto; color: #99a6b3; font-size: 13px; text-align: center; padding: 50px 10px; pointer-events: none; }
 
-/* Unified two-row controls: input + four icons, then navigation + session. */
-.qv-input-row {align-items:stretch;min-width:0;gap:7px}
-.qv-input-row input {min-width:70px;width:0;flex:1 1 auto}
-.qv-input-row button {flex:0 0 38px;width:38px;height:40px;padding:8px;display:inline-flex;align-items:center;justify-content:center}
-.qv-input-row svg {width:18px;height:18px;display:block}
-.qv-bottom-row {display:flex;align-items:stretch;gap:8px;min-width:0}
-.qv-bottom-row .qv-tools {flex:0 0 auto;align-self:center}
-.qv-bottom-row .qv-primary {margin-left:auto;min-width:0;flex:0 1 420px;justify-content:flex-end;align-items:stretch}
-.qv-bottom-row .qv-primary button {min-width:0;white-space:nowrap;padding:8px 10px;font-size:13px}
-.qv-bottom-row .qv-primary #qv-finish {flex:1.45 1 0}
-.qv-bottom-row .qv-primary #qv-close {flex:1 1 0}
-.qv-screen,.qv-screen img {touch-action:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
-.qv-message:empty {display:none}
-@media(max-width:600px) {
- .qv-input-row {gap:5px}
- .qv-input-row button {flex-basis:34px;width:34px;height:38px;padding:7px}
- .qv-input-row svg {width:17px;height:17px}
- .qv-bottom-row {gap:5px}
- .qv-bottom-row .qv-tools {gap:4px}
- .qv-bottom-row .qv-tools button {width:33px;height:36px;padding:6px}
- .qv-bottom-row .qv-primary {gap:4px;flex:1 1 0}
- .qv-bottom-row .qv-primary button {font-size:12px;padding:8px 4px}
-}
-@media(max-width:350px) {
- .qv-shell {padding-left:7px;padding-right:7px}
- .qv-input-row button {flex-basis:31px;width:31px;padding:6px}
- .qv-bottom-row .qv-tools button {width:30px}
- .qv-bottom-row .qv-primary button {font-size:11px;padding:7px 2px}
-}
+/* Row 1: input, Send, Enter and separate wheel up/down. */
+.qv-input-row, .qv-bottom-row, .qv-tools, .qv-primary { display: flex; gap: var(--qv-gap); align-items: center; min-width: 0; }
+.qv-input-row input { min-width: 70px; width: 0; flex: 1 1 auto; height: var(--qv-size); min-height: var(--qv-size); padding: 0 10px; font-size: 15px; background: #252c34; color: #eef3f8; border: 1px solid #4b5560; border-radius: 9px; }
+.qv-input-row button, .qv-bottom-row .qv-tools button { flex: 0 0 var(--qv-size); width: var(--qv-size); height: var(--qv-size); min-width: var(--qv-size); min-height: var(--qv-size); padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.qv-input-row svg, .qv-bottom-row .qv-tools svg { display: block; width: 24px; height: 24px; flex: 0 0 24px; }
 
-/* Unified control dimensions, shared between test and real verification. */
-.qv-shell { --qv-size:40px; --qv-gap:7px; }
-.qv-input-row,.qv-bottom-row,.qv-tools,.qv-primary { gap:var(--qv-gap); align-items:center; min-width:0; }
-.qv-input-row input { height:var(--qv-size); min-height:var(--qv-size); padding:0 10px; min-width:0; font-size:15px; }
-.qv-input-row button,.qv-bottom-row .qv-tools button {
- flex:0 0 var(--qv-size); width:var(--qv-size); height:var(--qv-size);
- min-width:var(--qv-size); min-height:var(--qv-size); padding:0;
- display:inline-flex; align-items:center; justify-content:center;
+/* Row 2: three navigation buttons, then two session actions. */
+.qv-bottom-row .qv-tools { flex: 0 0 auto; justify-content: flex-start; }
+.qv-bottom-row .qv-primary { margin-left: auto; flex: 0 1 420px; justify-content: flex-end; }
+.qv-bottom-row .qv-primary button { flex: 1 1 0; min-width: 0; height: var(--qv-size); min-height: var(--qv-size); padding: 0 6px; font-size: 16px; font-weight: 600; white-space: nowrap; }
+.qv-bottom-row .qv-primary #qv-finish { flex: 1.45 1 0; background: #256caa; border-color: #3b82bd; }
+.qv-bottom-row .qv-primary #qv-close { background: #322e31; }
+.qv-primary #qv-close:disabled { opacity: .27; }
+
+/* Shared responsive geometry, including narrow Via/Android screens. */
+@media (max-width: 600px) {
+  .qv-shell { --qv-size: 38px; --qv-gap: 5px; padding: 12px 10px max(16px, env(safe-area-inset-bottom)); gap: 9px; }
+  .qv-header h1 { font-size: 19px; }
+  .qv-screen { min-height: 200px; max-height: 62vh; }
+  .qv-hint { font-size: 11px; }
+  .qv-input-row input { padding: 0 8px; }
+  .qv-input-row svg, .qv-bottom-row .qv-tools svg { width: 23px; height: 23px; flex-basis: 23px; }
+  .qv-bottom-row .qv-primary { flex: 1 1 0; }
+  .qv-bottom-row .qv-primary button { font-size: 15px; padding: 0 3px; }
 }
-.qv-input-row svg,.qv-bottom-row .qv-tools svg {
- width:24px; height:24px; flex:0 0 24px;
+@media (max-width: 350px) {
+  .qv-shell { --qv-size: 34px; --qv-gap: 4px; padding-left: 7px; padding-right: 7px; }
+  .qv-input-row svg, .qv-bottom-row .qv-tools svg { width: 22px; height: 22px; flex-basis: 22px; }
+  .qv-bottom-row .qv-primary button { font-size: 13px; }
 }
-.qv-bottom-row .qv-primary { align-items:center; }
-.qv-bottom-row .qv-primary button {
- height:var(--qv-size); min-height:var(--qv-size);
- padding:0 6px; font-size:16px; font-weight:600;
-}
-.qv-screen { -webkit-tap-highlight-color:transparent; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
-.qv-screen img { pointer-events:none; -webkit-user-drag:none; -webkit-touch-callout:none; touch-action:none; user-select:none; -webkit-user-select:none; }
-.qv-screen #qv-placeholder { pointer-events:none; }
-@media(max-width:600px) {
- .qv-shell { --qv-size:38px; --qv-gap:5px; }
- .qv-input-row input { height:var(--qv-size); padding:0 8px; }
- .qv-input-row button,.qv-bottom-row .qv-tools button {
-  flex:0 0 var(--qv-size); width:var(--qv-size); height:var(--qv-size);
-  min-width:var(--qv-size); min-height:var(--qv-size); padding:0;
- }
- .qv-input-row svg,.qv-bottom-row .qv-tools svg {width:23px;height:23px;flex-basis:23px}
- .qv-bottom-row .qv-primary button { height:var(--qv-size);font-size:15px;padding:0 3px; }
-}
-@media(max-width:350px) {
- .qv-shell {--qv-size:34px;--qv-gap:4px}
- .qv-input-row button,.qv-bottom-row .qv-tools button {
-  flex:0 0 var(--qv-size);width:var(--qv-size);height:var(--qv-size);
-  min-width:var(--qv-size);min-height:var(--qv-size);padding:0;
- }
- .qv-input-row svg,.qv-bottom-row .qv-tools svg {width:22px;height:22px;flex-basis:22px}
- .qv-bottom-row .qv-primary button {font-size:13px}
-}
+@media (orientation: landscape) and (max-height: 550px) { .qv-screen { max-height: 65vh; } }

@@ -1,4 +1,4 @@
-# CloakBrowser implementation and acceptance status (2026-11-05)
+# CloakBrowser implementation and acceptance status (2026-11-06)
 
 This page tracks the **current repository implementation** and evidence supplied by the Docker operator. It is not a full production sign-off. For architecture and operation consult [ARCHITECTURE.md](ARCHITECTURE.md), [MANUAL_BROWSER.md](MANUAL_BROWSER.md), and [OPERATIONS.md](OPERATIONS.md). The historical sequence remains in [CHANGELOG.md](CHANGELOG.md).
 
@@ -47,3 +47,20 @@ The Watch Health reliability implementation was syntax-checked and pure state-ma
 unit tests were added. Browser end-to-end testing and Telegram delivery verification
 still require the operator's dependency-complete Docker host; do not describe those
 as accepted until they have been exercised there. See `docs/watch-health/ARCHITECTURE.md`.
+
+## 2026-11-06 — Health, Quick Verify and cleanup status
+
+- Unified Watch Health now owns ordinary network and product-rule operational
+  failures, with Chinese Telegram HTML notices and acknowledged incident IDs.
+  Stock/price business notices remain separate. Standalone product-rule failure
+  alerts have been retired (no migration of old datastore state).
+- Quick Verify has a shared two-row toolbar on desktop/mobile: text + Send/Enter
+  + wheel-up/wheel-down, followed by Back/Reload/Fit + session controls. Its
+  screenshot is display-only; the viewport handles touch input. Native Via
+  browser-owned menus may still require device-specific verification.
+- Classic bulk Watch operations remain the original `changedetection.io(8).zip`
+  flow. Known possible Request Context / Socket.IO rebinding issues were **not**
+  changed in this documentation/style/test cleanup, by operator request.
+- Offline syntax and mock/contract tests do not prove actual Docker, Telegram,
+  multi-destination Apprise delivery, or Android/Via acceptance. Check the
+  accompanying CHANGELOG for exact test commands and results.

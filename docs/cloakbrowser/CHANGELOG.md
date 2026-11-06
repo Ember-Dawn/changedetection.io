@@ -193,3 +193,16 @@ For future source changes, append a new entry with date (if known), specific pat
 - Restored the original bulk Watch modal, Socket.IO operation handling, storage history clear, and worker claiming code from `changedetection.io(8).zip` after an asynchronous bulk-operation patch caused Flask `Working outside of request context` errors. This rollback intentionally removes the new modal waiting/progress/operation-ID behavior and history-maintenance reservation.
 - Kept the unrelated Clear Queue confirmation wiring fix. Cache-busted `modal.js` and `realtime.js` to ensure the original handlers load.
 - Removed tests specific to the reverted modal and Watch maintenance behavior. Existing health-notification tests remain.
+
+### 2026-11-06 — Documentation, safe cleanup and regression coverage
+
+- Synchronized `AGENTS.md`, STATUS, OPERATIONS, Quick Verify and product
+  extraction/Health docs with the actual classic bulk flow, two-row Quick Verify
+  controls and Watch Health-only operational errors.
+- Consolidated repeated Quick Verify CSS overrides into shared size/breakpoint
+  rules without changing JS, backend sessions or controls.
+- Removed unused standalone `product_rule_alerts.py` and stale associated
+  test/field references; kept commodity price/stock and Watch Health logic.
+- Added offline responsive stylesheet and Health notification contract checks.
+  No change to the original bulk Watch modal, Socket.IO handlers or clearing
+  behavior; Docker/browser/Telegram acceptance remains with the operator.

@@ -11,6 +11,8 @@ This fork packages changedetection.io and CloakBrowser **in one Docker service**
 | [STATUS.md](STATUS.md) | Current implementation progress, validation and open work |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | BrowserManager architecture, event loop, Page/Tab concurrency and lifecycle |
 | [MANUAL_BROWSER.md](MANUAL_BROWSER.md) | Login protection, interactive browser, recovery and session ownership |
+| [QUICK_VERIFY.md](QUICK_VERIFY.md) | Mobile/desktop two-row verification controls, touch gestures, test mode and session safety |
+| [../watch-health/ARCHITECTURE.md](../watch-health/ARCHITECTURE.md) | Fetch reliability, unified Health errors, incident recovery and delivery acknowledgement |
 | [VERIFICATION.md](VERIFICATION.md) | Google/Cloudflare challenges, watch states, Apprise/Telegram and limitations |
 | [OPERATIONS.md](OPERATIONS.md) | Docker deployment, troubleshooting, safe Profile backup/restore and test checklist |
 | [UPSTREAM.md](UPSTREAM.md) | Exact dependency pins, upstream coupling, modification boundaries |
@@ -28,6 +30,8 @@ The repository root [`AGENTS.md`](../../AGENTS.md) is the recommended starting p
 - **Browsers** now offers two mutually exclusive tabs: **截图操控** (Headless Playwright Page, authenticated Socket.IO JPEG/input and HTTP fallback, with experimental CDP Screencast), and **实时浏览器** (a Headed Chromium desktop on Xvfb via authenticated noVNC). Live mode temporarily pauses Watch admission and switches the **same** persistent Profile from Headless to Headed, then restores Headless; it is not a second Profile or simultaneous browser.
 - Add Watch uses the normal browser-step screenshot flow without the previously added 2-second settling / 15-second challenge waits. Known challenge screenshots can be shown without saving them as normal baselines.
 - Shared scheduled watches attempt to detect known Google/Cloudflare verification pages **before** normal extraction, keep the last good content, and can notify via configured Apprise channels on first detection and later recovery. Detection and successful Telegram delivery are not guaranteed.
+- Ordinary network and product-rule operational faults use Watch Health, not the older standalone product-rule alert notifier. Confirmed fault/recovery notices use Chinese Telegram HTML where all destinations are Telegram. Quick Verify is a separate authenticated mobile/desktop UI for human verification; see the dedicated docs.
+- Bulk Watch actions intentionally use the classic original modal and Socket.IO handler after rollback; see OPERATIONS for Clear History caveats. This documentation/style cleanup does not change that path.
 
 ## Minimal deployment
 

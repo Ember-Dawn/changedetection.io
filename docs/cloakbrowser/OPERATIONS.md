@@ -129,3 +129,27 @@ Edit the private `.env` to set `CLOAKBROWSER_VIEWPORT_WIDTH=1366` and `CLOAKBROW
 Rebuild using `docker compose build` and `docker compose up -d --force-recreate`; apt dependencies include `xvfb`, `x11vnc`, `novnc`, `websockify` and V8's `xdotool`. Do **not** add port mappings for 5900/5998/6080. Enable application password login. Visit Browsers, ensure any existing screenshot-control session is closed, click **启动实时浏览器**, test native keyboard/mouse and new-window/reconnect, then **结束并恢复监控**. Confirm one Chromium Profile writer at a time and the Watch queue resumes without modifying `all_paused`.
 
 If a start/restore error occurs, the UI reports it. A failed restore must keep the scheduler maintenance gate closed until a clean Headless reinitialization or app restart. Do not forcibly delete Profile lock files. Check `docker compose logs --tail=200 changedetection` for browser and VNC startup errors. With HTTPS reverse proxy ensure WebSocket Upgrade routing works for `/manual-browser/live/ws`. The operator has now confirmed integrated noVNC rendering through the authenticated `/manual-browser/live/ws` route (after the `websocket=True` fix), the V7 tab UI, and that the V8 X11 window-fit removes the bottom black strip. Independent Headed/Headless reuse of a temporary Profile with persistent Cookie/LocalStorage and standalone noVNC input/reconnect also passed. Still verify **on your actual deployment**: interrupted mode changes, start/restore failure retry, maintenance pause with active/queued Watch jobs, `all_paused` preservation, session permissions, and HTTPS reverse-proxy WSS. A particular retailer remaining logged in after the transition is not proven.
+
+## Bulk Clear History cautions (current classic behavior)
+
+Bulk Watch operations use the original Socket.IO/modal code restored from
+`changedetection.io(8).zip`. They do **not** expose a server task registry,
+operation ID, background progress UI or Watch maintenance reservation. Clearing
+history resets check baselines and may make Watches immediately due again; avoid
+clearing actively fetching Watches when practical. The known legacy background
+request-context and reconnect-handler concerns have not been fixed as part of
+the documentation/style/test cleanup. Do not repeatedly confirm or retry a
+bulk destructive operation if the UI reports an error after changes are visible;
+first refresh and inspect affected Watches.
+
+## Offline regression checks
+
+```bash
+node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs tests/cloakbrowser_shared/test_quick_verify_touch.cjs tests/cloakbrowser_shared/test_quick_verify_styles.cjs
+python -m unittest discover -s tests/cloakbrowser_shared -p 'test_watch_health_delivery_contract.py' -v
+python -m unittest discover -s tests/product_extraction -p 'test_product_rule_wait_and_alerts.py' -v
+```
+
+The product-rule registry test and broader integration tests require the project
+Python dependencies. A passing Node/mock suite cannot validate actual
+CloakBrowser, mobile WebView or Telegram transport behavior.
