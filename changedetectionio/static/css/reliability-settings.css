@@ -1,0 +1,20 @@
+/* Compact shared layout for global and per-watch product reliability. */
+.reliability-settings { min-width: 0; }
+.reliability-settings .reliability-description { margin: 0 0 14px; color: var(--color-text-muted, #999); line-height: 1.5; }
+.reliability-settings .reliability-inherit-row { display: flex; align-items: center; gap: 10px; margin: 12px 0 18px; }
+.reliability-settings .reliability-inherit-row input[type="checkbox"] { flex: none; margin: 0; width: 18px; height: 18px; }
+.reliability-settings .reliability-inherit-row label { display: inline; margin: 0; font-weight: 600; cursor: pointer; }
+.reliability-settings .reliability-fields { display: grid; gap: 12px; width: 100%; max-width: 780px; }
+.reliability-settings .reliability-field-row { display: grid; grid-template-columns: minmax(0, 1fr) 138px; align-items: center; gap: 12px; min-height: 38px; }
+.reliability-settings .reliability-field-row > label { display: block; margin: 0; font-weight: 500; line-height: 1.4; }
+.reliability-settings .reliability-value { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.reliability-settings .reliability-value input.reliability-number { width: 92px; min-width: 0; box-sizing: border-box; margin: 0; }
+.reliability-settings .reliability-unit { width: 32px; flex: none; font-size: .88em; opacity: .75; }
+.reliability-settings .reliability-field-row > .errors { grid-column: 1 / -1; margin: 0; }
+.reliability-settings .reliability-inherit-hint { margin: 14px 0 0; }
+.reliability-settings.reliability-is-inherited .reliability-value input:disabled { opacity: .6; cursor: not-allowed; }
+@media (max-width: 540px) {
+  .reliability-settings .reliability-field-row { grid-template-columns: minmax(0, 1fr) 118px; gap: 8px; }
+  .reliability-settings .reliability-value input.reliability-number { width: 75px; }
+  .reliability-settings .reliability-unit { width: 25px; }
+}

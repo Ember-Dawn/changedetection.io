@@ -11,6 +11,7 @@ from changedetectionio.auth_decorator import login_optionally_required
 from changedetectionio.time_handler import default_timezone_name, is_within_schedule
 from changedetectionio import worker_pool
 from changedetectionio.llm.evaluator import get_llm_config as _get_llm_config
+from changedetectionio.watch_health.manager import DEFAULTS as RELIABILITY_DEFAULTS, LIMITS as RELIABILITY_LIMITS, policy as reliability_policy
 
 def construct_blueprint(datastore: ChangeDetectionStore, update_q, queuedWatchMetaData):
     edit_blueprint = Blueprint('ui_edit', __name__, template_folder="../ui/templates")
@@ -278,7 +279,12 @@ def construct_blueprint(datastore: ChangeDetectionStore, update_q, queuedWatchMe
                         tag_uuids.append(datastore.add_tag(title=t))
                     extra_update_obj['tags'] = tag_uuids
 
-            datastore.data['watching'][uuid].update(form.data)
+            # Preserve saved overrides when inherited controls are disabled.
+            watch_form_data = dict(form.data)
+            if watch_form_data.get('reliability_use_default', True):
+                for field_name in RELIABILITY_DEFAULTS:
+                    watch_form_data.pop(field_name, None)
+            datastore.data['watching'][uuid].update(watch_form_data)
             datastore.data['watching'][uuid].update(extra_update_obj)
 
             if not datastore.data['watching'][uuid].get('tags'):
@@ -396,6 +402,8 @@ def construct_blueprint(datastore: ChangeDetectionStore, update_q, queuedWatchMe
                     'url': url_for('rss.rss_single_watch', uuid=watch['uuid'], token=app_rss_token)
                 },
                 'settings_application': datastore.data['settings']['application'],
+                'global_reliability_values': reliability_policy(datastore, {'reliability_use_default': True}),
+                'reliability_limits': RELIABILITY_LIMITS,
                 'ui_edit_stats_extras': collect_ui_edit_stats_extras(watch),
                 'visual_selector_data_ready': datastore.visualselector_data_is_ready(watch_uuid=uuid),
                 'timezone_default_config': datastore.data['settings']['application'].get('scheduler_timezone_default'),

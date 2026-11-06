@@ -92,6 +92,29 @@ $(document).ready(function () {
         $('#notification-tokens-info').toggle();
     });
 
+    // Show effective global values without discarding saved per-watch overrides.
+    const $reliabilityPanel = $('#product-reliability-settings');
+    if ($reliabilityPanel.length) {
+        const $inherit = $reliabilityPanel.find('#reliability_use_default');
+        const $fields = $reliabilityPanel.find('.reliability-number');
+        $fields.each(function () { $(this).data('custom-value', $(this).val()); });
+        function syncReliabilityInheritance() {
+            const inherited = $inherit.prop('checked');
+            $fields.each(function () {
+                const $input = $(this);
+                if (inherited) {
+                    if (!$input.prop('disabled')) $input.data('custom-value', $input.val());
+                    $input.val($input.attr('data-global-value')).prop('disabled', true);
+                } else {
+                    $input.prop('disabled', false).val($input.data('custom-value'));
+                }
+            });
+            $reliabilityPanel.toggleClass('reliability-is-inherited', inherited);
+        }
+        $inherit.on('change', syncReliabilityInheritance);
+        syncReliabilityInheritance();
+    }
+
     toggleOpacity('#time_between_check_use_default', '#time-check-widget-wrapper, #time-between-check-schedule', false);
 
 

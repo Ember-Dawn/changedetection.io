@@ -34,6 +34,7 @@
     const default_system_fetch_backend="{{ settings_application['fetch_backend'] }}";
 </script>
 <script src="{{url_for('static_content', group='js', filename='plugins.js')}}" defer></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reliability-settings.css') }}">
 <script src="{{url_for('static_content', group='js', filename='watch-settings.js')}}" defer></script>
 <script src="{{url_for('static_content', group='js', filename='notifications.js')}}" defer></script>
 <script src="{{url_for('static_content', group='js', filename='visual-selector.js')}}" defer></script>
@@ -124,13 +125,27 @@
                     </div>
 
                     {% if watch.processor == 'restock_diff' %}
-                    <fieldset class="border-fieldset">
-                      <legend>Product fetch reliability / Watch Health</legend>
-                      <p class="pure-form-message-inline">Override the global defaults for this product watch. Failed checks can be rechecked sooner than the normal check interval.</p>
-                      {{ render_checkbox_field(form.reliability_use_default) }}
-                      {% for name in ('reliability_wait_seconds', 'reliability_page_attempts', 'reliability_page_gap_seconds', 'reliability_failure_threshold', 'reliability_retry_minutes') %}
-                        <div class="pure-control-group">{{ render_field(form[name]) }}</div>
-                      {% endfor %}
+                    <fieldset class="border-fieldset reliability-settings" id="product-reliability-settings">
+                      <legend>{{ _('Product fetch reliability / Watch Health') }}</legend>
+                      <p class="reliability-description">{{ _('Override the global defaults for this product watch. Failed checks can be rechecked sooner than the normal check interval.') }}</p>
+                      <div class="reliability-inherit-row">
+                        {{ form.reliability_use_default(class="reliability-inherit-checkbox") }}
+                        <label for="{{ form.reliability_use_default.id }}">{{ form.reliability_use_default.label.text }}</label>
+                      </div>
+                      <div class="reliability-fields">
+                        {% for name, unit in (('reliability_wait_seconds', 's'), ('reliability_page_attempts', ''), ('reliability_page_gap_seconds', 's'), ('reliability_failure_threshold', ''), ('reliability_retry_minutes', 'min')) %}
+                          {% set field = form[name] %}
+                          <div class="reliability-field-row{% if field.errors %} error{% endif %}">
+                            <label for="{{ field.id }}">{{ field.label.text }}</label>
+                            <div class="reliability-value">
+                              {{ field(class="reliability-number", data_global_value=global_reliability_values[name], value=field.data if field.data is not none else global_reliability_values[name], min=reliability_limits[name][0], max=reliability_limits[name][1], step="1") }}
+                              <span class="reliability-unit">{{ unit }}</span>
+                            </div>
+                            {% if field.errors %}<ul class="errors">{% for error in field.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                          </div>
+                        {% endfor %}
+                      </div>
+                      <p class="reliability-description reliability-inherit-hint">{{ _('When global settings are selected, the effective global values are shown and cannot be edited. Your custom values are preserved.') }}</p>
                     </fieldset>
                     {% endif %}
                     <div class="pure-control-group time-between-check border-fieldset">

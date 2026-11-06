@@ -7,6 +7,7 @@
 <script src="{{url_for('static_content', group='js', filename='tabs.js')}}" defer></script>
 <script src="{{url_for('static_content', group='js', filename='plugins.js')}}" defer></script>
 <script src="{{url_for('static_content', group='js', filename='vis.js')}}" defer></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reliability-settings.css') }}">
 <script src="{{url_for('static_content', group='js', filename='global-settings.js')}}" defer></script>
 <script src="{{url_for('static_content', group='js', filename='scheduler.js')}}" defer></script>
 {# PWA related #}
@@ -162,12 +163,22 @@
                     {{ render_field(form.requests.form.jitter_seconds, class="jitter_seconds") }}
                     <span class="pure-form-message-inline">{{ _('Example - 3 seconds random jitter could trigger up to 3 seconds earlier or up to 3 seconds later') }}</span>
                 </div>
-                <fieldset class="pure-group border-fieldset">
-                    <legend>Product fetch reliability / Watch Health</legend>
-                    <p>Settings apply to product watches unless overridden per watch. A value of 0 minutes disables accelerated rechecks.</p>
-                    {% for name in ('reliability_wait_seconds', 'reliability_page_attempts', 'reliability_page_gap_seconds', 'reliability_failure_threshold', 'reliability_retry_minutes') %}
-                      <div class="pure-control-group">{{ render_field(form.requests.form[name]) }}</div>
-                    {% endfor %}
+                <fieldset class="border-fieldset reliability-settings" id="global-product-reliability-settings">
+                    <legend>{{ _('Product fetch reliability / Watch Health') }}</legend>
+                    <p class="reliability-description">{{ _('Global defaults for product watches; individual watches may override them. Set accelerated rechecks to 0 minutes to disable them.') }}</p>
+                    <div class="reliability-fields">
+                      {% for name, unit in (('reliability_wait_seconds', 's'), ('reliability_page_attempts', ''), ('reliability_page_gap_seconds', 's'), ('reliability_failure_threshold', ''), ('reliability_retry_minutes', 'min')) %}
+                        {% set field = form.requests.form[name] %}
+                        <div class="reliability-field-row{% if field.errors %} error{% endif %}">
+                          <label for="{{ field.id }}">{{ field.label.text }}</label>
+                          <div class="reliability-value">
+                            {{ field(class="reliability-number", step="1") }}
+                            <span class="reliability-unit">{{ unit }}</span>
+                          </div>
+                          {% if field.errors %}<ul class="errors">{% for error in field.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                        </div>
+                      {% endfor %}
+                    </div>
                 </fieldset>
                 <div class="pure-control-group">
                     {{ render_field(form.requests.form.timeout) }}
