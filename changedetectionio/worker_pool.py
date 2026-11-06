@@ -20,9 +20,6 @@ currently_processing_uuids = {}
 # When each currently-running UUID was claimed: {uuid: epoch_seconds}
 # Lets the queue UI render "running for Ns" without reaching into worker internals.
 _uuid_started_at = {}
-# Maintenance reservations prevent a new worker from claiming a watch while
-# history is being reset. Existing workers are allowed to finish first.
-_maintenance_uuids = set()
 _uuid_processing_lock = threading.Lock()  # Protects currently_processing_uuids + _uuid_started_at
 
 # Configuration - async workers only
@@ -319,8 +316,6 @@ def claim_uuid_for_processing(uuid, worker_id):
                 return False
         except ImportError:
             pass
-        if uuid in _maintenance_uuids:
-            return False
         if uuid in currently_processing_uuids:
             # Already being processed by another worker
             return False
@@ -363,31 +358,6 @@ def set_uuid_processing(uuid, worker_id=None, processing=True):
             logger.debug(f"Worker {worker_id} started processing UUID: {uuid}")
     else:
         release_uuid_from_processing(uuid, worker_id)
-
-
-from contextlib import contextmanager
-
-@contextmanager
-def reserve_watch_maintenance(uuid, timeout=120):
-    """Serialize destructive history operations against in-flight checks.
-
-    Do not cancel active browser work or clear the watch while a worker may
-    still commit its snapshot. New claims are rejected until maintenance ends.
-    """
-    with _uuid_processing_lock:
-        if uuid in _maintenance_uuids:
-            raise RuntimeError('Watch already undergoing maintenance')
-        _maintenance_uuids.add(uuid)
-    try:
-        deadline = time.monotonic() + timeout
-        while is_watch_running(uuid):
-            if time.monotonic() >= deadline:
-                raise TimeoutError('Watch is still running; history was NOT cleared')
-            time.sleep(0.1)
-        yield
-    finally:
-        with _uuid_processing_lock:
-            _maintenance_uuids.discard(uuid)
 
 
 def is_watch_running(watch_uuid):

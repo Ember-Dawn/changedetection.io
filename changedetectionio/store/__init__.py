@@ -679,10 +679,8 @@ class ChangeDetectionStore(DatastoreUpdatesMixin, FileSavingDataStore):
 
     # Remove a watchs data but keep the entry (URL etc)
     def clear_watch_history(self, uuid):
-        from changedetectionio.worker_pool import reserve_watch_maintenance
-        with reserve_watch_maintenance(uuid):
-            self.__data['watching'][uuid].clear_watch()
-            self.__data['watching'][uuid].commit()
+        self.__data['watching'][uuid].clear_watch()
+        self.__data['watching'][uuid].commit()
 
     @property
     def watch_limit(self):

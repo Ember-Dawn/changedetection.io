@@ -114,12 +114,3 @@ Quick Verify notification, never simultaneous generic health alerts.
 On successful delivery, `watch_health_alert.notified` is tied to the confirmed
 `failure_id`. An unsuccessful delivery is not acknowledged; a subsequent success
 instead clears that unsent incident without sending a recovery notice.
-
-## History-clearing concurrency (2026-11-06)
-
-All `store.clear_watch_history` calls reserve the Watch in `worker_pool` before
-clearing. The reservation prevents new worker claims, waits for an existing
-running check to finish (maximum 120 seconds), then deletes history and resets
-baseline. If the watch does not finish, clearing fails safely rather than
-racing its persisted snapshot. A reset Watch may naturally be due for one new
-check; this mechanism is not a global startup scheduler or a Watch timeout.

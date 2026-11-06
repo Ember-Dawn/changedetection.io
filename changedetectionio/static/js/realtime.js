@@ -10,7 +10,7 @@ $(document).ready(function () {
     }
 
     function bindSocketHandlerButtonsEvents(socket) {
-        $('.ajax-op').off('click.socketHandlerNamespace').on('click.socketHandlerNamespace', function (e) {
+        $('.ajax-op').on('click.socketHandlerNamespace', function (e) {
             e.preventDefault();
             const op = $(this).data('op');
             const uuid = $(this).closest('tr').data('watch-uuid');
@@ -29,7 +29,7 @@ $(document).ready(function () {
 
         // Only the actual operation buttons carry name="op"; this excludes UI-only
         // buttons in the bar such as "Invert" (client-side selection toggle).
-        $('#checkbox-operations button[name="op"]').off('click.socketHandlerNamespace').on('click.socketHandlerNamespace', function (e) {
+        $('#checkbox-operations button[name="op"]').on('click.socketHandlerNamespace', function (e) {
             e.preventDefault();
             const $button = $(this);
             const op = $button.val();
@@ -46,43 +46,30 @@ $(document).ready(function () {
             // Check if this button requires confirmation
             console.log('Button clicked, op:', op, 'requires-confirm:', $button.is('[data-requires-confirm]'));
             if ($button.is('[data-requires-confirm]')) {
-                if ($button.data('bulkPending')) return false;
-                $button.data('bulkPending', true);
+                console.log('Showing modal confirmation for operation:', op);
                 const config = {
                     type: $button.data('confirm-type') || 'danger',
                     title: $button.data('confirm-title') || 'Confirm Action',
-                    message: $button.data('confirm-message') || 'Are you sure?',
+                    message: $button.data('confirm-message') || '<p>Are you sure you want to proceed?</p>',
                     confirmText: $button.data('confirm-button') || 'Confirm',
                     cancelText: $button.data('cancel-button') || 'Cancel',
-                    waitForCompletion: true,
-                    onConfirm: () => new Promise((resolve, reject) => {
-                        if (!socket.connected) { reject(new Error('实时连接已断开，请重试')); return; }
-                        const operationId = 'bulk-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-                        const handler = (result) => {
-                            if (!result || result.operation_id !== operationId) return;
-                            cleanup();
-                            if (result.success) {
-                                if (op === 'delete' && watchSel) {
-                                    watchSel.clear();
-                                    if (watchSel.refreshUI) watchSel.refreshUI();
-                                }
-                                resolve(result);
-                            } else reject(new Error(result.error || '操作失败'));
-                        };
-                        const disconnected = () => { cleanup(); reject(new Error('连接中断，无法确认操作结果；请检查页面状态后再试')); };
-                        const cleanup = () => {
-                            socket.off('bulk_operation_result', handler);
-                            socket.off('disconnect', disconnected);
-                        };
-                        socket.on('bulk_operation_result', handler);
-                        socket.on('disconnect', disconnected);
+                    onConfirm: function() {
+                        console.log(`Socket.IO: Sending watch operation '${op}' for UUIDs:`, checkedUuids);
                         socket.emit('checkbox-operation', {
-                            op, uuids: checkedUuids,
-                            extra_data: $('#op_extradata').val(), operation_id: operationId
+                            op: op,
+                            uuids: checkedUuids,
+                            extra_data: $('#op_extradata').val()
                         });
-                    })
+                        // Keep the rows selected after the operation so further
+                        // actions can be applied to the same selection — except
+                        // delete, where the rows (and their UUIDs) are now gone.
+                        if (op === 'delete' && watchSel) {
+                            watchSel.clear();
+                            if (watchSel.refreshUI) watchSel.refreshUI();
+                        }
+                    }
                 };
-                ModalDialog.confirm(config).finally(() => $button.removeData('bulkPending'));
+                ModalDialog.confirm(config);
             } else {
                 console.log(`Socket.IO: Sending watch operation '${op}' for UUIDs:`, checkedUuids);
                 socket.emit('checkbox-operation', {

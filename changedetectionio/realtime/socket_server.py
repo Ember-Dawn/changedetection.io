@@ -336,49 +336,28 @@ def init_socketio(app, datastore):
         datastore = socketio.datastore
         # Capture the requesting client's session id now (request context is gone inside the thread)
         # so we can send the feedback toast only back to them, not broadcast to everyone.
-        from flask import request, current_app
+        from flask import request
         sid = getattr(request, 'sid', None)
-        flask_app = current_app._get_current_object()
-        operation_id = str(data.get('operation_id') or '')[:100]
-        if not isinstance(data.get('uuids'), list) or len(data['uuids']) > 10000:
-            if sid:
-                socketio.emit('bulk_operation_result', {'operation_id': operation_id,
-                              'success': False, 'error': 'Invalid watch selection'}, to=sid)
-            return
 
         def run_operation():
             """Run the operation in a background thread to avoid blocking the socket.io event loop"""
             try:
-                # gettext and other Flask helpers require an application context
-                # even though the operation runs in a background thread.
-                with flask_app.app_context():
-                    result = _handle_operations(
-                        op=data.get('op'),
-                        uuids=data.get('uuids'),
-                        datastore=datastore,
-                        extra_data=data.get('extra_data'),
-                        worker_pool=worker_pool,
-                        update_q=update_q,
-                        queuedWatchMetaData=queuedWatchMetaData,
-                        watch_check_update=watch_check_update,
-                        emit_flash=False
-                    )
+                result = _handle_operations(
+                    op=data.get('op'),
+                    uuids=data.get('uuids'),
+                    datastore=datastore,
+                    extra_data=data.get('extra_data'),
+                    worker_pool=worker_pool,
+                    update_q=update_q,
+                    queuedWatchMetaData=queuedWatchMetaData,
+                    watch_check_update=watch_check_update,
+                    emit_flash=False
+                )
                 # Server-driven feedback: tell the requesting client what happened (real count / errors)
-                success = not result or result.get('type', 'success') != 'error'
-                if sid:
-                    socketio.emit('bulk_operation_result', {
-                        'operation_id': operation_id, 'success': success,
-                        'error': (result or {}).get('message') if not success else None,
-                        'message': (result or {}).get('message'),
-                    }, to=sid)
-                    if result and result.get('message'):
-                        socketio.emit('toast', {'message': result['message'], 'type': result.get('type', 'success')}, to=sid)
+                if result and result.get('message') and sid:
+                    socketio.emit('toast', {'message': result['message'], 'type': result.get('type', 'success')}, to=sid)
             except Exception as e:
-                logger.exception(f"Error in checkbox operation thread: {e}")
-                if sid:
-                    socketio.emit('bulk_operation_result', {
-                        'operation_id': operation_id, 'success': False, 'error': str(e)
-                    }, to=sid)
+                logger.error(f"Error in checkbox operation thread: {e}")
 
         # Start operation in a disposable daemon thread
         thread = threading.Thread(target=run_operation, daemon=True, name=f"checkbox-op-{data.get('op')}")

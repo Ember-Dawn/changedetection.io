@@ -187,17 +187,9 @@ For future source changes, append a new entry with date (if known), specific pat
 - Added a single-Watch `测试人机验证` toolbar action and a matching `?test=1` Quick Verify mode. Test sessions are tracked in the manual-session manager and cannot invoke `/api/finish` or enqueue rechecks.
 - Moved manual operation from individual Watch rows and the manual-attention inline link to two cyan controls at the end of the cross-page selection toolbar. The error/attention message remains intact; multiple selection disables both.
 
-### 2026-11-06 — Health notice convergence and bulk-operation reliability
+### 2026-11-06 — Health notification convergence; classic bulk operation rollback
 
-- Routed product parsing/ordinary fetch failures exclusively through Watch Health,
-  removed orphan product recovery calls, added incident IDs, and fixed Apprise
-  `False` acknowledgement. Replaced verbose English Watch Health messages with
-  concise Chinese Telegram HTML (escaped clickable title) and plaintext fallback.
-- Fixed Socket.IO reconnect handler duplication. Confirmed bulk clear/delete now
-  wait for the matching server completion ID in a disabled processing dialog;
-  server failures remain visible for retry. Restored Flask application context
-  for background gettext and wired Clear Queue confirmation to its submit control.
-- Added safe Watch maintenance reservation for clearing history during running
-  checks; reports a failure rather than racing a still-running Watch.
-- Added isolated health lifecycle, history-maintenance, and modal lifecycle tests.
-  Browser, mixed-channel Telegram, and live concurrency acceptance remain pending.
+- Kept the unified Watch Health lifecycle, Chinese Telegram HTML health alerts, acknowledged incident IDs, and Apprise delivery-success handling.
+- Restored the original bulk Watch modal, Socket.IO operation handling, storage history clear, and worker claiming code from `changedetection.io(8).zip` after an asynchronous bulk-operation patch caused Flask `Working outside of request context` errors. This rollback intentionally removes the new modal waiting/progress/operation-ID behavior and history-maintenance reservation.
+- Kept the unrelated Clear Queue confirmation wiring fix. Cache-busted `modal.js` and `realtime.js` to ensure the original handlers load.
+- Removed tests specific to the reverted modal and Watch maintenance behavior. Existing health-notification tests remain.

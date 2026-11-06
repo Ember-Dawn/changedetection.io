@@ -26,24 +26,10 @@ def _handle_operations(op, uuids, datastore, worker_pool, update_q, queuedWatchM
     result_type = 'success'
 
     if op == 'delete':
-        deleted = 0
-        failures = []
-        from changedetectionio.worker_pool import reserve_watch_maintenance
         for uuid in uuids:
             if datastore.data['watching'].get(uuid):
-                try:
-                    with reserve_watch_maintenance(uuid):
-                        datastore.delete(uuid)
-                    deleted += 1
-                except Exception as exc:
-                    logger.exception('Could not delete watch {}: {}', uuid, exc)
-                    failures.append(uuid)
-        if failures:
-            result_type = 'error'
-            result_message = gettext("{} watches deleted").format(deleted) + \
-                ' Failed: ' + ', '.join(failures[:10])
-        else:
-            result_message = gettext("{} watches deleted").format(deleted)
+                datastore.delete(uuid)
+        result_message = gettext("{} watches deleted").format(len(uuids))
 
     elif op == 'pause':
         for uuid in uuids:
@@ -107,21 +93,10 @@ def _handle_operations(op, uuids, datastore, worker_pool, update_q, queuedWatchM
         result_message = gettext("{} watches errors cleared").format(len(uuids))
 
     elif (op == 'clear-history'):
-        cleared = 0
-        failures = []
         for uuid in uuids:
             if datastore.data['watching'].get(uuid):
-                try:
-                    datastore.clear_watch_history(uuid)
-                    cleared += 1
-                except Exception as exc:
-                    logger.exception('Could not clear history for {}: {}', uuid, exc)
-                    failures.append(uuid)
-        if failures:
-            result_type = 'error'
-            result_message = gettext("{} watches cleared/reset.").format(cleared) +                 ' Failed: ' + ', '.join(failures[:10])
-        else:
-            result_message = gettext("{} watches cleared/reset.").format(cleared)
+                datastore.clear_watch_history(uuid)
+        result_message = gettext("{} watches cleared/reset.").format(len(uuids))
 
     elif (op == 'notification-default'):
         from changedetectionio.notification import (

@@ -175,21 +175,9 @@ The last two selection-toolbar buttons are cyan single-Watch operations: `人工
 
 Quick Verify keeps a single shared template across real/test modes. The latter has the same layout and a disabled secondary close button, while server-side test sessions still cannot schedule recheck. The three navigation actions are accessible Lucide icon buttons. Two-finger touch gestures zoom/pan the *local screenshot* only; a separate small touch scroll-mode control sends remote wheel input. Single-finger press/move/release must preserve remote mouse-down/up pairing, including pointercancel, page hide and blur. Preserve the common `ManualBrowser.createCore` command serialization, the sole shared CloakBrowser Context and manual-session ownership. See `docs/cloakbrowser/QUICK_VERIFY.md`; run `node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs tests/cloakbrowser_shared/test_quick_verify_touch.cjs`.
 
-## 2026-11-06 Health notifications and bulk-operation dialogs
+## 2026-11-06 Health notification convergence and classic bulk operations
 
-- Health notices are concise Chinese with Telegram HTML title links and plaintext
-  fallback; recovery requires an acknowledged matching `failure_id`. Handle
-  Apprise `False` as a failed health delivery. Verification notices remain
-  separate from generic health failures. See `docs/watch-health/ARCHITECTURE.md`.
-- `realtime.js` must not accumulate Socket.IO click handlers across reconnects.
-  Confirmed bulk clear/delete operations wait in the existing modal for the
-  server's `bulk_operation_result` matching their `operation_id`; failure leaves
-  the dialog open and permits an explicit retry. Do not close on a generic toast.
-- The bulk Socket.IO background thread needs `app.app_context()` for gettext;
-  the queue's `Clear Queue` confirmation is on the submit button, not the form.
-- `worker_pool.reserve_watch_maintenance()` coordinates history reset with active
-  Worker claims. It must not bypass BrowserManager's Page ownership. If a running
-  Watch does not finish within the safety limit, fail the history-clear operation.
-- Test with `node --test tests/cloakbrowser_shared/test_modal_lifecycle.cjs` and
-  `python -m unittest discover -s tests/cloakbrowser_shared -p 'test_*contract.py'`
-  plus the existing CloakBrowser/frontend suites.
+- Health notices remain concise Chinese with Telegram HTML clickable watch titles and plaintext fallback. Recovery requires an acknowledged matching failure event; Apprise `False` is not success. See `docs/watch-health/ARCHITECTURE.md`.
+- Bulk Watch operations have been restored to the original behavior from `changedetection.io(8).zip`. Do not assume operation IDs, modal progress tracking, or a Watch history-maintenance reservation are enabled.
+- The separate Clear Queue confirmation wiring fix is retained.
+- Test the unchanged health lifecycle with `python -m unittest discover -s tests/cloakbrowser_shared -p 'test_watch_health_delivery_contract.py'`.
