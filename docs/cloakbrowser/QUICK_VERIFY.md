@@ -21,3 +21,11 @@ Because changedetection has a shared-password single-user identity, hiding manag
 - Mobile touch input and session persistence across lock/unlock require device-specific acceptance testing. Browser autoplay/background restrictions may suspend frame polling; the server session persists until its idle timeout.
 - This lightweight viewer polls JPEG through the existing authenticated HTTP API and may be less fluid than the desktop WebSocket viewer. It does not spoof completion of complex challenges.
 - Actual Telegram delivery, login redirect, session ownership after mobile sleep, and force-close while streaming must be validated in the user's deployed Docker environment.
+
+## Test mode and Watch list entries
+
+- From the Watch list, select **one** Watch and use the final cyan toolbar buttons: **人工操作** or **测试人机验证**. Multiple selections (including cross-page selections) disable both controls. A selected Watch must use `html_cloakbrowser_shared`; an off-page-only selection is deliberately not assumed to have a compatible backend.
+- Row-level and inline manual-operation links are removed, while `manual_attention_reason` and ordinary error messages remain visible. Normal `人工操作` opens `/manual-browser/?watch_uuid=...&autoconnect=1` in a new tab.
+- Test link: `/verify/<watch_uuid>?test=1` opens the existing Quick Verify viewer for a healthy Watch, without fabricating a verification failure. The server requires the same authenticated WebUI password and stored Watch UUID; test mode does not accept arbitrary destination URLs.
+- Test sessions are marked **server-side** in `ManualSessionManager`. The `/api/finish` endpoint rejects any test session before closing or enqueueing a Watch; test mode's **结束测试** uses `/api/close`. Test mode never mutates Watch Health or sends a verification notification. It still navigates the real watched site and may affect its shared browser cookies/session.
+- Both modes share the same global human session and management controls. Live browser mode, manual session ownership, CSRF and resource cleanup are unchanged. Test the real mobile interaction and session termination in Docker before treating those paths as production verified.

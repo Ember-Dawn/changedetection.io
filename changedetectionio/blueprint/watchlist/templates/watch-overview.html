@@ -319,6 +319,19 @@ window.watchOverviewI18n = {
                        data-confirm-title="{{ _('Delete Watches?') }}"
                        data-confirm-message="{{ _('<p><strong>Are you sure you want to delete the selected watches?</strong></p><p>This action cannot be undone.</p>') }}"
                        data-confirm-button="{{ _('Delete') }}"><i data-feather="trash" ></i>&nbsp;{{ _('Delete') }}</button>
+        {# Single-Watch browser actions: always the last two operations. #}
+        <button type="button" id="checkbox-manual-control"
+                class="pure-button button-secondary button-xsmall watch-browser-action"
+                data-target-url="{{ url_for('manual_browser.index') }}"
+                data-single-hint="仅支持选择一条监控"
+                data-backend-hint="该监控未使用共享 CloakBrowser"
+                disabled title="仅支持选择一条监控"><i data-feather="mouse-pointer" ></i>&nbsp;人工操作</button>
+        <button type="button" id="checkbox-test-verify"
+                class="pure-button button-secondary button-xsmall watch-browser-action"
+                data-target-prefix="{{ url_for('quick_verify.index', watch_uuid='__WATCH_UUID__') }}"
+                data-single-hint="仅支持选择一条监控"
+                data-backend-hint="该监控未使用共享 CloakBrowser"
+                disabled title="仅支持选择一条监控"><i data-feather="shield" ></i>&nbsp;测试人机验证</button>
     </div>
         <div id="select-all-banner" class="select-all-banner" style="display: none;"
              data-select-all-tmpl="{{ _('All %(page)s on this page are selected.') }}"

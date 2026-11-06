@@ -92,6 +92,12 @@ body.has-queue {
     background: #00125b;
     font-weight: bold;
   }
+  button.watch-browser-action {
+    background: #087e98;
+    color: white;
+    &:hover:not(:disabled), &:focus-visible:not(:disabled) { background: #0a96b3; }
+    &:disabled { background: #087e98; color: white; opacity: .42; cursor: not-allowed; }
+  }
     i,svg {
     width: 16px;
     height: 16px;

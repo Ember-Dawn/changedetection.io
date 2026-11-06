@@ -181,3 +181,8 @@ For future source changes, append a new entry with date (if known), specific pat
   domain-specific rules in Fetching settings; other websites remain parallel.
 - Watch-list Manual operation now auto-connects only on an opt-in link.
 - Compose FETCH_WORKERS can be configured via .env (default 3).
+
+### Quick Verify testing and Watch list actions (2026-11)
+
+- Added a single-Watch `测试人机验证` toolbar action and a matching `?test=1` Quick Verify mode. Test sessions are tracked in the manual-session manager and cannot invoke `/api/finish` or enqueue rechecks.
+- Moved manual operation from individual Watch rows and the manual-attention inline link to two cyan controls at the end of the cross-page selection toolbar. The error/attention message remains intact; multiple selection disables both.

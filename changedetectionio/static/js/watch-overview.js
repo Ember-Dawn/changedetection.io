@@ -275,7 +275,42 @@ $(function () {
         $('body').toggleClass('watch-selection-active', anyVisibleChecked);
         updateRecordsSelected();
         updateSelectAllBanner();
+        refreshSingleWatchActions();
     }
+    // Use the complete cross-page selection. Never silently choose the first visible row.
+    function refreshSingleWatchActions() {
+        const one = sel.size() === 1;
+        const uuid = one ? sel.all()[0] : '';
+        const row = one ? document.getElementById(uuid) : null;
+        // A selection from another page is not enough to infer its fetch backend;
+        // require that exact row to be present rather than using a stale guess.
+        const supported = !!(row && row.dataset.manualBrowserSupported === '1');
+        for (const id of ['checkbox-manual-control', 'checkbox-test-verify']) {
+            const button = document.getElementById(id);
+            if (!button) continue;
+            button.disabled = !one || !supported;
+            button.title = !one ? button.dataset.singleHint
+                : (!supported ? button.dataset.backendHint : '');
+        }
+    }
+    function openSingleWatchAction(event) {
+        const button = event.currentTarget;
+        if (button.disabled || sel.size() !== 1) return;
+        const uuid = sel.all()[0];
+        const row = document.getElementById(uuid);
+        if (!row || row.dataset.manualBrowserSupported !== '1') return;
+        const url = new URL(button.id === 'checkbox-manual-control'
+            ? button.dataset.targetUrl : button.dataset.targetPrefix.replace('__WATCH_UUID__', encodeURIComponent(uuid)), location.origin);
+        if (button.id === 'checkbox-manual-control') {
+            url.searchParams.set('watch_uuid', uuid);
+            url.searchParams.set('autoconnect', '1');
+        } else {
+            url.searchParams.set('test', '1');
+        }
+        window.open(url.toString(), '_blank', 'noopener');
+    }
+    $('#checkbox-manual-control, #checkbox-test-verify').on('click', openSingleWatchAction);
+
     // Exposed so realtime.js can refresh the UI after it mutates the selection
     // (e.g. clearing it once a delete operation removes the rows).
     sel.refreshUI = refreshSelectionUI;

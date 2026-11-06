@@ -29,7 +29,7 @@ const core = window.ManualBrowser.createCore({api: cfg.api, csrf: cfg.csrf}, {
  busy:buttonState,
  inspected:showOccupied,
  connected() {showOccupied(null); $('qv-connect').hidden = true; buttonState(); message('已连接，可以操作验证页面'); startFrames();},
- disconnected(reason) {cleanup(); $('qv-connect').hidden = !cfg.needsAttention; message(reason || '会话已结束');},
+ disconnected(reason) {cleanup(); $('qv-connect').hidden = !(cfg.needsAttention || cfg.testMode); message(reason || '会话已结束');},
  ended({path,result}) {message(path === 'finish' ? (result.recheck_queued ? '已安排重新检查' : '操作已完成，但检查未入队，请到 Watch 列表确认') : '已退出人工操作');}
 });
 function refreshImage(blob, generation) {
@@ -66,8 +66,8 @@ async function initialConnect() {
   const status = await core.inspect();
   if (!status) return;
   if (status.active || status.opening) return;
-  if (!cfg.needsAttention) { message('该监控当前没有待处理的人机验证；如仍需操作，请手动连接。'); $('qv-connect').hidden = false; return; }
-  await core.connect('', cfg.watchUuid);
+  if (!cfg.testMode && !cfg.needsAttention) { message('该监控当前没有待处理的人机验证；如仍需操作，请手动连接。'); $('qv-connect').hidden = false; return; }
+  await core.connect('', cfg.watchUuid, {test_mode: !!cfg.testMode});
 }
 function point(event) {
   const rect = img.getBoundingClientRect();
@@ -133,10 +133,10 @@ $('qv-reload').addEventListener('click',()=>action('refresh'));
 $('qv-back').addEventListener('click',()=>action('back'));
 $('qv-fit').addEventListener('click',()=>{scale=1;updateZoom();screen.scrollTop=0;screen.scrollLeft=0;});
 $('qv-close').addEventListener('click',()=>core.end('close'));
-$('qv-finish').addEventListener('click',()=>{if(window.confirm('完成操作并重新检查这个 Watch？'))core.end('finish');});
+$('qv-finish').addEventListener('click',()=>{if(cfg.testMode){core.end('close');return;}if(window.confirm('完成操作并重新检查这个 Watch？'))core.end('finish');});
 $('qv-resume').addEventListener('click',async()=>{const data=await core.inspect();if(data&&data.active&&data.owned&&data.watch_uuid===cfg.watchUuid)core.resume(data.session);});
 $('qv-check').addEventListener('click',()=>core.inspect());
-$('qv-connect').addEventListener('click',()=>core.connect('',cfg.watchUuid));
+$('qv-connect').addEventListener('click',()=>core.connect('',cfg.watchUuid,{test_mode:!!cfg.testMode}));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&core.active())message('正在恢复浏览器画面…');});
 window.addEventListener('pagehide',()=>{running++;if(currentUrl)URL.revokeObjectURL(currentUrl);});
 buttonState();initialConnect();

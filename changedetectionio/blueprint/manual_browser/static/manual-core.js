@@ -94,12 +94,12 @@
       }
       return next;
     }
-    async function connect(url, watchUuid) {
+    async function connect(url, watchUuid, options = {}) {
       if (token || busy) return;
       setBusy(true);
       emit('message', '正在连接浏览器…');
       try {
-        const data = await api('open', {url, watch_uuid: watchUuid});
+        const data = await api('open', {url, watch_uuid: watchUuid, ...(options.test_mode ? {test_mode: true} : {})});
         adopt(data.session, data.generation, data.watch_uuid || '');
       } catch (error) {
         emit('message', '连接失败：' + error.message);

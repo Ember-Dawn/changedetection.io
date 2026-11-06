@@ -81,5 +81,27 @@ class AdminTermination(unittest.TestCase):
 
 
 
+class TestModeSession(unittest.TestCase):
+    def test_session_record_distinguishes_test_mode(self):
+        from changedetection_cloak_shared.manual_session import _Session
+        entry = _Session('token', 'owner', 'watch-one', 1, None, None, time.monotonic(),
+                         'https://example.com', test_mode=True)
+        self.assertTrue(entry.test_mode)
+        ordinary = _Session('token', 'owner', 'watch-one', 1, None, None, time.monotonic(),
+                            'https://example.com')
+        self.assertFalse(ordinary.test_mode)
+
+    def test_owned_test_session_exposes_mode_for_finish_guard(self):
+        manual = ManualSessionManager()
+        manual._session = SimpleNamespace(token='private-token', owner='owner', watch_uuid='watch-a',
+                                          test_mode=True, closed=False, last_active=time.monotonic(),
+                                          browser_generation=42)
+        with patch('changedetection_cloak_shared.manual_session.manager.session_alive', return_value=True):
+            state = manual.inspect('owner')
+        self.assertTrue(state['test_mode'])
+        self.assertTrue(state['owned'])
+        self.assertEqual(state['watch_uuid'], 'watch-a')
+
+
 if __name__ == '__main__':
     unittest.main()

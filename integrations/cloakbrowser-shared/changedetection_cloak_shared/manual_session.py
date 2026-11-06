@@ -36,6 +36,7 @@ class _Session:
     page: object
     last_active: float
     address: str
+    test_mode: bool = False
     admin_id: str = field(default_factory=lambda: secrets.token_urlsafe(18))
     closed: bool = False
     pointer_down: bool = False
@@ -91,7 +92,8 @@ class ManualSessionManager:
             if yours:
                 result.update({'url': entry.address, 'session': entry.token,
                                'generation': entry.browser_generation,
-                               'watch_uuid': entry.watch_uuid or ''})
+                               'watch_uuid': entry.watch_uuid or '',
+                               'test_mode': entry.test_mode})
             return result
 
     def admin_snapshot(self):
@@ -143,7 +145,7 @@ class ManualSessionManager:
                 self._reserved.discard(watch_uuid)
             self._opening = False
 
-    async def _create(self, token, owner, watch_uuid, url):
+    async def _create(self, token, owner, watch_uuid, url, test_mode=False):
         await manager._ensure_context()
         # The same semaphore and owned browser generation as automated tabs.
         lease = _ContextLease(manager, {})
@@ -174,7 +176,7 @@ class ManualSessionManager:
             await lease.close()
             raise
         session = _Session(token, owner, watch_uuid, manager._generation,
-                           lease, page, time.monotonic(), url)
+                           lease, page, time.monotonic(), url, test_mode=test_mode)
         # An independent timer, not driven by screenshot polling, frees tabs if
         # the browser window is abandoned. Its generation is checked on cleanup.
         task = asyncio.create_task(self._expiry_watch(session), name='manual-session-expiry')
@@ -200,7 +202,7 @@ class ManualSessionManager:
                     logger.warning('Manual session cleanup was interrupted: {}', type(exc).__name__)
                 return
 
-    def open(self, owner, url, watch_uuid=None):
+    def open(self, owner, url, watch_uuid=None, test_mode=False):
         self._reserve(watch_uuid)
         try:
             # Prevent opening while an already-running watch would mutate the
@@ -210,11 +212,11 @@ class ManualSessionManager:
                 if worker_pool.is_watch_running(watch_uuid):
                     raise ManualSessionError('This watch is currently checking. Retry once it finishes.')
             token = secrets.token_urlsafe(32)
-            session = manager.call_sync(self._create(token, owner, watch_uuid, url), timeout=55)
+            session = manager.call_sync(self._create(token, owner, watch_uuid, url, test_mode=test_mode), timeout=55)
             with self._guard:
                 self._session = session
                 self._opening = False
-            return {'session': token, 'generation': session.browser_generation, 'watch_uuid': session.watch_uuid or ''}
+            return {'session': token, 'generation': session.browser_generation, 'watch_uuid': session.watch_uuid or '', 'test_mode': session.test_mode}
         except BaseException:
             self._unreserve(watch_uuid)
             raise

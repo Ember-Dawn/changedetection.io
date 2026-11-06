@@ -216,8 +216,11 @@ def construct_blueprint(datastore, update_q, queuedWatchMetaData):
         from changedetectionio import live_browser_gate
         if live_browser_gate.is_paused():
             raise ManualSessionError('Live Browser is active; use the desktop view instead')
+        test_mode = data.get('test_mode') is True
+        if test_mode and not watch_uuid:
+            abort(400, description='Test mode requires a saved Watch')
         try:
-            result = manual_sessions.open(_controller_id(), url, watch_uuid or None)
+            result = manual_sessions.open(_controller_id(), url, watch_uuid or None, test_mode=test_mode)
         except ManualSessionError:
             raise
         except Exception as exc:
@@ -257,7 +260,8 @@ def construct_blueprint(datastore, update_q, queuedWatchMetaData):
             context = manual_sessions.inspect(_controller_id())
             if (not context.get('active') or not context.get('owned')
                     or context.get('session') != data.get('session')
-                    or not context.get('watch_uuid')):
+                    or not context.get('watch_uuid')
+                    or context.get('test_mode')):
                 raise ManualSessionError('No associated Watch to recheck')
         watch_uuid = manual_sessions.close(data.get('session', ''), _controller_id())
         queued = False

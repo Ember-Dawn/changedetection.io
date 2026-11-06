@@ -1,6 +1,6 @@
 """Lightweight authenticated verification page using the existing manual browser backend."""
 import os
-from flask import Blueprint, abort, current_app, make_response, render_template
+from flask import Blueprint, abort, current_app, make_response, render_template, request
 from flask_login import current_user
 from changedetectionio.product_extraction.viewport import desktop_viewport
 
@@ -28,7 +28,8 @@ def construct_blueprint(datastore):
             backend = settings.get('fetch_backend')
         if backend != 'html_cloakbrowser_shared':
             abort(400, description='Quick Verify requires shared CloakBrowser')
-        response = make_response(render_template('quick-verify.html', watch_uuid=watch_uuid,
+        test_mode = request.args.get('test') == '1'
+        response = make_response(render_template('quick-verify.html', test_mode=test_mode, watch_uuid=watch_uuid,
                                                  watch_title=watch.label or watch.get('title') or watch.get('url'),
                                                  needs_attention=bool(watch.get('manual_attention_reason')),
                                                  fixed_viewport=desktop_viewport()))

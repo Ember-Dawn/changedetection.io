@@ -35,7 +35,7 @@
                     'multiple-history' if history_n >= 2 else '',
                     'use-html-title' if system_use_url_watchlist else 'no-html-title',
                 ] -%}
-            <tr id="{{ watch.uuid }}" data-watch-uuid="{{ watch.uuid }}" class="{{ row_classes | reject('equalto', '') | join(' ') }}">
+            <tr id="{{ watch.uuid }}" data-watch-uuid="{{ watch.uuid }}" data-manual-browser-supported="{{ '1' if (watch.get_fetch_backend if watch.get_fetch_backend != 'system' else datastore.data['settings']['application'].get('fetch_backend')) == 'html_cloakbrowser_shared' else '0' }}" class="{{ row_classes | reject('equalto', '') | join(' ') }}">
                 <td class="inline checkbox-uuid" ><div><input name="uuids"  type="checkbox" value="{{ watch.uuid}} " >{# <span class="counter-i">{{ loop.index+pagination.skip }}</span>#}</div></td>
                 <td class="inline watch-controls">
                     <div>
@@ -89,7 +89,6 @@
                             {% if watch.get('manual_attention_reason') %}
                             <div class="manual-attention-indicator" style="font-size:.85em;margin:3px 0">
                               <span>需要人工处理：{{ watch.get('manual_attention_reason') }}</span>
-                              <a href="{{ url_for('manual_browser.index', watch_uuid=watch.uuid, autoconnect=1) }}" target="_blank" rel="noopener">人工操作</a>
                             </div>
                             {% endif %}
                             <div class="error-text" style="display:none;">{{ error_texts|safe }}</div>
@@ -194,9 +193,6 @@
                     {%- if watch.get('last_error') and ('verification' in (watch.get('last_error') | string | lower) or 'captcha' in (watch.get('last_error') | string | lower)) -%}
                     <span title="网站验证可能需要人工处理" style="font-size:.8em;color:#e6a250">需要人工处理</span>
                     {%- endif -%}
-                    <a href="{{ url_for('manual_browser.index', watch_uuid=watch.uuid, autoconnect=1) }}"
-                       target="_blank" rel="noopener" class="cdio-btn cdio-btn--primary cdio-btn--sm"
-                       title="使用共享浏览器人工打开该监控网站">人工操作</a>
                     {%- endif -%}
                     <a href="{{ url_for('ui.ui_edit.edit_page', uuid=watch.uuid, tag=active_tag_uuid)}}#general" class="cdio-btn cdio-btn--primary cdio-btn--sm">{{ _('Edit') }}</a>
                     <a href="{{ url_for('ui.ui_diff.diff_history_page', uuid=watch.uuid)}}" {{target_attr}} class="cdio-btn cdio-btn--primary cdio-btn--sm history-link ai-history-btn" style="display: none;" data-uuid="{{ watch.uuid }}" data-summary-url="{{ url_for('ui.ui_diff.diff_llm_summary', uuid=watch.uuid) }}" data-processor-data-url="{{ url_for('ui.ui_diff.diff_history_page_processor_data', uuid=watch.uuid) }}"><span class="btn-label-history">{{ _('History') }}</span><span class="btn-label-summary">&#x2728; {{ _('Summary') }}</span></a>
