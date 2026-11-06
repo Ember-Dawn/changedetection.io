@@ -134,3 +134,15 @@ Current source includes integrated Headed desktop control. The operator confirme
 ## Browsers V7 mode navigation (2026-11-05)
 
 The separate bordered Live Browser card has been replaced with **截图操控 / 实时浏览器** view tabs in a common toolbar. Tab selection must never launch/stop Chromium; explicit start/restore buttons control the protected lifecycle. Disable capture selection whenever Headed is running or transitioning. Embedded noVNC uses the Xvfb 1366×900 aspect ratio instead of a fixed viewport-relative height, with no outer Live Browser component border. Preserve the V1 WebSocket upgrade fix, app-styled confirmation, full Profile ownership and Watch maintenance pause.
+
+## Watch Health and product fetch reliability (2026-11)
+
+Read [`docs/watch-health/ARCHITECTURE.md`](docs/watch-health/ARCHITECTURE.md) before modifying
+product fetch retries, check scheduling, operational alerts or successful recovery.
+One completed Watch check, not one tab attempt, is the health accounting unit. Keep
+`Fetch Reliability` separate from `Watch Health` and from existing price/stock
+business notifications. Only use the manager-owned CloakBrowser page lease and its
+scoped rule-readiness hook; manual browser sessions must never inherit automatic
+retry controls. Do not reinstate unconditional `clear_after_success` or product
+recovery calls in Worker cleanup. Accelerated recheck configuration is stored in
+`settings.requests`, with Watch-level optional overrides and persisted retry times.

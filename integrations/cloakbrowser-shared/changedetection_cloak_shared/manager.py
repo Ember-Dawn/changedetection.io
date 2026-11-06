@@ -69,6 +69,10 @@ class _ManagedPage:
         await self._page.wait_for_timeout(milliseconds)
         if _SHARED_FETCH.get():
             await self._check_verification_after_upstream_wait()
+            from .product_ready import PRODUCT_READINESS, wait_until_ready
+            readiness = PRODUCT_READINESS.get()
+            if readiness:
+                await wait_until_ready(self._page, readiness)
 
     async def _check_verification_after_upstream_wait(self):
         from .page_readiness import page_challenge

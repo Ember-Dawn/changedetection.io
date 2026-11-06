@@ -156,3 +156,16 @@ For future source changes, append a new entry with date (if known), specific pat
 - Update current-status documents to distinguish independently tested Headed/Profile/noVNC proof from the later **integrated** in-app noVNC path (confirmed by operator after Werkzeug `websocket=True` handshake fix).
 - Record the operator's V7 UI screenshot and successful V8 black-strip elimination after `xdotool` window fitting. Correct obsolete claims that Xvfb/noVNC is unimplemented or integrated desktop remains entirely unverified.
 - Retain explicit outstanding tests for Watch maintenance drain/restore, negative security paths, HTTPS reverse-proxy WSS, experimental CDP, and site-specific login persistence. Historical feature milestones remain unchanged.
+
+## 2026-11-05 — Watch Health and product fetch reliability
+
+- Added bounded selected-rule readiness waiting inside shared CloakBrowser's existing
+  managed Page extraction seam and finite sequential fresh-tab attempts for eligible
+  product checks without browser steps.
+- Added persisted health state and separate delivery-acknowledged operational alert
+  state. Product-watch failure rechecks can run sooner than the normal check interval.
+- Added global and per-Watch reliability settings, a compact abnormal status label,
+  and fixed unconditional successful-recovery cleanup after failed processor work.
+- Preserved existing manual browser control, verification detection, persistent
+  Profile ownership and ordinary commodity event alerts. See
+  `docs/watch-health/ARCHITECTURE.md` for contracts, boundaries and acceptance tests.

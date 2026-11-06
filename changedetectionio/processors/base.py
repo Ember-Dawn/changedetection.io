@@ -277,6 +277,15 @@ class difference_detection_processor():
                                                url=self.watch.get('url')) from exc
                 if rule:
                     rule_wait = rule.get('page', {}).get('extra_wait_seconds')
+                    if prefer_fetch_backend == 'html_cloakbrowser_shared':
+                        from changedetectionio.watch_health import policy
+                        options = policy(self.datastore, self.watch)
+                        self.fetcher.product_readiness = {
+                            'rule': rule,
+                            'wait_seconds': options['reliability_wait_seconds'],
+                            'require_price': config.get('price_mode', 'none') != 'none',
+                            'require_stock': config.get('stock_mode', 'restock') != 'none',
+                        }
             if rule_wait is not None:
                 self.fetcher.render_extract_delay = rule_wait
             elif system_webdriver_delay is not None:
@@ -287,6 +296,33 @@ class difference_detection_processor():
 
         # Requests for PDF's, images etc should be passwd the is_binary flag
         is_binary = self.watch.is_pdf
+
+        # Product readiness is independent of an explicit fixed webdriver delay.
+        # A chosen extraction rule may become ready after DOMContentLoaded.
+        if (self.watch.get('processor') == 'restock_diff' and
+                prefer_fetch_backend == 'html_cloakbrowser_shared' and
+                not getattr(self.fetcher, 'product_readiness', None)):
+            from changedetectionio.product_extraction.registry import choose
+            from changedetectionio.watch_health import policy
+            config = self.get_extra_watch_config('restock_diff.json').get('restock_diff') or {}
+            for tag_uuid in self.watch.get('tags', []):
+                tag = self.datastore.data['settings']['application']['tags'].get(tag_uuid, {})
+                if tag.get('overrides_watch'):
+                    config = tag.get('processor_config_restock_diff') or config
+                    break
+            from changedetectionio.product_extraction.models import RuleError
+            try:
+                active_rule = choose(self.watch.get('url'), config.get('extraction_mode') or 'rule',
+                                     config.get('extraction_rule_id') or '')
+            except RuleError:
+                active_rule = None  # Processor owns the configuration-error result.
+            if active_rule:
+                self.fetcher.product_readiness = {
+                    'rule': active_rule,
+                    'wait_seconds': policy(self.datastore, self.watch)['reliability_wait_seconds'],
+                    'require_price': config.get('price_mode', 'none') != 'none',
+                    'require_stock': config.get('stock_mode', 'restock') != 'none',
+                }
 
         # And here we go! call the right browser with browser-specific settings
         empty_pages_are_a_change = self.datastore.data['settings']['application'].get('empty_pages_are_a_change', False)

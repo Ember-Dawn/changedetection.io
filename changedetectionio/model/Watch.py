@@ -414,6 +414,8 @@ class model(EntityPersistenceMixin, watch_base):
             'product_rule_signature': None,
             'product_rule_signature_kind': None,
             'product_rule_alert_state': {},
+            'watch_health': {},
+            'watch_health_alert': {},
             'remote_server_reply': None,
             'track_ldjson_price_data': None
         })

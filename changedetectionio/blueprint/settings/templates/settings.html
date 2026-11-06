@@ -162,6 +162,13 @@
                     {{ render_field(form.requests.form.jitter_seconds, class="jitter_seconds") }}
                     <span class="pure-form-message-inline">{{ _('Example - 3 seconds random jitter could trigger up to 3 seconds earlier or up to 3 seconds later') }}</span>
                 </div>
+                <fieldset class="pure-group border-fieldset">
+                    <legend>Product fetch reliability / Watch Health</legend>
+                    <p>Settings apply to product watches unless overridden per watch. A value of 0 minutes disables accelerated rechecks.</p>
+                    {% for name in ('reliability_wait_seconds', 'reliability_page_attempts', 'reliability_page_gap_seconds', 'reliability_failure_threshold', 'reliability_retry_minutes') %}
+                      <div class="pure-control-group">{{ render_field(form.requests.form[name]) }}</div>
+                    {% endfor %}
+                </fieldset>
                 <div class="pure-control-group">
                     {{ render_field(form.requests.form.timeout) }}
                     <span class="pure-form-message-inline">{{ _('For regular plain requests (not chrome based), maximum number of seconds until timeout, 1-999.') }}</span><br>

@@ -1649,6 +1649,10 @@ def notification_runner(worker_id=0):
                         ].get('notification_format')
                     from changedetectionio.verification_alerts import delivery_is_current, acknowledge_delivery
                     from changedetectionio.product_rule_alerts import delivery_is_current as product_delivery_current, acknowledge as product_ack
+                    from changedetectionio.watch_health.alerts import delivery_is_current as health_delivery_current, acknowledge as health_ack
+                    if n_object.get('health_alert_event') and not health_delivery_current(datastore, n_object):
+                        logger.info('Skipping obsolete health notification for {}', n_object.get('uuid'))
+                        continue
                     if n_object.get('product_rule_event') and not product_delivery_current(datastore, n_object):
                         logger.info('Skipping obsolete product rule notification for {}', n_object.get('uuid'))
                         continue
@@ -1661,8 +1665,16 @@ def notification_runner(worker_id=0):
                         acknowledge_delivery(datastore, n_object, succeeded=bool(sent_obj))
                     if n_object.get('product_rule_event'):
                         product_ack(datastore, n_object, succeeded=bool(sent_obj))
+                    if n_object.get('health_alert_event'):
+                        health_ack(datastore, n_object, succeeded=bool(sent_obj))
 
                 except Exception as e:
+                    if n_object.get('health_alert_event'):
+                        try:
+                            from changedetectionio.watch_health.alerts import acknowledge as health_ack
+                            health_ack(datastore, n_object, succeeded=False)
+                        except Exception as ack_error:
+                            logger.warning('Could not record health notification delivery failure: {}', ack_error)
                     if n_object.get('product_rule_event'):
                         try:
                             from changedetectionio.product_rule_alerts import acknowledge as product_ack
@@ -1849,10 +1861,14 @@ def ticker_thread_check_time_launch_checks():
 
             seconds_since_last_recheck = now - watch['last_checked']
 
-            if (
+            from changedetectionio.watch_health import retry_due
+            accelerated_due = (watch.get('processor') == 'restock_diff' and
+                               retry_due(watch, now) and
+                               seconds_since_last_recheck >= recheck_time_minimum_seconds)
+            if (accelerated_due or (
                 seconds_since_last_recheck >= (threshold + watch.jitter_seconds)
                 and seconds_since_last_recheck >= recheck_time_minimum_seconds
-            ):
+            )):
                 if uuid not in running_uuids and uuid not in queued_uuids:
                     # Proxies can be set to have a limit on seconds between which they can be called
                     watch_proxy = datastore.get_preferred_proxy_for_watch(uuid=uuid)

@@ -962,6 +962,13 @@ class processor_text_json_diff_form(commonSettingsForm, commonNotificationSettin
     time_schedule_limit = FormField(ScheduleLimitForm)
 
     time_between_check_use_default = BooleanField(_l('Use global settings for time between check and scheduler.'), default=False)
+    reliability_use_default = BooleanField(_l('Use global product reliability settings'), default=True)
+    reliability_wait_seconds = IntegerField(_l('Extra wait for product data (seconds)'), validators=[validators.Optional(), validators.NumberRange(min=0, max=30)])
+    reliability_page_attempts = IntegerField(_l('Maximum page attempts per check'), validators=[validators.Optional(), validators.NumberRange(min=1, max=3)])
+    reliability_page_gap_seconds = IntegerField(_l('Delay between fresh tabs (seconds)'), validators=[validators.Optional(), validators.NumberRange(min=0, max=60)])
+    reliability_failure_threshold = IntegerField(_l('Consecutive failed checks to confirm fault'), validators=[validators.Optional(), validators.NumberRange(min=1, max=10)])
+    reliability_retry_minutes = IntegerField(_l('Accelerated recheck interval (minutes; 0 disables)'), validators=[validators.Optional(), validators.NumberRange(min=0, max=1440)])
+
 
     llm_intent = TextAreaField(_l('AI Change Intent - Notify me when..'), validators=[validators.Optional(), validators.Length(max=2000)],
                                render_kw={"rows": "5", "placeholder": LLM_INTENT_WATCH_PLACEHOLDER})
@@ -1104,6 +1111,12 @@ class DefaultUAInputForm(Form):
 
 # datastore.data['settings']['requests']..
 class globalSettingsRequestForm(Form):
+    reliability_wait_seconds = IntegerField(_l('Extra wait for product data (seconds)'), default=10, validators=[validators.InputRequired(), validators.NumberRange(min=0, max=30)])
+    reliability_page_attempts = IntegerField(_l('Maximum page attempts per check'), default=2, validators=[validators.InputRequired(), validators.NumberRange(min=1, max=3)])
+    reliability_page_gap_seconds = IntegerField(_l('Delay between fresh tabs (seconds)'), default=10, validators=[validators.InputRequired(), validators.NumberRange(min=0, max=60)])
+    reliability_failure_threshold = IntegerField(_l('Consecutive failed checks to confirm fault'), default=2, validators=[validators.InputRequired(), validators.NumberRange(min=1, max=10)])
+    reliability_retry_minutes = IntegerField(_l('Accelerated failure recheck interval (minutes; 0 disables)'), default=5, validators=[validators.InputRequired(), validators.NumberRange(min=0, max=1440)])
+
     time_between_check = RequiredFormField(TimeBetweenCheckForm, label=_l('Time Between Check'))
     time_schedule_limit = FormField(ScheduleLimitForm)
     proxy = RadioField(_l('Default proxy'))

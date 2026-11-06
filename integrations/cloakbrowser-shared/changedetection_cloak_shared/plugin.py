@@ -30,7 +30,14 @@ def register_content_fetcher():
             # BrowserManager checks for verification immediately after the
             # upstream navigation settle, before XPath/content extraction.
             from .page_readiness import challenge_kind
-            result = await manager.run_fetch(kwargs.get('watch_uuid'), super().run, *args, **kwargs)
+            async def with_readiness():
+                from .product_ready import PRODUCT_READINESS
+                token = PRODUCT_READINESS.set(getattr(self, 'product_readiness', None))
+                try:
+                    return await super(SharedFetcher, self).run(*args, **kwargs)
+                finally:
+                    PRODUCT_READINESS.reset(token)
+            result = await manager.run_fetch(kwargs.get('watch_uuid'), with_readiness)
             kind = challenge_kind(self.content, url=kwargs.get('url', ''))
             if kind:
                 from changedetectionio.content_fetchers.exceptions import PageUnloadable

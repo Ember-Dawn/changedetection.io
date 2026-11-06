@@ -61,3 +61,23 @@ Relevant paths are `purchase_alert.py` (policy), `restock_diff/__init__.py` (dis
 ## Rule failure notifications
 
 The first selected-rule extraction/configuration failure is queued as an operational alert. A successfully delivered failure message is not repeated while the rule remains broken. A successful later extraction queues one recovery notification. If delivery fails, the alert remains eligible for retry on subsequent checks. Telegram-only destinations use a linked product title in HTML; non-Telegram or mixed destinations get a short plain-text message with the URL. These messages do not use the normal price/stock notification template. Paused Watches do not check.
+
+## Operational reliability / health (2026-11)
+
+Product checks using `html_cloakbrowser_shared` and a selected extraction rule can
+wait briefly for required DOM data on the *same* tab and retry on a fresh tab if
+eligible. Both attempts are a single logical check: neither changes a purchase
+trigger, a price/stock baseline, nor the monitor history until successful
+parsing. Transient failures cannot be treated as $0 or out of stock.
+
+A failed completed check enters persisted Watch Health state. By default, two
+failed checks confirm the fault; the next check can run after five minutes even
+if the normal watch interval is longer. All timings are configurable in global
+Fetching settings with optional individual Watch overrides. Confirmed browser
+verification uses a separate Action Required path and skips automatic fresh-tab
+retries; the scheduled tab closes, and the operator may later open the same URL
+through manual browser control. See `docs/watch-health/ARCHITECTURE.md`.
+
+Commodity event notification templates and stock/price purchase conditions are
+independent of Watch Health operational notifications. Delivery acknowledgement
+and error/restore status are managed separately.

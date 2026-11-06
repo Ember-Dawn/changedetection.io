@@ -46,3 +46,13 @@ Watch state is not a user pause. Scheduler retries at its configured cadence; fo
 9. Use a real Telegram test endpoint only with operator approval; mock tests cannot prove message delivery.
 
 The original independent `html_cloakbrowser` backend and ordinary HTTP fetchers should remain unchanged by shared-specific challenge detection.
+
+## 2026-11 — Interaction with Watch Health
+
+Recognized challenges bypass product readiness/tab retry loops and are recorded
+as `watch_health.status=action_required`. Automatic fetch Pages are closed by the
+normal shared-lease cleanup; no challenge tab is retained. The operator may
+open the watch URL later in either available manual browser control mode. Live
+Browser selection is not automated. Shared Profile persistence does not
+guarantee that every website's challenge token survives a fresh tab. Completion
+is recognized only after a later successful monitoring check.

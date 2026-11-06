@@ -28,6 +28,11 @@ class model(dict):
                     'extra_proxies': [], # Configurable extra proxies via the UI
                     'extra_browsers': [],  # Configurable extra proxies via the UI
                     'jitter_seconds': 0,
+                    'reliability_wait_seconds': 10,
+                    'reliability_page_attempts': 2,
+                    'reliability_page_gap_seconds': 10,
+                    'reliability_failure_threshold': 2,
+                    'reliability_retry_minutes': 5,
                     'proxy': None, # Preferred proxy connection
                     'time_between_check': {'weeks': None, 'days': None, 'hours': 3, 'minutes': None, 'seconds': None},
                     'timeout': int(getenv("DEFAULT_SETTINGS_REQUESTS_TIMEOUT", "45")),  # Default 45 seconds

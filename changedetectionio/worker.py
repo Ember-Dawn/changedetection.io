@@ -29,6 +29,55 @@ IN_PYTEST = "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
 DEFER_SLEEP_TIME_ALREADY_QUEUED = 0.3 if IN_PYTEST else 10.0
 
 
+async def perform_reliable_product_check(handler, watch, datastore, executor):
+    """One logical check, with bounded fresh-page attempts inside it.
+
+    Initial page read is managed by upstream CloakBrowser. The optional
+    product-readiness hook waits on that same page before HTML extraction.
+    Any further attempt uses a new, manager-owned page and the same Profile.
+    """
+    from changedetectionio.watch_health import policy
+    cfg = policy(datastore, watch)
+    from changedetectionio.processors.exceptions import ProductRuleException
+    transient = (ProductRuleException,
+                 content_fetchers_exceptions.BrowserFetchTimedOut,
+                 content_fetchers_exceptions.BrowserConnectError,
+                 content_fetchers_exceptions.EmptyReply)
+    # Do not replay browser-step side effects on a second tab.
+    # Follow the same watch/tag/global resolution used by call_browser(),
+    # instead of assuming a Watch-level 'system' value identifies the backend.
+    from changedetectionio.content_fetchers import resolve_content_fetcher
+    try:
+        _, backend, _ = resolve_content_fetcher(watch=watch, datastore=datastore)
+    except Exception:
+        backend = ''  # Let call_browser report its actual resolution error.
+    eligible = (watch.get('processor') == 'restock_diff' and
+                not watch.has_browser_steps and
+                backend == 'html_cloakbrowser_shared')
+    attempts = cfg['reliability_page_attempts'] if eligible else 1
+    loop = asyncio.get_running_loop()
+    for attempt in range(attempts):
+        browser_finished = False
+        try:
+            await handler.call_browser()
+            browser_finished = True  # call_browser() already quit/closed its Page.
+            return await loop.run_in_executor(executor, lambda: handler.run_changedetection(watch=watch))
+        except transient as error:
+            # A bad rule configuration is never healed by reloading the URL.
+            if (attempt + 1 >= attempts or
+                (isinstance(error, ProductRuleException) and 'configuration' in error.message.lower())):
+                raise
+            logger.info('Retrying product watch {} after failed page attempt {}/{}',
+                        watch.get('uuid'), attempt + 1, attempts)
+            try:
+                if not browser_finished and getattr(handler, 'fetcher', None):
+                    await handler.fetcher.quit(watch=watch)
+            except Exception as cleanup_error:
+                logger.warning('Product page cleanup failed for {}: {}', watch.get('uuid'), cleanup_error)
+                raise  # Never open another tab after uncertain cleanup.
+            await asyncio.sleep(cfg['reliability_page_gap_seconds'])
+
+
 def set_watch_minitext_status(watch, status):
     """
     Set a transient status line for a watch (e.g. "Fetching...", "Querying AI/LLM..").
@@ -177,6 +226,8 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                 changed_detected = False
                 contents = b''
                 process_changedetection_results = True
+                check_succeeded = False
+                check_category = ''
                 update_obj = {}
 
                 # Clear last errors
@@ -214,17 +265,8 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
 
                     set_watch_minitext_status(watch, "Fetching...")
 
-                    # All fetchers are now async, so call directly
-                    await update_handler.call_browser()
-
-                    # Run change detection in executor to avoid blocking event loop
-                    # This includes CPU-intensive operations like HTML parsing (lxml/inscriptis)
-                    # which can take 2-10ms and cause GIL contention across workers
-                    loop = asyncio.get_event_loop()
-                    changed_detected, update_obj, contents = await loop.run_in_executor(
-                        executor,
-                        lambda: update_handler.run_changedetection(watch=watch)
-                    )
+                    changed_detected, update_obj, contents = await perform_reliable_product_check(
+                        update_handler, watch, datastore, executor)
 
                 except PermissionError as e:
                     logger.critical(f"File permission error updating file, watch: {uuid}")
@@ -240,8 +282,7 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                         e.xpath_data = None  # Free memory immediately
                     datastore.update_watch(uuid=uuid, update_obj={'last_error': e.message})
                     if isinstance(e, ProductRuleException):
-                        from changedetectionio.product_rule_alerts import failure
-                        failure(datastore, notification_q, uuid, e.message)
+                        check_category = 'product_rule'
                     process_changedetection_results = False
 
                 except PDFNotAvailableFromFetcher as e:
@@ -357,12 +398,8 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                     # Reset the edited flag since we successfully completed the check
                     watch.reset_watch_edited_flag()
                     # Unchanged checksum still means a successful page fetch.
+                    check_succeeded = True
                     datastore.update_watch(uuid=uuid, update_obj={'last_error': False})
-                    from changedetectionio.verification_alerts import clear_after_success
-                    clear_after_success(datastore, notification_q, uuid)
-                    if watch.get('processor') == 'restock_diff':
-                        from changedetectionio.product_rule_alerts import recovered
-                        recovered(datastore, notification_q, uuid)
                     cleanup_error_artifacts(uuid, datastore)
                     
                 except content_fetchers_exceptions.BrowserConnectError as e:
@@ -472,6 +509,7 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                 else:
                     if not datastore.data['watching'].get(uuid):
                         continue
+                    check_succeeded = True
 
                     update_obj['content-type'] = str(update_handler.fetcher.get_all_headers().get('content-type', '') or "").lower()
 
@@ -671,11 +709,37 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
 
                         logger.critical(f"Worker {worker_id} exception in process_changedetection_results")
                         logger.exception(f"Worker {worker_id} full exception details:")
+                        check_succeeded = False
                         datastore.update_watch(uuid=uuid, update_obj={'last_error': str(e)})
 
 
                 # Always record attempt count
                 count = watch.get('check_count', 0) + 1
+
+                # Persist the outcome only after the entire processing path finished.
+                # A failed handler must never clear verification or product-rule state.
+                from changedetectionio.watch_health import record_result
+                from changedetectionio.watch_health.alerts import on_result
+                current_error = str(watch.get('last_error') or '')
+                if check_succeeded:
+                    outcome = 'success'
+                elif watch.get('manual_attention_reason'):
+                    outcome = 'attention'
+                else:
+                    outcome = 'failure'
+                if not check_category:
+                    check_category = ('verification' if outcome == 'attention' else
+                                      'http' if 'HTTP' in current_error or '403' in current_error else
+                                      'fetch_or_processing')
+                transition = record_result(datastore, uuid, outcome,
+                                           reason=current_error, category=check_category)
+                if transition:
+                    try:
+                        on_result(datastore, notification_q, uuid, outcome, *transition,
+                                  reason=current_error)
+                    except Exception as alert_error:
+                        # Operational alert enqueue is not a failed page check.
+                        logger.exception('Could not queue Watch Health alert for {}: {}', uuid, alert_error)
 
                 final_updates = {'fetch_time': round(time.time() - fetch_start_time, 3),
                                                                   'check_count': count,
@@ -710,11 +774,12 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                                            )
 
                     datastore.update_watch(uuid=uuid, update_obj=final_updates)
-                    from changedetectionio.verification_alerts import clear_after_success
-                    clear_after_success(datastore, notification_q, uuid)
-                    if watch.get('processor') == 'restock_diff':
-                        from changedetectionio.product_rule_alerts import recovered
-                        recovered(datastore, notification_q, uuid)
+                    if check_succeeded:
+                        from changedetectionio.verification_alerts import clear_after_success
+                        clear_after_success(datastore, notification_q, uuid)
+                        if watch.get('processor') == 'restock_diff':
+                            from changedetectionio.product_rule_alerts import recovered
+                            recovered(datastore, notification_q, uuid)
 
                     # NOW clear fetcher content - after all processing is complete
                     # This is the last point where we need the fetcher data

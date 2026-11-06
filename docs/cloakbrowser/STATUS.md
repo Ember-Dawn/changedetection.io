@@ -40,3 +40,10 @@ These observations do **not** establish website-specific login persistence, Clou
 ## Other project open work
 
 Product Stock & Price form/processor/API fields were found aligned in the 2026-11-04 source audit; stored legacy configuration migration and live notification delivery remain unverified. See [RESTOCK_AND_ALERTS.md](../product-extraction/RESTOCK_AND_ALERTS.md).
+
+### 2026-11-05 — Reliability patch status
+
+The Watch Health reliability implementation was syntax-checked and pure state-machine
+unit tests were added. Browser end-to-end testing and Telegram delivery verification
+still require the operator's dependency-complete Docker host; do not describe those
+as accepted until they have been exercised there. See `docs/watch-health/ARCHITECTURE.md`.

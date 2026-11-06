@@ -123,6 +123,16 @@
 
                     </div>
 
+                    {% if watch.processor == 'restock_diff' %}
+                    <fieldset class="border-fieldset">
+                      <legend>Product fetch reliability / Watch Health</legend>
+                      <p class="pure-form-message-inline">Override the global defaults for this product watch. Failed checks can be rechecked sooner than the normal check interval.</p>
+                      {{ render_checkbox_field(form.reliability_use_default) }}
+                      {% for name in ('reliability_wait_seconds', 'reliability_page_attempts', 'reliability_page_gap_seconds', 'reliability_failure_threshold', 'reliability_retry_minutes') %}
+                        <div class="pure-control-group">{{ render_field(form[name]) }}</div>
+                      {% endfor %}
+                    </fieldset>
+                    {% endif %}
                     <div class="pure-control-group time-between-check border-fieldset">
 
                         {{ render_checkbox_field(form.time_between_check_use_default, class="use-default-timecheck") }}
