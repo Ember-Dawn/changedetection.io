@@ -1111,6 +1111,17 @@ class DefaultUAInputForm(Form):
 
 # datastore.data['settings']['requests']..
 class globalSettingsRequestForm(Form):
+    site_interval_seconds = FloatField(_l('Default minimum interval between same-site requests'), default=3,
+                                       validators=[validators.NumberRange(min=0, max=3600)])
+    site_interval_overrides = TextAreaField(_l('Per-site interval overrides'), default='', validators=[validators.Optional()])
+
+    def validate_site_interval_overrides(self, field):
+        from changedetection_cloak_shared.site_rate_limit import parse_overrides
+        try:
+            parse_overrides(field.data)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+
     reliability_wait_seconds = IntegerField(_l('Extra wait for product data'), default=10, validators=[validators.InputRequired(), validators.NumberRange(min=0, max=30)])
     reliability_page_attempts = IntegerField(_l('Maximum page attempts per check'), default=2, validators=[validators.InputRequired(), validators.NumberRange(min=1, max=3)])
     reliability_page_gap_seconds = IntegerField(_l('Delay between fresh tabs'), default=10, validators=[validators.InputRequired(), validators.NumberRange(min=0, max=60)])

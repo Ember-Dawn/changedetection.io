@@ -169,3 +169,9 @@ For future source changes, append a new entry with date (if known), specific pat
 - Preserved existing manual browser control, verification detection, persistent
   Profile ownership and ordinary commodity event alerts. See
   `docs/watch-health/ARCHITECTURE.md` for contracts, boundaries and acceptance tests.
+
+### 2026-11 - site-paced scheduled navigation and manual entry
+- Added default 3-second per-site main-page navigation spacing and editable
+  domain-specific rules in Fetching settings; other websites remain parallel.
+- Watch-list Manual operation now auto-connects only on an opt-in link.
+- Compose FETCH_WORKERS can be configured via .env (default 3).

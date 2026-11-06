@@ -73,3 +73,16 @@ The optional CDP Screencast path only changes how the *existing* manual Page pro
 `changedetectionio/live_browser_gate.py` is a process-local worker admission/drain gate; it does **not** mutate `all_paused` and does not persist. Existing worker jobs are requeued unchanged during maintenance. Manual/preview admission is refused. BrowserManager's manager-loop `_switch_live_mode` closes the previous Context before it reopens the **same** Profile in the new mode; the manager's `ProfileLock` is retained, and `stop()` remains the application shutdown method.
 
 `changedetection_cloak_shared/live_browser.py` starts/stops Xvfb+x11vnc only during Headed operation. VNC binds container loopback; Flask's `/manual-browser/live/ws` WebSocket relay performs session, CSRF and same-origin checks, and assets are authorized per request. No 5900/6080 host mapping or standalone unauthenticated websockify listener is required. The integrated WebSocket route now declares `websocket=True`: the operator observed successful in-app noVNC rendering after an initial HTTP 400 handshake failure. This confirms the tested direct Docker access path, **not** every HTTPS reverse-proxy/WSS configuration. V7 removes the outer bordered Live card and introduces mode tabs. V8 installs `xdotool` and best-effort moves/sizes the actual Chromium X11 window to the 1366×900 Xvfb screen; the user confirmed the prior bottom black strip is gone. Geometry fitting logs warnings if it fails and does not crop noVNC coordinates.
+
+### Scheduled navigation request pacing (2026-11)
+
+Shared CloakBrowser scheduled `page.goto()` calls are spaced by registrable
+site: configurable global minimum 3 seconds, and optional `domain = seconds`
+per-site overrides in Settings > Fetching. `tldextract` uses its offline PSL
+(no runtime list update). The deadline is measured immediately before each
+main-document navigation; it is not a per-subresource throttle. Pages may
+still overlap, and different sites are independent. Fresh-Tab reliability
+retries are paced; same-Tab DOM inspection is not. No startup stagger or
+per-site concurrency restriction is added. Manual screenshot-browser navigation
+is excluded from automatic watch pacing. The scheduling relies on one manager
+event loop; do not move it into worker-thread-local state.

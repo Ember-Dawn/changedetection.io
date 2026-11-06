@@ -179,5 +179,16 @@
   input.init();
   layout.init();
   controls(false);
-  core.inspect();
+  // Only Watch-origin links opt in to connecting automatically. General
+  // Browsers entry stays manual, and an existing session is never stolen.
+  const query = (window.location && window.location.search) || '';
+  const autoConnect = /(?:^|[?&])autoconnect=1(?:&|$)/.test(query);
+  if (autoConnect && watchUuid) {
+    core.inspect().then(data => {
+      if (!data || data.active || data.opening || core.active() || core.state().busy) return;
+      core.connect($('manual-url').value.trim(), watchUuid);
+    });
+  } else {
+    core.inspect();
+  }
 })();

@@ -180,6 +180,23 @@
                       {% endfor %}
                     </div>
                 </fieldset>
+                <fieldset class="border-fieldset reliability-settings" id="site-request-pacing-settings">
+                    <legend>{{ _('Site request pacing') }}</legend>
+                    <p class="reliability-description">{{ _('Space the start of main-page requests to the same website. Different websites remain independent. This does not throttle images or background resources.') }}</p>
+                    <div class="reliability-fields">
+                      <div class="reliability-field-row">
+                        <label for="{{ form.requests.form.site_interval_seconds.id }}">{{ form.requests.form.site_interval_seconds.label.text }}</label>
+                        <div class="reliability-value">
+                          {{ form.requests.form.site_interval_seconds(class="reliability-number", step="0.1", min="0", max="3600") }}
+                          <span class="reliability-unit">s</span>
+                        </div>
+                      </div>
+                    </div>
+                    {% for error in form.requests.form.site_interval_seconds.errors %}<p class="error">{{ error }}</p>{% endfor %}
+                    <p class="reliability-description">{{ _('Optional site overrides: one domain = seconds per line. For example: microcenter.com = 10. Use 0 to disable pacing for a site.') }}</p>
+                    {{ form.requests.form.site_interval_overrides(rows="4", style="width: min(100%, 480px); min-height: 85px;", placeholder="microcenter.com = 10\namazon.com = 5") }}
+                    {% for error in form.requests.form.site_interval_overrides.errors %}<p class="error">{{ error }}</p>{% endfor %}
+                </fieldset>
                 <div class="pure-control-group">
                     {{ render_field(form.requests.form.timeout) }}
                     <span class="pure-form-message-inline">{{ _('For regular plain requests (not chrome based), maximum number of seconds until timeout, 1-999.') }}</span><br>

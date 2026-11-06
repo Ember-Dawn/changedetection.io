@@ -89,7 +89,7 @@
                             {% if watch.get('manual_attention_reason') %}
                             <div class="manual-attention-indicator" style="font-size:.85em;margin:3px 0">
                               <span>需要人工处理：{{ watch.get('manual_attention_reason') }}</span>
-                              <a href="{{ url_for('manual_browser.index', watch_uuid=watch.uuid) }}" target="_blank" rel="noopener">人工操作</a>
+                              <a href="{{ url_for('manual_browser.index', watch_uuid=watch.uuid, autoconnect=1) }}" target="_blank" rel="noopener">人工操作</a>
                             </div>
                             {% endif %}
                             <div class="error-text" style="display:none;">{{ error_texts|safe }}</div>
@@ -194,7 +194,7 @@
                     {%- if watch.get('last_error') and ('verification' in (watch.get('last_error') | string | lower) or 'captcha' in (watch.get('last_error') | string | lower)) -%}
                     <span title="网站验证可能需要人工处理" style="font-size:.8em;color:#e6a250">需要人工处理</span>
                     {%- endif -%}
-                    <a href="{{ url_for('manual_browser.index', watch_uuid=watch.uuid) }}"
+                    <a href="{{ url_for('manual_browser.index', watch_uuid=watch.uuid, autoconnect=1) }}"
                        target="_blank" rel="noopener" class="cdio-btn cdio-btn--primary cdio-btn--sm"
                        title="使用共享浏览器人工打开该监控网站">人工操作</a>
                     {%- endif -%}

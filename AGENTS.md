@@ -146,3 +146,17 @@ scoped rule-readiness hook; manual browser sessions must never inherit automatic
 retry controls. Do not reinstate unconditional `clear_after_success` or product
 recovery calls in Worker cleanup. Accelerated recheck configuration is stored in
 `settings.requests`, with Watch-level optional overrides and persisted retry times.
+
+## Site-paced shared-browser navigation
+
+Global Settings > Fetching has `site_interval_seconds` (default 3) and multiline
+`site_interval_overrides` (`microcenter.com = 10`, etc.). Site grouping uses an
+offline PSL via tldextract. Only monitored shared-CloakBrowser main-page
+`_ManagedPage.goto` calls are paced, including fresh-Tab retries; same-Tab DOM
+parsing and manual browser actions are unaffected. Do not introduce a global
+lock, shared-site concurrency restriction, or startup stagger. The short per-site
+async lock in `changedetection_cloak_shared/site_rate_limit.py` reserves each
+navigation start time; independent sites can navigate in parallel.
+Watch-list Manual operation links opt into autoconnect; normal Browsers links
+do not. Keep the existing active-session ownership and maintenance gate.
+`FETCH_WORKERS` in Compose is environment-configurable and is not a browser count.

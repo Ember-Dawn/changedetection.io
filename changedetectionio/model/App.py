@@ -28,6 +28,8 @@ class model(dict):
                     'extra_proxies': [], # Configurable extra proxies via the UI
                     'extra_browsers': [],  # Configurable extra proxies via the UI
                     'jitter_seconds': 0,
+                    'site_interval_seconds': 3,
+                    'site_interval_overrides': '',
                     'reliability_wait_seconds': 10,
                     'reliability_page_attempts': 2,
                     'reliability_page_gap_seconds': 10,

@@ -59,6 +59,14 @@ class _ManagedPage:
     def __getattr__(self, name):
         return getattr(self._page, name)
 
+    async def goto(self, url, *args, **kwargs):
+        """Pace scheduled main-document navigations immediately before goto."""
+        if _SHARED_FETCH.get() and self._manager is not None:
+            from changedetectionio.flask_app import datastore
+            settings = datastore.data['settings'].get('requests', {}) if datastore else {}
+            await self._manager.site_pacer.wait_turn(url, settings)
+        return await self._page.goto(url, *args, **kwargs)
+
     async def wait_for_timeout(self, milliseconds):
         """Upstream-fetcher compatibility seam: wait, then inspect challenge.
 
@@ -255,6 +263,8 @@ class BrowserManager:
         self._live_pages = set()
         self._profile_lock = None
         self._startup_error = None
+        from .site_rate_limit import SiteNavigationPacer
+        self.site_pacer = SiteNavigationPacer()
         self._max_pages = _int_env('CLOAKBROWSER_MAX_PAGES', 3)
         self._live_mode = False
 

@@ -2,3 +2,8 @@
 # --no-deps avoids installing the PyPI changedetection.io over the uploaded Fork.
 changedetection.io-cloak-browser==0.1.1
 cloakbrowser==0.7.0
+
+# Bundled offline Public Suffix List for grouping subdomains by site.
+tldextract>=5.1,<6
+# Docker installs this file with --no-deps; tldextract requires filelock.
+filelock>=3.12,<4
