@@ -35,10 +35,10 @@ class VerificationNotificationTests(unittest.TestCase):
         service = NotificationService(Store(), messages)
         self.assertTrue(service.send_verification_state_notification('test-watch', 'Cloudflare verification'))
         start = messages.get_nowait()
-        self.assertIn('Manual browser verification needed', start['notification_title'])
+        self.assertIn('需要人机验证', start['notification_title'])
         self.assertTrue(service.send_verification_state_notification('test-watch', 'Cloudflare verification', recovered=True))
         finish = messages.get_nowait()
-        self.assertIn('verification resolved', finish['notification_title'])
+        self.assertIn('人机验证已解除', finish['notification_title'])
 
     def test_muted_watch_does_not_notify(self):
         messages = queue.Queue()

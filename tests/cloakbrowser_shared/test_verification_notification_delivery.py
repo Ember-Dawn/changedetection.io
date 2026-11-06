@@ -25,15 +25,15 @@ class Store:
 
 
 class DeliveryTests(unittest.TestCase):
-    def test_verification_uses_plaintext_and_valid_template(self):
+    def test_verification_uses_telegram_html_and_quick_verify_link(self):
         q = queue.Queue()
         service = NotificationService(Store(), q)
         self.assertTrue(service.send_verification_state_notification('watch-test', 'Cloudflare verification'))
         message = q.get_nowait()
-        self.assertEqual(message['notification_format'], 'text')
+        self.assertEqual(message['notification_format'], 'telegram_html')
         self.assertEqual(message['watch_uuid'], 'watch-test')
-        self.assertIn('Cloudflare verification', message['notification_body'])
-        self.assertIn('{{base_url}}manual-browser/', message['notification_body'])
+        self.assertIn('验证类型：Cloudflare', message['notification_body'])
+        self.assertIn('{{base_url}}verify/{{watch_uuid}}', message['notification_body'])
         self.assertNotIn('\\n', message['notification_body'])
         self.assertFalse(q.qsize())
 
@@ -47,4 +47,4 @@ class DeliveryTests(unittest.TestCase):
         q = queue.Queue()
         self.assertTrue(NotificationService(Store(), q).send_verification_state_notification(
             'watch-test', 'Google verification', recovered=True))
-        self.assertIn('resolved', q.get_nowait()['notification_title'])
+        self.assertIn('人机验证已解除', q.get_nowait()['notification_title'])

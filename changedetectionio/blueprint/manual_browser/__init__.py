@@ -168,6 +168,24 @@ def construct_blueprint(datastore, update_q, queuedWatchMetaData):
         response.headers['Cache-Control'] = 'no-store, private'
         return response
 
+    @blueprint.route('/api/admin/session', methods=['GET'])
+    @_requires_operator
+    def admin_session():
+        response = jsonify(manual_sessions.admin_snapshot())
+        response.headers['Cache-Control'] = 'no-store, private'
+        return response
+
+    @blueprint.route('/api/admin/terminate', methods=['POST'])
+    @_requires_operator
+    def admin_terminate():
+        # Full WebUI management operation; shared-password installations do not
+        # distinguish device roles. Do not accept a control bearer token here.
+        payload = _json()
+        identifier = payload.get('admin_id', '')
+        manual_sessions.terminate_admin(identifier)
+        logger.warning('Authenticated WebUI operator terminated manual browser session')
+        return jsonify({'closed': True})
+
     @blueprint.route('/api/resume', methods=['POST'])
     @_requires_operator
     def resume_session():

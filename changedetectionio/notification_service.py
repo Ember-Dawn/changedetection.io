@@ -440,19 +440,31 @@ class NotificationService:
         urls = _check_cascading_vars(self.datastore, 'notification_urls', watch)
         if not urls:
             return False
-        title = ('changedetection.io - Browser verification resolved' if recovered else
-                 'changedetection.io - Manual browser verification needed')
-        body = ('The page is reachable again. Normal monitoring has resumed.' if recovered else
-                f'{kind} was detected. The last successful monitor content was preserved. '
-                'Open this watch and use Manual control to check the website.')
-        body += '\nWatch: {{watch_url}}\nManual control: {{base_url}}manual-browser/?watch_uuid={{watch_uuid}}'
-        # A plain-text operational alert works with Telegram and other Apprise
-        # transports regardless of the watch's usual HTML diff format.
+        from html import escape
+        link = watch.open_link_override or watch.get('url') or ''
+        display_title = watch.get('title') or watch.get('page_title') or link
+        verify_link = '{{base_url}}verify/{{watch_uuid}}'
+        kind_label = {'Cloudflare verification': 'Cloudflare',
+                      'Google verification': 'Google'}.get(str(kind), str(kind))
+        headline = '✅ 人机验证已解除' if recovered else '⚠️ 需要人机验证'
+        all_telegram = all(str(url).startswith('tgram://') for url in urls)
+        if all_telegram:
+            body = '<a href="{}">{}</a>\n验证类型：{}'.format(
+                escape(link, quote=True), escape(display_title), escape(kind_label))
+            if not recovered:
+                body += '\n<a href="{}">打开人工验证</a>'.format(verify_link)
+            else:
+                body += '\n状态：监控已恢复正常'
+            notification_format = 'telegram_html'
+        else:
+            body = '{}\n{}\n验证类型：{}'.format(display_title, link, kind_label)
+            body += ('\n状态：监控已恢复正常' if recovered else '\n打开人工验证：' + verify_link)
+            notification_format = 'text'
         message = NotificationContextData({
             'notification_urls': urls,
-            'notification_title': title,
+            'notification_title': headline,
             'notification_body': body,
-            'notification_format': 'text',
+            'notification_format': notification_format,
             'uuid': watch_uuid,
             'watch_uuid': watch_uuid,
             'watch_url': watch.get('url'),

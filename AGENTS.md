@@ -160,3 +160,9 @@ navigation start time; independent sites can navigate in parallel.
 Watch-list Manual operation links opt into autoconnect; normal Browsers links
 do not. Keep the existing active-session ownership and maintenance gate.
 `FETCH_WORKERS` in Compose is environment-configurable and is not a browser count.
+
+### Quick Verify and admin session termination
+
+- Telegram verification alerts link to `/verify/<watch_uuid>` (no authentication token). This standalone mobile-friendly UI **shares** the original WebUI password, `ManualSessionManager`, and manual-browser HTTP APIs. Do not introduce a second Browser Context, credential, or external control service.
+- Only WebUI management surfaces should expose the session-force-termination control. The backend has a separate CSRF-protected `/manual-browser/api/admin/terminate` operation using an opaque session **identifier**, never the owner's bearer token; the operation never schedules recheck. A shared password cannot enforce different device roles.
+- Quick Verify must not force-close another user's session. Its completion path is the existing owned `/manual-browser/api/finish`, and recovery is determined only by subsequent successful Watch execution. See `docs/cloakbrowser/QUICK_VERIFY.md`.

@@ -1,3 +1,9 @@
+## Quick Verify / Telegram human verification
+
+- Add dedicated `/verify/<watch_uuid>` password-authenticated, mobile-friendly manual challenge UI, using existing shared CloakBrowser manual APIs.
+- Add WebUI session status and deliberate force-termination with non-bearer session identifier and CSRF; termination never triggers recheck.
+- Change verification failure/recovery notifications to Chinese; Telegram-only channels receive clickable product / Quick Verify links.
+
 ## 2026-11-05 — Live Browser V1 noVNC handshake and modal fix
 
 - Register `/manual-browser/live/ws` as an actual WebSocket route (`websocket=True`) to support Werkzeug/simple-websocket upgrade handling and address observed HTTP 400 responses.

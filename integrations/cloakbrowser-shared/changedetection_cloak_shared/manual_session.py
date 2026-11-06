@@ -11,7 +11,7 @@ import os
 import secrets
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from loguru import logger
 from .manager import manager, _ContextLease
@@ -36,6 +36,7 @@ class _Session:
     page: object
     last_active: float
     address: str
+    admin_id: str = field(default_factory=lambda: secrets.token_urlsafe(18))
     closed: bool = False
     pointer_down: bool = False
     screencast: object = None
@@ -92,6 +93,29 @@ class ManualSessionManager:
                                'generation': entry.browser_generation,
                                'watch_uuid': entry.watch_uuid or ''})
             return result
+
+    def admin_snapshot(self):
+        """Management metadata: never expose a bearer control token or remote URL."""
+        with self._guard:
+            entry = self._session
+            if entry is None or entry.closed:
+                return {'active': False, 'opening': self._opening}
+            return {'active': True, 'opening': False, 'admin_id': entry.admin_id,
+                    'seconds_remaining': max(0, int(_SESSION_SECONDS - (time.monotonic() - entry.last_active)))}
+
+    async def _terminate_admin(self, admin_id):
+        """CAS close: a stale confirmation cannot close a replacement session."""
+        with self._guard:
+            entry = self._session
+            if not entry or entry.closed or entry.admin_id != admin_id:
+                raise ManualSessionError('Session changed; refresh its status')
+            token = entry.token
+        return await self._dispose(token)
+
+    def terminate_admin(self, admin_id):
+        if not isinstance(admin_id, str) or not admin_id:
+            raise ManualSessionError('Session identifier required')
+        return manager.call_sync(self._terminate_admin(admin_id), timeout=30)
 
     async def _resume_owned(self, token, owner):
         """Transfer control: a previous tab's token stops working."""

@@ -56,6 +56,7 @@
       $('manual-existing-description').textContent = '请稍后点击「刷新状态」。';
     }
     controls(core.active(), core.state().busy);
+    refreshAdminSession();
   }
   const core = ns.createCore(config, {
     message,
@@ -161,6 +162,27 @@
     core.end('finish');
   });
   $('manual-check').addEventListener('click', () => core.inspect());
+  const forceButton = $('manual-admin-terminate');
+  let adminSessionId = null;
+  async function refreshAdminSession() {
+    try {
+      const state = await core.api('admin/session');
+      adminSessionId = state.active ? state.admin_id : null;
+      // Never expose force terminate during own active control session.
+      forceButton.hidden = !adminSessionId || core.active();
+    } catch (_) { adminSessionId = null; forceButton.hidden = true; }
+  }
+  forceButton.addEventListener('click', async () => {
+    if (!adminSessionId || core.active() || core.state().busy) return;
+    if (!window.confirm('确定强制结束当前人工浏览器会话？原设备将失去控制权；不会触发重新检查。')) return;
+    forceButton.disabled = true;
+    try {
+      await core.api('admin/terminate', {admin_id: adminSessionId});
+      message('人工会话已强制结束');
+    } catch (error) {message('强制结束失败：' + error.message);}
+    finally {forceButton.disabled = false; await core.inspect(); await refreshAdminSession();}
+  });
+
   $('manual-resume').addEventListener('click', () => {
     if (existing && existing.owned) core.resume(existing.session);
   });
