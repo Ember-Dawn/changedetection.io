@@ -4,13 +4,13 @@ const $ = id => document.getElementById(id);
 const cfg = window.quickVerifyConfig;
 const screen = $('qv-screen'), img = $('qv-frame');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-let currentUrl = null, running = 0, scale = 1, scrollMode = false;
+let currentUrl = null, running = 0, scale = 1;
 const contacts = new Map();
 let gesture = null, longPress = null, remoteDown = false, downPoint = null;
 let pendingMove = null, moveTask = null;
 const message = text => { $('qv-message').textContent = text; };
 const buttonState = () => {
-  for (const id of ['qv-send','qv-enter','qv-reload','qv-back','qv-close','qv-finish']) $(id).disabled = !core.active() || core.state().busy || (cfg.testMode && id === 'qv-close');
+  for (const id of ['qv-send','qv-enter','qv-scroll-up','qv-scroll-down','qv-reload','qv-back','qv-close','qv-finish']) $(id).disabled = !core.active() || core.state().busy || (cfg.testMode && id === 'qv-close');
   $('qv-connection').textContent = core.active() ? '● 已连接' : '○ 未连接';
 };
 function showOccupied(data) {
@@ -33,9 +33,9 @@ const core = window.ManualBrowser.createCore({api: cfg.api, csrf: cfg.csrf}, {
  message,
  busy:buttonState,
  inspected:showOccupied,
- connected() { showOccupied(null); $('qv-connect').hidden = true; buttonState(); message('已连接，可以操作验证页面'); startFrames(); },
- disconnected(reason) {cleanup(); $('qv-connect').hidden = !(cfg.needsAttention || cfg.testMode); message(reason || '会话已结束');},
- ended({path,result}) {message(path === 'finish' ? (result.recheck_queued ? '已安排重新检查' : '操作已完成，但检查未入队，请到 Watch 列表确认') : '已退出人工操作');}
+ connected() { showOccupied(null); $('qv-connect').hidden = true; buttonState(); message(''); startFrames(); },
+ disconnected(reason) {cleanup(); $('qv-connect').hidden = !(cfg.needsAttention || cfg.testMode); message(reason && /过期|错误|失败|占用|异常/.test(reason) ? reason : '');},
+ ended({path,result}) {message(path === 'finish' && !result.recheck_queued ? '操作已完成，但检查未入队，请到 Watch 列表确认' : '');}
 });
 function refreshImage(blob, generation) {
   if (generation !== running || !core.active()) return;
@@ -128,13 +128,6 @@ async function releaseRemote(p=downPoint) {
 function contact(event) {return {x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY};}
 const length=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const middle=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
-function toggleScrollMode(value) {
-  scrollMode=value;
-  const btn=$('qv-scroll-mode');
-  btn.setAttribute('aria-pressed',String(value));
-  btn.title=value?'关闭远程滚动模式':'远程滚动模式';
-  btn.setAttribute('aria-label',btn.title);
-}
 screen.addEventListener('pointerdown',event=>{
   if(!core.active() || event.target!==img || (event.pointerType==='mouse' && event.button!==0))return;
   event.preventDefault();
@@ -142,8 +135,8 @@ screen.addEventListener('pointerdown',event=>{
   screen.setPointerCapture(event.pointerId);
   contacts.set(event.pointerId,contact(event));
   if(contacts.size===1) {
-    gesture={type:scrollMode?'scroll':'single',id:event.pointerId,origin:point(event),last:contact(event),moved:false,drag:false};
-    if(!scrollMode) {
+    gesture={type:'single',id:event.pointerId,origin:point(event),last:contact(event),moved:false,drag:false};
+    {
       clearHold();
       longPress=setTimeout(()=>{
         if(gesture && gesture.type==='single' && contacts.size===1 && !gesture.drag) {
@@ -173,11 +166,6 @@ screen.addEventListener('pointermove',event=>{
     return;
   }
   if(!gesture || gesture.type==='multi' || event.pointerId!==gesture.id)return;
-  if(gesture.type==='scroll') {
-    const rect=img.getBoundingClientRect(),p=point(event);
-    if(p)action('scroll',{...p,dx:(old.x-event.clientX)*img.naturalWidth/Math.max(rect.width,1),dy:(old.y-event.clientY)*img.naturalHeight/Math.max(rect.height,1)});
-    return;
-  }
   const travel=Math.hypot(event.clientX-old.startX,event.clientY-old.startY);
   if(travel>9 && !gesture.drag) {
     clearHold();gesture.moved=true;gesture.drag=true;beginDrag(gesture.origin);
@@ -223,7 +211,13 @@ $('qv-enter').addEventListener('click',()=>action('key',{key:'Enter'}));
 $('qv-reload').addEventListener('click',()=>action('refresh'));
 $('qv-back').addEventListener('click',()=>action('back'));
 $('qv-fit').addEventListener('click',fit);
-$('qv-scroll-mode').addEventListener('click',()=>toggleScrollMode(!scrollMode));
+// Explicit wheel actions avoid gesture-mode conflicts on mobile. Negative dy scrolls up.
+function wheelStep(dy) {
+  if (!core.active() || img.hidden) return;
+  action('scroll', {x: img.naturalWidth / 2, y: img.naturalHeight / 2, dx: 0, dy});
+}
+$('qv-scroll-up').addEventListener('click', () => wheelStep(-300));
+$('qv-scroll-down').addEventListener('click', () => wheelStep(300));
 $('qv-close').addEventListener('click',()=>core.end('close'));
 $('qv-finish').addEventListener('click',()=>{
   if(cfg.testMode){core.end('close');return;}
@@ -235,10 +229,15 @@ $('qv-connect').addEventListener('click',()=>core.connect('',cfg.watchUuid,{test
 // A hidden tab or lock screen must not leave a held mouse button in the remote browser.
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){releaseRemote();resetGesture();}
-  else if(core.active())message('正在恢复浏览器画面…');
+  else if(core.active())message('');
 });
 window.addEventListener('blur',()=>{releaseRemote();resetGesture();});
 window.addEventListener('pagehide',()=>{releaseRemote();resetGesture();running++;if(currentUrl)URL.revokeObjectURL(currentUrl);});
-toggleScrollMode(false);
+// Suppress native long-press image menus and image drag, without affecting inputs.
+for (const element of [screen, img]) {
+  element.addEventListener('contextmenu', e => e.preventDefault());
+  element.addEventListener('dragstart', e => e.preventDefault());
+  element.addEventListener('selectstart', e => e.preventDefault());
+}
 buttonState();initialConnect();
 })();

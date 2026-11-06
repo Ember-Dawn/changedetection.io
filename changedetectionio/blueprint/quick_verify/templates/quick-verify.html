@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>快捷验证 · {{ watch_title }}</title>
-<link rel="stylesheet" href="{{ url_for('quick_verify.static', filename='quick-verify.css', v=3) }}">
+<link rel="stylesheet" href="{{ url_for('quick_verify.static', filename='quick-verify.css', v=4) }}">
 </head>
 <body>
 <main class="qv-shell">
 <header class="qv-header"><div><div class="qv-eyebrow">QUICK VERIFY</div><h1>人机验证</h1></div><span class="qv-status" id="qv-connection">准备连接</span></header>
 {% if test_mode %}<div class="qv-test-banner" role="status">测试模式 · 不会触发监控重新检查或恢复通知</div>{% endif %}
 <div class="qv-title" title="{{ watch_title }}">{{ watch_title }}</div>
-<p class="qv-message" id="qv-message" aria-live="polite">正在检查人工浏览器状态…</p>
+<p class="qv-message" id="qv-message" aria-live="polite"></p>
 <section class="qv-occupied" id="qv-occupied" hidden>
  <p id="qv-occupied-text">已有人工浏览器会话，无法自动连接。</p>
  <div class="qv-inline"><button type="button" id="qv-resume" hidden>恢复我的会话</button><button type="button" id="qv-check">刷新状态</button></div>
@@ -20,20 +20,28 @@
 <section class="qv-screen" id="qv-screen" aria-label="远程浏览器画面" tabindex="0">
  <img id="qv-frame" alt="可操作的远程浏览器画面" draggable="false" hidden>
  <div id="qv-placeholder">连接后将在这里显示浏览器画面</div>
- <button type="button" class="qv-scroll-mode" id="qv-scroll-mode" aria-label="远程滚动模式" title="远程滚动模式" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="7"/><path d="M12 6v4"/><path d="m9 15 3 3 3-3"/></svg></button>
+
 </section>
-<div class="qv-hint">单指点击 / 长按拖动 · 双指缩放和平移 · 需要滚动网页时点右下角滚动图标</div>
-<div class="qv-input-row"><input id="qv-text" type="text" maxlength="512" placeholder="向远程输入框输入文字" autocomplete="off" aria-label="远程文字输入"><button id="qv-send" type="button" disabled>发送</button><button id="qv-enter" type="button" disabled>Enter</button></div>
+<div class="qv-hint">点击 / 长按拖动 · 双指缩放和平移 · 滚动请使用下方箭头</div>
+<div class="qv-input-row" role="group" aria-label="输入与滚动">
+<input id="qv-text" type="text" maxlength="512" placeholder="向远程输入框输入文字" autocomplete="off" aria-label="远程文字输入">
+<button id="qv-send" type="button" title="发送文字" aria-label="发送文字" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
+<button id="qv-enter" type="button" title="Enter" aria-label="Enter" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg></button>
+<button id="qv-scroll-up" type="button" title="远程网页向上滚动" aria-label="远程网页向上滚动" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 12 6-6 6 6"/><path d="M12 6v13"/></svg></button>
+<button id="qv-scroll-down" type="button" title="远程网页向下滚动" aria-label="远程网页向下滚动" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 12 6 6 6-6"/><path d="M12 18V5"/></svg></button>
+</div>
+<div class="qv-bottom-row">
 <div class="qv-tools" role="toolbar" aria-label="浏览器工具">
 <button type="button" id="qv-back" title="后退" aria-label="后退" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></button>
 <button type="button" id="qv-reload" title="刷新网页" aria-label="刷新网页" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"/></svg></button>
 <button type="button" id="qv-fit" title="适应画面 / 恢复缩放" aria-label="适应画面 / 恢复缩放"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
 </div>
 <div class="qv-primary"><button type="button" id="qv-finish" disabled>{{ "结束测试" if test_mode else "完成并重新检查" }}</button><button type="button" id="qv-close" disabled>退出操作</button></div>
+</div>
 <p class="qv-note">{{ "测试模式仅允许结束会话，不会改变监控健康状态。" if test_mode else "退出不会将验证码标记为已解除；只有重新检查成功后才确认恢复。" }}</p>
 <button id="qv-connect" type="button" hidden>重新连接</button>
 </main>
 <script>window.quickVerifyConfig = {{ {'api': url_for('manual_browser.index'), 'csrf': csrf_token(), 'watchUuid':watch_uuid, 'needsAttention':needs_attention, 'testMode':test_mode, 'fixedViewport':fixed_viewport} | tojson }};</script>
 <script src="{{ url_for('manual_browser.static', filename='manual-core.js', v=12) }}"></script>
-<script defer src="{{ url_for('quick_verify.static', filename='quick-verify.js', v=3) }}"></script>
+<script defer src="{{ url_for('quick_verify.static', filename='quick-verify.js', v=4) }}"></script>
 </body></html>

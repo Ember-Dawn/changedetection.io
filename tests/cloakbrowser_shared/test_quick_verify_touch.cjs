@@ -26,7 +26,7 @@ function harness() {
       setPointerCapture(){},hasPointerCapture(){return false;},releasePointerCapture(){},focus(){},removeAttribute(){}
     };
   }
-  for (const id of ['qv-screen','qv-frame','qv-send','qv-enter','qv-reload','qv-back','qv-close','qv-finish','qv-connection','qv-message','qv-placeholder','qv-occupied','qv-resume','qv-occupied-text','qv-connect','qv-check','qv-fit','qv-scroll-mode','qv-text']) elements.set(id,element(id));
+  for (const id of ['qv-screen','qv-frame','qv-send','qv-enter','qv-reload','qv-back','qv-close','qv-finish','qv-connection','qv-message','qv-placeholder','qv-occupied','qv-resume','qv-occupied-text','qv-connect','qv-check','qv-fit','qv-scroll-up','qv-scroll-down','qv-text']) elements.set(id,element(id));
   const document = {hidden:false,getElementById:id=>elements.get(id),addEventListener(){}};
   const window = {quickVerifyConfig:{api:'/manual-browser/',csrf:'x',watchUuid:'watch',testMode:true,needsAttention:false},addEventListener(){},ManualBrowser:{createCore(config,hooks){
     return {active:()=>true,state:()=>({busy:false}),send:(name,args)=>{actions.push([name,args]);return Promise.resolve();},inspect:()=>Promise.resolve({active:true}),};
@@ -75,4 +75,27 @@ test('click after zoom and pan uses the transformed image coordinates',async()=>
 });
 test('test mode secondary close button is disabled',()=>{
   const h=harness();assert.equal(h.elements.get('qv-close').disabled,true);
+});
+
+test('up and down icon buttons issue distinct remote wheel events',async()=>{
+  const h=harness();
+  h.elements.get('qv-frame').hidden=false;
+  h.elements.get('qv-scroll-up').trigger('click');
+  h.elements.get('qv-scroll-down').trigger('click');
+  await tick();
+  assert.deepEqual(h.actions.map(([name])=>name),['scroll','scroll']);
+  assert.equal(h.actions[0][1].dy,-300);
+  assert.equal(h.actions[1][1].dy,300);
+  assert.equal(h.actions[0][1].dx,0);
+});
+test('native context menu and image dragging are prevented only on remote surface',()=>{
+  const h=harness();
+  for(const id of ['qv-screen','qv-frame']) {
+    for(const name of ['contextmenu','dragstart','selectstart']) {
+      let prevented=false;
+      h.elements.get(id).trigger(name,{preventDefault(){prevented=true;}});
+      assert.equal(prevented,true,`${id} ${name}`);
+    }
+  }
+  assert.equal((h.elements.get('qv-text').handlers.contextmenu||[]).length,0);
 });

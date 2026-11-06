@@ -6,12 +6,37 @@
    remote desktop viewport; only the screenshot's local size changes. */
 .qv-tools {align-items:center;gap:6px;justify-content:flex-start}
 .qv-tools button {flex:0 0 auto;width:38px;height:36px;padding:7px;display:inline-flex;align-items:center;justify-content:center}
-.qv-tools svg,.qv-scroll-mode svg {width:18px;height:18px;display:block}
-.qv-screen {overflow:auto}
-.qv-screen img {flex:0 0 auto;object-fit:contain}
-.qv-scroll-mode {position:sticky;left:calc(100% - 48px);top:calc(100% - 48px);align-self:flex-end;flex:0 0 auto;margin-left:-48px;margin-right:12px;margin-bottom:10px;width:36px;height:36px;padding:8px;z-index:2;background:#28313b;border:1px solid #69798b;border-radius:9px;box-shadow:0 2px 8px #0007;display:none}
-@media (pointer:coarse) {
- .qv-scroll-mode {display:flex;align-items:center;justify-content:center}
-}
-.qv-scroll-mode[aria-pressed="true"] {background:#166a88;color:#fff;border-color:#44a2c2}
+.qv-tools svg{width:18px;height:18px;display:block}
+.qv-screen{overflow:auto}
+.qv-screen img{flex:0 0 auto;object-fit:contain}
 .qv-primary #qv-close:disabled {opacity:.27}
+
+/* Unified two-row controls: input + four icons, then navigation + session. */
+.qv-input-row {align-items:stretch;min-width:0;gap:7px}
+.qv-input-row input {min-width:70px;width:0;flex:1 1 auto}
+.qv-input-row button {flex:0 0 38px;width:38px;height:40px;padding:8px;display:inline-flex;align-items:center;justify-content:center}
+.qv-input-row svg {width:18px;height:18px;display:block}
+.qv-bottom-row {display:flex;align-items:stretch;gap:8px;min-width:0}
+.qv-bottom-row .qv-tools {flex:0 0 auto;align-self:center}
+.qv-bottom-row .qv-primary {margin-left:auto;min-width:0;flex:0 1 420px;justify-content:flex-end;align-items:stretch}
+.qv-bottom-row .qv-primary button {min-width:0;white-space:nowrap;padding:8px 10px;font-size:13px}
+.qv-bottom-row .qv-primary #qv-finish {flex:1.45 1 0}
+.qv-bottom-row .qv-primary #qv-close {flex:1 1 0}
+.qv-screen,.qv-screen img {touch-action:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
+.qv-message:empty {display:none}
+@media(max-width:600px) {
+ .qv-input-row {gap:5px}
+ .qv-input-row button {flex-basis:34px;width:34px;height:38px;padding:7px}
+ .qv-input-row svg {width:17px;height:17px}
+ .qv-bottom-row {gap:5px}
+ .qv-bottom-row .qv-tools {gap:4px}
+ .qv-bottom-row .qv-tools button {width:33px;height:36px;padding:6px}
+ .qv-bottom-row .qv-primary {gap:4px;flex:1 1 0}
+ .qv-bottom-row .qv-primary button {font-size:12px;padding:8px 4px}
+}
+@media(max-width:350px) {
+ .qv-shell {padding-left:7px;padding-right:7px}
+ .qv-input-row button {flex-basis:31px;width:31px;padding:6px}
+ .qv-bottom-row .qv-tools button {width:30px}
+ .qv-bottom-row .qv-primary button {font-size:11px;padding:7px 2px}
+}
