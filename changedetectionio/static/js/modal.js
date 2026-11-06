@@ -80,35 +80,55 @@ const ModalDialog = {
       // Append to body
       document.body.appendChild(dialog);
 
-      // Handle button clicks
+      // Close exactly once, including double-click / Escape / backdrop races.
+      let settled = false;
+      const confirmButton = dialog.querySelector('[data-action="confirm"]');
+      const cancelButton = dialog.querySelector('[data-action="cancel"]');
       const handleClose = (confirmed) => {
+        if (settled) return;
+        settled = true;
         dialog.close();
         setTimeout(() => {
           dialog.remove();
         }, 200);
 
-        if (confirmed && config.onConfirm) {
-          config.onConfirm();
-        } else if (!confirmed && config.onCancel) {
-          config.onCancel();
-        }
-
+        if (!confirmed && config.onCancel) config.onCancel();
         resolve(confirmed);
       };
 
       // Attach event listeners
-      dialog.querySelector('[data-action="confirm"]').addEventListener('click', () => {
-        handleClose(true);
+      confirmButton.addEventListener('click', async () => {
+        if (settled || confirmButton.disabled) return;
+        if (config.waitForCompletion) {
+          confirmButton.disabled = true;
+          cancelButton.disabled = true;
+          confirmButton.textContent = _modalT('processing', '处理中…');
+          dialog.querySelector('.modal-body').textContent = _modalT('processingMessage', '正在处理，请勿重复提交。');
+          try {
+            if (config.onConfirm) await config.onConfirm();
+            handleClose(true);
+          } catch (error) {
+            // Server failure is visible. The dialog remains open for inspection.
+            dialog.querySelector('.modal-body').textContent =
+              _modalT('operationFailed', '操作失败：') + String(error && error.message || error);
+            confirmButton.textContent = _modalT('retry', '重试');
+            confirmButton.disabled = false;
+            cancelButton.disabled = false;
+          }
+        } else {
+          handleClose(true);
+          if (config.onConfirm) config.onConfirm();
+        }
       });
 
-      dialog.querySelector('[data-action="cancel"]').addEventListener('click', () => {
+      cancelButton.addEventListener('click', () => {
         handleClose(false);
       });
 
       // Handle Escape key
       dialog.addEventListener('cancel', (e) => {
         e.preventDefault();
-        handleClose(false);
+        if (!cancelButton.disabled) handleClose(false);
       });
 
       // Handle backdrop click
@@ -120,7 +140,7 @@ const ModalDialog = {
           e.clientX < rect.left ||
           e.clientX > rect.right
         ) {
-          handleClose(false);
+          if (!cancelButton.disabled) handleClose(false);
         }
       });
 
@@ -129,7 +149,7 @@ const ModalDialog = {
 
       // Focus confirm button for accessibility
       setTimeout(() => {
-        dialog.querySelector('[data-action="confirm"]').focus();
+        if (!settled) confirmButton.focus();
       }, 100);
     });
   },
@@ -224,6 +244,8 @@ $(document).ready(function() {
   $(document).on('click', 'a[data-requires-confirm], button[data-requires-confirm]', function(e) {
     e.preventDefault();
     const $element = $(this);
+    if ($element.data('modalPending')) return;
+    $element.data('modalPending', true);
     const url = $element.attr('href');
 
     const config = {
@@ -257,6 +279,6 @@ $(document).ready(function() {
       }
     };
 
-    ModalDialog.confirm(config);
+    ModalDialog.confirm(config).finally(() => $element.removeData('modalPending'));
   });
 });

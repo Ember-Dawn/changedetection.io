@@ -62,8 +62,14 @@ Notification worker verifies event freshness, reports transport acknowledgements
 and retries on subsequent checks (minimum 300s and pending timeout 600s).
 No human-visible claim of guaranteed exactly-once Telegram delivery is made.
 Recognized challenges continue using the preexisting special verification notifier.
-Older `product_rule_alert_state` records remain readable and are resolved on real
-success; new ordinary failure alerts use Watch Health.
+Operational product-rule errors use **only** Watch Health. The former
+`product_rule_alerts.recovered()` call was removed from Worker so old state cannot
+cause an isolated recovery notification. Commodity price/stock alerts remain separate.
+A confirmed failure is assigned `failure_id`; only its successfully acknowledged
+failure event authorizes a recovery. Queued stale failure events are invalidated on
+success or recognized verification. Apprise `False` counts as delivery failure for
+Watch Health as well as verification notices. Delivery is best effort; strict
+exactly-once external delivery is not guaranteed.
 
 ## Integration contracts
 
@@ -95,3 +101,25 @@ produce false price/stock transitions, false recovery, or false monitoring histo
 Unit tests cover pure health transitions and defaults. Real shared-CloakBrowser
 navigation, Watch/Tag configuration, explicit browser steps, HTTP failure modes,
 notification delivery and live-mode handoff require a Docker integration run.
+
+## Operational notification presentation (2026-11-06)
+
+Watch Health notifications are `⚠️ 监控异常` and `✅ 监控已恢复`.
+All-Telegram destinations use `telegram_html` with an HTML-escaped, clickable Watch
+name and short error; mixed destinations fall back to plaintext. Long signed URL
+query strings are not embedded in the notification body. HTTP 4xx/5xx status is
+shown as a short code. Explicit Cloudflare/Google challenges use their dedicated
+Quick Verify notification, never simultaneous generic health alerts.
+
+On successful delivery, `watch_health_alert.notified` is tied to the confirmed
+`failure_id`. An unsuccessful delivery is not acknowledged; a subsequent success
+instead clears that unsent incident without sending a recovery notice.
+
+## History-clearing concurrency (2026-11-06)
+
+All `store.clear_watch_history` calls reserve the Watch in `worker_pool` before
+clearing. The reservation prevents new worker claims, waits for an existing
+running check to finish (maximum 120 seconds), then deletes history and resets
+baseline. If the watch does not finish, clearing fails safely rather than
+racing its persisted snapshot. A reset Watch may naturally be due for one new
+check; this mechanism is not a global startup scheduler or a Watch timeout.

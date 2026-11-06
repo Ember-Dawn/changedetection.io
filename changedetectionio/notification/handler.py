@@ -545,7 +545,7 @@ def process_notification(n_object: NotificationContextData, datastore):
                     # False is not an option for AppRise, must be type None
                     attach=n_object.get('screenshot', None)
                 )
-                if delivered is False and (n_object.get('verification_event_type') or n_object.get('product_rule_event') or n_object.get('test_notification')):
+                if delivered is False and (n_object.get('verification_event_type') or n_object.get('product_rule_event') or n_object.get('health_alert_event') or n_object.get('test_notification')):
                     raise RuntimeError('Apprise reported a failed notification delivery')
 
 

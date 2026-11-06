@@ -777,9 +777,8 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                     if check_succeeded:
                         from changedetectionio.verification_alerts import clear_after_success
                         clear_after_success(datastore, notification_q, uuid)
-                        if watch.get('processor') == 'restock_diff':
-                            from changedetectionio.product_rule_alerts import recovered
-                            recovered(datastore, notification_q, uuid)
+                        # Product parsing failures and recoveries are owned exclusively
+                        # by Watch Health. Do not revive a legacy orphan recovery.
 
                     # NOW clear fetcher content - after all processing is complete
                     # This is the last point where we need the fetcher data

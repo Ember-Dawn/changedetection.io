@@ -1,5 +1,6 @@
 {%- extends 'base.html' -%}
 {%- block content -%}
+<script src="{{url_for('static_content', group='js', filename='modal.js')}}?v=20261106-1"></script>
 
 <script>
 // Server-rendered translation strings — keeps JS-built rows consistent with the
@@ -41,13 +42,16 @@ window.queueI18n = {
     </div>
     <div class="queue-stat queue-stat--action">
       <form method="POST" action="{{ url_for('ui.ui_queue.queue_clear') }}" style="margin:0;"
-            data-requires-confirm
             data-confirm-type="danger"
             data-confirm-title="{{ _('Clear Queue?') }}"
             data-confirm-message="{{ _('<p>This will remove every pending check from the queue.</p><p>Running checks will continue.</p>') }}"
             data-confirm-button="{{ _('Clear') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button class="pure-button button-secondary button-xsmall" type="submit">
+        <button class="pure-button button-secondary button-xsmall" type="submit" data-requires-confirm
+                data-confirm-type="danger"
+                data-confirm-title="{{ _('Clear Queue?') }}"
+                data-confirm-message="{{ _('<p>This will remove every pending check from the queue.</p><p>Running checks will continue.</p>') }}"
+                data-confirm-button="{{ _('Clear') }}">
           <i data-feather="trash-2" style="width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i>
           {{ _('Clear Queue') }}
         </button>

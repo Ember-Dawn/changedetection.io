@@ -108,7 +108,7 @@ The current `processors/restock_diff/forms.py`, `processor.py` and `api.yaml` us
 - JSON Schema v1 accepts optional `page.extra_wait_seconds` (integer 0–30), with the registry validator and JSON Schema kept in sync. Watch-level explicit wait including 0 overrides rule-level extra wait.
 - The Watch stock/price editor suggests a unique URL-matching selected rule without silently changing existing bindings. Auto is removed from new UI choices; legacy stored auto is still understood.
 - The extraction-only signature (rule ID + fields) avoids resetting price/stock baselines for waits, names or URL patterns. Handle older stored signatures without forced reset.
-- Product rule failures use a separate persisted and delivery-acknowledged failure/recovery notifier. Never interpret unavailable price/stock as zero or out-of-stock. Do not change existing commodity notification templates to implement operational notices.
+- Product parsing and ordinary fetch failures share the **Watch Health** incident/delivery lifecycle. The old product-rule recovery notifier must not be called from Worker. Never interpret unavailable price/stock as zero or out-of-stock. Do not change existing commodity price/stock notification templates to implement operational notices.
 
 ### Product Extractors save and revision contract (2026-11-05)
 
@@ -174,3 +174,22 @@ The last two selection-toolbar buttons are cyan single-Watch operations: `人工
 ## Quick Verify compact mobile controls (2026-11-06)
 
 Quick Verify keeps a single shared template across real/test modes. The latter has the same layout and a disabled secondary close button, while server-side test sessions still cannot schedule recheck. The three navigation actions are accessible Lucide icon buttons. Two-finger touch gestures zoom/pan the *local screenshot* only; a separate small touch scroll-mode control sends remote wheel input. Single-finger press/move/release must preserve remote mouse-down/up pairing, including pointercancel, page hide and blur. Preserve the common `ManualBrowser.createCore` command serialization, the sole shared CloakBrowser Context and manual-session ownership. See `docs/cloakbrowser/QUICK_VERIFY.md`; run `node --test tests/cloakbrowser_shared/test_manual_browser_frontend.cjs tests/cloakbrowser_shared/test_quick_verify_touch.cjs`.
+
+## 2026-11-06 Health notifications and bulk-operation dialogs
+
+- Health notices are concise Chinese with Telegram HTML title links and plaintext
+  fallback; recovery requires an acknowledged matching `failure_id`. Handle
+  Apprise `False` as a failed health delivery. Verification notices remain
+  separate from generic health failures. See `docs/watch-health/ARCHITECTURE.md`.
+- `realtime.js` must not accumulate Socket.IO click handlers across reconnects.
+  Confirmed bulk clear/delete operations wait in the existing modal for the
+  server's `bulk_operation_result` matching their `operation_id`; failure leaves
+  the dialog open and permits an explicit retry. Do not close on a generic toast.
+- The bulk Socket.IO background thread needs `app.app_context()` for gettext;
+  the queue's `Clear Queue` confirmation is on the submit button, not the form.
+- `worker_pool.reserve_watch_maintenance()` coordinates history reset with active
+  Worker claims. It must not bypass BrowserManager's Page ownership. If a running
+  Watch does not finish within the safety limit, fail the history-clear operation.
+- Test with `node --test tests/cloakbrowser_shared/test_modal_lifecycle.cjs` and
+  `python -m unittest discover -s tests/cloakbrowser_shared -p 'test_*contract.py'`
+  plus the existing CloakBrowser/frontend suites.

@@ -1651,13 +1651,9 @@ def notification_runner(worker_id=0):
                             'application'
                         ].get('notification_format')
                     from changedetectionio.verification_alerts import delivery_is_current, acknowledge_delivery
-                    from changedetectionio.product_rule_alerts import delivery_is_current as product_delivery_current, acknowledge as product_ack
                     from changedetectionio.watch_health.alerts import delivery_is_current as health_delivery_current, acknowledge as health_ack
                     if n_object.get('health_alert_event') and not health_delivery_current(datastore, n_object):
                         logger.info('Skipping obsolete health notification for {}', n_object.get('uuid'))
-                        continue
-                    if n_object.get('product_rule_event') and not product_delivery_current(datastore, n_object):
-                        logger.info('Skipping obsolete product rule notification for {}', n_object.get('uuid'))
                         continue
                     if n_object.get('verification_event_type') and not delivery_is_current(datastore, n_object):
                         logger.info('Skipping obsolete browser-verification notification for {}', n_object.get('uuid'))
@@ -1666,8 +1662,6 @@ def notification_runner(worker_id=0):
                         sent_obj = process_notification(n_object, datastore)
                     if n_object.get('verification_event_type'):
                         acknowledge_delivery(datastore, n_object, succeeded=bool(sent_obj))
-                    if n_object.get('product_rule_event'):
-                        product_ack(datastore, n_object, succeeded=bool(sent_obj))
                     if n_object.get('health_alert_event'):
                         health_ack(datastore, n_object, succeeded=bool(sent_obj))
 
@@ -1678,12 +1672,6 @@ def notification_runner(worker_id=0):
                             health_ack(datastore, n_object, succeeded=False)
                         except Exception as ack_error:
                             logger.warning('Could not record health notification delivery failure: {}', ack_error)
-                    if n_object.get('product_rule_event'):
-                        try:
-                            from changedetectionio.product_rule_alerts import acknowledge as product_ack
-                            product_ack(datastore, n_object, succeeded=False)
-                        except Exception as ack_error:
-                            logger.warning('Could not record product rule delivery failure: {}', ack_error)
                     if n_object.get('verification_event_type'):
                         try:
                             from changedetectionio.verification_alerts import acknowledge_delivery
