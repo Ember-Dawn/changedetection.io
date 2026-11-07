@@ -57,8 +57,22 @@
     },
     "in_stock": {
       "condition": {
-        "op": "ref",
-        "field": "shipping"
+        "op": "if",
+        "test": {
+          "op": "exists",
+          "selector": {
+            "type": "xpath",
+            "value": "//div[contains(concat(' ', normalize-space(@class), ' '), ' product-buy-box ')][contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'request a quote')]"
+          }
+        },
+        "then": {
+          "op": "literal",
+          "value": false
+        },
+        "else": {
+          "op": "ref",
+          "field": "shipping"
+        }
       }
     }
   }
