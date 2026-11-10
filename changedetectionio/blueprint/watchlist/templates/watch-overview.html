@@ -130,7 +130,6 @@ document.addEventListener('DOMContentLoaded', function() {
     {%- endfor -%}
 </style>
 
-{% if llm_configured %}
 <script>
 window.watchOverviewI18n = {
     generatingSummary: {{ _('Generating change summary…')|tojson }},
@@ -153,7 +152,6 @@ window.watchOverviewI18n = {
     avgLabel:          {{ _('avg')|tojson }}
 };
 </script>
-{% endif %}
 
 
 <div class="box" id="add-watch-ui">

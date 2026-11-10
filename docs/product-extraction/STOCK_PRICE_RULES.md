@@ -72,3 +72,23 @@ See [NOTIFICATION_TEMPLATES.md](NOTIFICATION_TEMPLATES.md) for templates, Chines
 - An optional JSON property `"page": {"extra_wait_seconds": 5}` adds 5 seconds after browser navigation. Integer range: 0–30. Wait precedence: explicitly configured Watch delay (including 0) > JSON rule > global delay > fetcher default. Non-browser fetchers ignore rendering delays.
 - For a selected JSON rule, stock must resolve to explicit `true` or `false` regardless of stock-alert mode. `false` with no price is a valid out-of-stock observation, even when price monitoring is enabled. `true` without price or unknown stock is a rule-health error. An independently valid stock or price observation still updates its alert baseline and may emit a qualifying purchase event, while the check counts as one Watch Health failure; repeated attempts do not re-emit the same event. Built-in extraction is unaffected. Operational health notices are independent of price/stock templates.
 - A solely changed waiting time does not rebaseline price/stock history. The first check after upgrading old full-JSON signatures adopts extraction-only signatures without a forced baseline reset.
+
+
+## Price history (per-check samples)
+
+Each completed `restock_diff` logical check appends one observation to
+`datastore/<watch-uuid>/price-history.jsonl` (including repeated prices and
+missing-price/error checks). Browser page attempts are not separate records.
+Price `null` is not zero and does not create a false change notification.
+The data file belongs to the Watch: Delete Watch removes its folder, while
+Clear History removes JSONL along with snapshots and invalidates in-flight
+check writes. Pausing or rebuilding Docker retains the file. No automatic
+expiry or new Docker volume is required.
+
+The existing Watch list inline Price History viewer and full history page
+use this independent series, with 7D/30D/90D/All time ranges, real-time
+stepped price graph, CSV (raw data) and XLSX exports. The on-page table displays the 500 latest
+observations in the selected range; CSV/XLSX downloads preserve every record. Pre-upgrade snapshots
+remain viewable only if no new-format history file exists; they are not
+misrepresented as per-check records. Check failures are marked as errors and
+missing prices appear as gaps, not zero.

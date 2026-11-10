@@ -208,3 +208,8 @@ html[data-ai-mode="true"] body.llm-configured tr.processor-restock_diff {
 
   .restock-inline-error { color: #c0392b; }
 }
+
+.restock-range-toolbar { display: flex; justify-content: flex-end; align-items: center; gap: .5rem; margin: .4rem 0; font-size: .82rem; }
+.restock-range-select { background: var(--color-background); color: var(--color-text); border: 1px solid #777; border-radius: 4px; padding: .2rem .45rem; }
+.restock-price-open-history, .restock-stock-open-history { cursor: pointer; }
+.restock-price-open-history:hover, .restock-price-open-history:focus-visible, .restock-stock-open-history:hover, .restock-stock-open-history:focus-visible { outline: 1px solid currentColor; }

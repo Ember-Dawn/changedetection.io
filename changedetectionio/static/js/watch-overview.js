@@ -72,6 +72,13 @@ $(function () {
         $(this).closest('tr').removeClass('unviewed');
     });
 
+    // Price tags share the existing inline history viewer, without adding a table column.
+    $(document).on('click keydown', 'tr.processor-restock_diff .restock-price-open-history, tr.processor-restock_diff .restock-stock-open-history', function (e) {
+        if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        $(this).closest('tr').find('.ai-history-btn').trigger('click');
+    });
+
     // Inline restock price/stock graph: for restock_diff rows the History button rolls down a
     // price/stock graph (no LLM needed), styled like the AI summary roll-down. Registered before
     // the LLM handler and stops propagation so AI mode never turns these into LLM summaries.
@@ -106,6 +113,9 @@ $(function () {
         var $r = $(
             '<tr class="restock-inline-row" id="' + rowId + '">' +
             '<td colspan="' + cols + '">' +
+            '<div class="restock-range-toolbar"><label>Range <select class="restock-range-select">' +
+            '<option value="7d">7D</option><option value="30d" selected>30D</option>' +
+            '<option value="90d">90D</option><option value="all">All</option></select></label></div>' +
             '<div class="restock-inline-graph"></div>' +
             '<a class="restock-inline-history-link"></a>' +
             '</td></tr>'
@@ -127,7 +137,9 @@ $(function () {
 
         if (!dataUrl) { showError(); return; }
 
-        $.getJSON(dataUrl).done(function (data) {
+        function loadRange() {
+        var selectedRange = $r.find('.restock-range-select').val();
+        $.getJSON(dataUrl, {range: selectedRange}).done(function (data) {
             var series = (data && data.series) || [];
             var graphI18n = {
                 in_stock: i18n.inStock, out_of_stock: i18n.outOfStock,
@@ -142,6 +154,9 @@ $(function () {
                 window.renderRestockGraph($r.find('.restock-inline-graph')[0], series, (data && data.currency) || '', graphI18n, (data && data.summary) || null, 230);
             }
         }).fail(showError);
+        }
+        $r.on('change', '.restock-range-select', loadRange);
+        loadRange();
     });
 
     $('.with-share-link > *').click(function () {

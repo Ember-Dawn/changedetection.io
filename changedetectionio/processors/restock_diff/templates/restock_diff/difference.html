@@ -29,6 +29,13 @@
     <div id="restock-tabs">
         <div class="tab-pane-inner" id="price-history">
         {% if has_enough_history %}
+            <div class="restock-range-toolbar" role="group" aria-label="Price history range">
+                <label for="restock-history-range">{{ _('Range') }}</label>
+                <select id="restock-history-range" class="restock-range-select">
+                    <option value="7d">7D</option><option value="30d" selected>30D</option>
+                    <option value="90d">90D</option><option value="all">All</option>
+                </select>
+            </div>
             <div id="restock-graph">
                 <p class="pure-form-message-inline" id="restock-graph-loading">{{ _('Loading price history…') }}</p>
             </div>
@@ -38,6 +45,8 @@
             <div id="restock-history-table-wrap" style="margin-top: 1.2rem;">
                 <div class="restock-table-toolbar">
                     <strong>{{ _('Price history') }}</strong>
+                    <a href="{{ url_for('ui.ui_diff.diff_history_page_processor_export_csv', uuid=uuid) }}"
+                       class="pure-button button-secondary button-xsmall">{{ _('Download as CSV') }}</a>
                     <a href="{{ url_for('ui.ui_diff.diff_history_page_processor_export', uuid=uuid) }}"
                        class="pure-button button-secondary button-xsmall">{{ _('Download as XLSX') }}</a>
                 </div>

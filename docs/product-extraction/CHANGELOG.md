@@ -1,3 +1,10 @@
+## 2026-11-10 — Every-check price history
+
+- Store one JSONL observation for each completed Restock & Price logical check, independent of change snapshots and business alerts. Include repeated prices, explicit null prices and operational failures; no backfill or datastore reset.
+- Reuse the watch-list inline price graph and full history page with real-time stepped axis, gaps for null values, 7D/30D/90D/All ranges and raw CSV/XLSX exports.
+- Delete Watch removes history with its directory; Clear History invalidates older in-flight append generations and removes the JSONL file. Legacy snapshots remain available when no new-format history exists.
+- Offline unit and JS syntax validation are not equivalent to deployment browser acceptance.
+
 ### Product Extractors save and custom confirmations (2026-11-05)
 
 - Editing the currently loaded rule now sends a revision-checked overwrite directly, without an unnecessary confirmation. New/imported/renamed IDs that conflict with a different existing rule still require explicit confirmation.

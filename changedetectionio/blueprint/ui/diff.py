@@ -122,7 +122,12 @@ def construct_blueprint(datastore: ChangeDetectionStore):
             return redirect(url_for('watchlist.index'))
 
         dates = list(watch.history.keys())
-        if not dates or len(dates) < 2:
+        if watch.get('processor') == 'restock_diff':
+            from changedetectionio.product_extraction.price_history import has_records
+            has_history = has_records(watch.data_dir) or bool(dates)
+        else:
+            has_history = len(dates) >= 2
+        if not has_history:
             flash(gettext("Not enough history (2 snapshots required) to show difference page for this watch."), "error")
             return redirect(url_for('watchlist.index'))
 
@@ -563,6 +568,20 @@ def construct_blueprint(datastore: ChangeDetectionStore):
             return jsonify(processor_module.get_data(watch=watch, datastore=datastore, request=request))
 
         abort(404, description=f"Processor '{processor_name}' does not provide difference data")
+
+    @diff_blueprint.route("/diff/<uuid_str:uuid>/processor-export.csv", methods=['GET'])
+    @login_optionally_required
+    def diff_history_page_processor_export_csv(uuid):
+        from flask import abort
+        watch = datastore.data['watching'].get(uuid)
+        if not watch or watch.get('processor') != 'restock_diff':
+            abort(404)
+        from changedetectionio.processors.restock_diff.difference import export_csv
+        data, filename = export_csv(watch, datastore)
+        resp = make_response(data)
+        resp.headers['Content-Type'] = 'text/csv; charset=utf-8'
+        resp.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return resp
 
     @diff_blueprint.route("/diff/<uuid_str:uuid>/processor-export.xlsx", methods=['GET'])
     @login_optionally_required

@@ -1,4 +1,4 @@
-// Restock price/stock timeline - a hand-rolled smoothed SVG line graph.
+// Restock price/stock timeline - time-scaled stepped SVG history.
 // Line segments are green where the item was in stock and red where it was out of stock.
 //
 // Two consumers:
@@ -21,7 +21,7 @@
 
     const DEFAULT_I18N = { in_stock: 'In stock', out_of_stock: 'Out of stock',
         no_data: 'No price data available to graph yet.', load_error: 'Could not load price history.',
-        changes: 'Changes', avg_price: 'Average price',
+        changes: 'Changes', checks: 'Checks', avg_price: 'Average price',
         price_low: 'Currently low', price_typical: 'Currently typical', price_high: 'Currently high',
         // {pct} is substituted with an already-formatted percentage, e.g. "80%". The percent sign is
         // NOT part of the msgid on purpose: a bare "%" followed by a letter (" of") parses as a
@@ -62,73 +62,37 @@
         return (currency || '') + (Number.isInteger(n) ? n : n.toFixed(2));
     }
 
-    // Thin a large price series down to ~target points for drawing (you can't perceive more
-    // points than pixels). Always keeps the first, last and the true min/max points so the line
-    // still touches its extremes. The axis range + summary stay computed over the FULL data.
-    function downsample(arr, target) {
-        if (arr.length <= target) return arr;
-        const keep = new Set([0, arr.length - 1]);
-        let minI = 0, maxI = 0;
-        for (let i = 1; i < arr.length; i++) {
-            if (arr[i].price < arr[minI].price) minI = i;
-            if (arr[i].price > arr[maxI].price) maxI = i;
-        }
-        keep.add(minI); keep.add(maxI);
-        const step = arr.length / target;
-        for (let i = 0; i < target; i++) keep.add(Math.floor(i * step));
-        return Array.from(keep).sort((a, b) => a - b).map(i => arr[i]);
-    }
-
-    // Monotone cubic spline (Fritsch–Carlson). A gentle, smooth curve that — unlike Catmull-Rom —
-    // is guaranteed NOT to overshoot beyond the actual data points: tangents are clamped so the
-    // line never dips below / rises above neighbouring values. So the curve stays faithful to the
-    // real prices (no phantom dips/spikes) while still looking soft. Returns an SVG path string.
-    function monotonePath(pts) {
-        const n = pts.length;
-        if (n < 2) return '';
-        const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-        if (n === 2) return `M ${xs[0].toFixed(1)} ${ys[0].toFixed(1)} L ${xs[1].toFixed(1)} ${ys[1].toFixed(1)}`;
-
-        const dx = [], slope = [];
-        for (let i = 0; i < n - 1; i++) {
-            const h = xs[i + 1] - xs[i];
-            dx.push(h);
-            slope.push(h === 0 ? 0 : (ys[i + 1] - ys[i]) / h);
-        }
-
-        const m = new Array(n);
-        m[0] = slope[0];
-        m[n - 1] = slope[n - 2];
-        for (let i = 1; i < n - 1; i++) {
-            // Local extremum (slope changes sign) → flat tangent so the curve doesn't overshoot.
-            m[i] = (slope[i - 1] * slope[i] <= 0) ? 0 : (slope[i - 1] + slope[i]) / 2;
-        }
-        // Fritsch–Carlson: clamp tangents so each segment stays monotone (no overshoot).
-        for (let i = 0; i < n - 1; i++) {
-            if (slope[i] === 0) { m[i] = 0; m[i + 1] = 0; continue; }
-            const a = m[i] / slope[i], b = m[i + 1] / slope[i], s = a * a + b * b;
-            if (s > 9) {
-                const t = 3 / Math.sqrt(s);
-                m[i] = t * a * slope[i];
-                m[i + 1] = t * b * slope[i];
+    function downsampleObservations(series, target) {
+        if (series.length <= target) return series;
+        const selected = new Set([0, series.length - 1]);
+        const chunkSize = Math.max(1, Math.ceil(series.length / Math.max(1, Math.floor(target / 4))));
+        for (let i = 0; i < series.length; i += chunkSize) {
+            let min = null, max = null;
+            const end = Math.min(i + chunkSize, series.length);
+            selected.add(i); selected.add(end - 1);
+            for (let j = i; j < end; j++) {
+                const v = series[j].price;
+                if (v === null || v === undefined) {
+                    // Keep only run boundaries; thousands of missing observations
+                    // must not create thousands of SVG nodes.
+                    if (j === 0 || series[j - 1].price !== null) selected.add(j);
+                    if (j + 1 === series.length || series[j + 1].price !== null) selected.add(j);
+                } else {
+                    if (min === null || v < series[min].price) min = j;
+                    if (max === null || v > series[max].price) max = j;
+                }
             }
+            if (min !== null) selected.add(min);
+            if (max !== null) selected.add(max);
         }
-
-        let d = `M ${xs[0].toFixed(1)} ${ys[0].toFixed(1)}`;
-        for (let i = 0; i < n - 1; i++) {
-            const h = dx[i];
-            const c1x = xs[i] + h / 3, c1y = ys[i] + m[i] * h / 3;
-            const c2x = xs[i + 1] - h / 3, c2y = ys[i + 1] - m[i + 1] * h / 3;
-            d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${xs[i + 1].toFixed(1)} ${ys[i + 1].toFixed(1)}`;
-        }
-        return d;
+        return Array.from(selected).sort((a, b) => a - b).map(i => series[i]);
     }
 
     function draw($container, series, currency, i18n, summary, height) {
         height = height || HEIGHT;
         // Only points that actually have a price can sit on the line.
         const data = (series || []).filter(p => p.price !== null && p.price !== undefined);
-        if (data.length < 2) {
+        if (data.length < 1) {
             $container.html($('<p class="pure-form-message-inline"></p>').text(i18n.no_data));
             return;
         }
@@ -152,11 +116,15 @@
         const padLeft = Math.max(PAD.left, maxLabelChars * 7 + 14);
 
         const innerW = width - padLeft - PAD.right;
-        // Draw at most ~one point per few pixels; keeps the SVG light on long histories / mobile.
-        const drawData = downsample(data, Math.max(40, Math.min(250, Math.floor(innerW / 4))));
-        const x = i => padLeft + (i * innerW) / (drawData.length - 1);
+        // Downsample the full observation series, retaining nulls so missing prices
+        // break the line; use timestamps rather than equally-spaced point indices.
+        const drawData = downsampleObservations(series || [], Math.max(60, Math.min(300, Math.floor(innerW / 3))));
+        const firstTime = (series || [])[0].timestamp;
+        const lastTime = (series || [])[series.length - 1].timestamp;
+        const x = p => padLeft + (p.timestamp - firstTime) / (lastTime - firstTime || 1) * innerW;
         const y = price => PAD.top + (1 - (price - domMin) / range) * innerH;
-        const pts = drawData.map((p, i) => ({ x: x(i), y: y(p.price), d: p }));
+        const pts = drawData.filter(p => p.price !== null && p.price !== undefined)
+            .map(p => ({ x: x(p), y: y(p.price), d: p }));
 
         // Size the SVG in real pixels at the measured width (no viewBox => no CSS rescaling).
         const svg = el("svg", { width: width, height: height, role: "img" });
@@ -189,10 +157,25 @@
             svg.appendChild(at);
         }
 
-        // Single neutral, gently-smoothed line (monotone cubic — soft but never overshoots the
-        // real values). Stock status is shown by the DOT colours instead, not the line.
+        // A step line respects discrete retail prices. Null observations terminate
+        // the previous segment and start a new one after data becomes available.
+        let path = '';
+        let previous = null;
+        drawData.forEach(point => {
+            if (point.price === null || point.price === undefined) {
+                previous = null;
+                return;
+            }
+            if (previous && point.currency && previous.currency && point.currency !== previous.currency) {
+                previous = null; // never join prices expressed in different currencies
+            }
+            const xx = x(point), yy = y(point.price);
+            if (!previous) path += ` M ${xx.toFixed(1)} ${yy.toFixed(1)}`;
+            else path += ` H ${xx.toFixed(1)} V ${yy.toFixed(1)}`;
+            previous = point;
+        });
         svg.appendChild(el('path', {
-            class: 'rg-line', d: monotonePath(pts), fill: 'none',
+            class: 'rg-line', d: path.trim(), fill: 'none',
             'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
         }));
 
@@ -205,20 +188,20 @@
             }));
         });
 
-        // Sparse x-axis date labels: evenly spaced, always including both endpoints. The number
-        // adapts to the available width (each label ~64px) so they don't jam together on narrow
-        // / mobile widths, capped at MAX_X_LABELS on desktop. Min 2 (the two endpoints).
+        // Calendar/time axis is based on real timestamps, including null-price
+        // observations and single-price histories (no divide-by-zero).
         const fitLabels = Math.max(2, Math.min(MAX_X_LABELS, Math.floor(innerW / 64)));
-        const count = Math.min(fitLabels, pts.length);
-        const labelIdx = Array.from(new Set(
-            Array.from({ length: count }, (_, i) => Math.round((i * (pts.length - 1)) / (count - 1)))
-        ));
-        labelIdx.forEach(i => {
-            const anchor = i === 0 ? 'start' : (i === pts.length - 1 ? 'end' : 'middle');
-            const t = el('text', { class: 'rg-label', x: pts[i].x.toFixed(1), y: height - 10, 'text-anchor': anchor });
-            t.textContent = fmtAxisDate(pts[i].d.timestamp);
+        for (let i = 0; i < fitLabels; i++) {
+            const frac = i / (fitLabels - 1);
+            const when = firstTime + (lastTime - firstTime) * frac;
+            const anchor = i === 0 ? 'start' : (i === fitLabels - 1 ? 'end' : 'middle');
+            const t = el('text', {
+                class: 'rg-label', x: (padLeft + innerW * frac).toFixed(1),
+                y: height - 10, 'text-anchor': anchor
+            });
+            t.textContent = fmtAxisDate(when);
             svg.appendChild(t);
-        });
+        }
 
         $container.empty().append(svg);
 
@@ -232,7 +215,7 @@
             $(hit).on('mouseenter mousemove', function (e) {
                 const r = $container[0].getBoundingClientRect();
                 const cx = e.clientX - r.left, cy = e.clientY - r.top;
-                $tip.html('<strong>' + fmtPrice(p.d.price, currency) + '</strong>' + state + '<br>' + fmtDateTime(p.d.timestamp)).show();
+                $tip.html('<strong>' + fmtPrice(p.d.price, p.d.currency || currency) + '</strong>' + state + '<br>' + fmtDateTime(p.d.timestamp)).show();
                 const tipW = $tip.outerWidth(), GAP = 14;
                 // Default to the right of the cursor; flip left if it would overflow the right edge.
                 let left = cx + GAP;
@@ -275,7 +258,7 @@
         const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
         const $stats = $('<div class="rg-stats"></div>')
             .text((i18n.avg_price || 'Average price') + ' ' + fmtPrice(avgPrice, currency) +
-                  ', ' + (series ? series.length : data.length) + ' ' + (i18n.changes || 'Changes'));
+                  ', ' + (series ? series.length : data.length) + ' ' + (i18n.checks || 'Checks'));
 
         $header.append($pill).append($stats);
         $container.prepend($header);
@@ -285,11 +268,11 @@
         const $tbody = $table.find('tbody');
         if (!$tbody.length) return;
         $tbody.empty();
-        series.slice().reverse().forEach(p => {
+        series.slice(-500).reverse().forEach(p => {
             let stock = '-';
             if (p.in_stock === true) stock = $('<span class="restock-badge in-stock"></span>').text(i18n.in_stock);
             else if (p.in_stock === false) stock = $('<span class="restock-badge out-of-stock"></span>').text(i18n.out_of_stock);
-            const price = (p.price !== null && p.price !== undefined) ? fmtPrice(p.price, currency) : '-';
+            const price = (p.price !== null && p.price !== undefined) ? fmtPrice(p.price, p.currency || currency) : '-';
             $('<tr></tr>')
                 .append($('<td></td>').text(fmtDateTime(p.timestamp)))
                 .append($('<td></td>').append(stock))
@@ -359,13 +342,18 @@
         const $container = $('#restock-graph');
         if (!$container.length || !window.restock_data_url) return;
         const i18n = $.extend({}, DEFAULT_I18N, window.restock_i18n || {});
-        $.getJSON(window.restock_data_url).done(function (data) {
+        function loadRange() {
+        const range = $('#restock-history-range').val() || '30d';
+        $.getJSON(window.restock_data_url, {range: range}).done(function (data) {
             const series = (data && data.series) || [];
             window.renderRestockGraph($container, series, (data && data.currency) || '', i18n, (data && data.summary) || null);
             buildTable($('#restock-history-table'), series, (data && data.currency) || '', i18n);
         }).fail(function () {
             $container.html($('<p class="pure-form-message-inline"></p>').text(i18n.load_error));
         });
+        }
+        $('#restock-history-range').on('change', loadRange);
+        loadRange();
     });
 
 })(jQuery);

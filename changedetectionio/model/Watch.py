@@ -386,12 +386,18 @@ class model(EntityPersistenceMixin, watch_base):
         processor_names = [name for cls, name in find_processors()]
         processor_config_files = {f"{name}.json" for name in processor_names}
 
+        from changedetectionio.product_extraction.price_history import clear as clear_price_history
+        clear_price_history(self.data_dir)
+
         # JSON Data, Screenshots, Textfiles (history index and snapshots), HTML in the future etc
         # But preserve processor config files (they're configuration, not history data)
         # Use glob not rglob here for safety.
         for item in pathlib.Path(str(self.data_dir)).glob("*.*"):
             # Skip processor config files
-            if item.name in processor_config_files:
+            if item.name in processor_config_files or item.name == 'price-history.jsonl':
+                # The history module already removed the previous generation
+                # under its append lock. Do not delete a *new* check that
+                # started after Clear History while this loop is running.
                 continue
             os.unlink(item)
 

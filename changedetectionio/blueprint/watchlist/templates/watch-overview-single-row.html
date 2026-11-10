@@ -119,7 +119,7 @@
     {#-  @todo - this could be injected somehow watch.extra_row_info or something -#}
                     <div class="restock-info-wrap">
                             {%- if watch.has_restock_info -%}
-                                <span class="restock-label {{'in-stock' if watch['restock']['in_stock'] else 'not-in-stock' }}" title="{{ _('Detecting restock and price') }}">
+                                <span class="restock-label {{'in-stock' if watch['restock']['in_stock'] else 'not-in-stock' }} restock-stock-open-history" role="button" tabindex="0" title="{{ _('Open price history') }}">
                                     <!-- maybe some object watch['processor'][restock_diff] or.. -->
                                      {%- if watch['restock']['in_stock']-%}  {{ _('In stock') }} {%- else-%}  {{ _('Not in stock') }} {%- endif -%}
                                 </span>
@@ -131,7 +131,7 @@
                                 {%- set currency = restock.get('currency') if restock.get('currency','') else '' -%}
 
                                 {%- if price is not none and (price|string)|regex_search('\d') -%}
-                                  <span class="restock-label price" title="{{ _('Price') }}">
+                                  <span class="restock-label price restock-price-open-history" tabindex="0" role="button" title="{{ _('Price history') }}" aria-label="{{ _('Open price history') }}">
                                   {# @todo: make parse_currency/parse_decimal aware of the locale of the actual web page and use that instead changedetectionio/processors/restock_diff/__init__.py #}
                                     {%- if price is number -%}{# It's a number so we can convert it to their locale' #}
                                       {{ price|format_number_locale }} {{ currency }}<!-- as number -->

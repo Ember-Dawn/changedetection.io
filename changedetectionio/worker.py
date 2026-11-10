@@ -235,6 +235,8 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                 datastore.data['watching'][uuid]['last_checked'] = fetch_start_time
 
                 watch = datastore.data['watching'].get(uuid)
+                from changedetectionio.product_extraction.price_history import generation as price_history_generation_of
+                price_history_generation = price_history_generation_of(watch.data_dir)
 
                 logger.info(f"Worker {worker_id} processing watch UUID {uuid} Priority {queued_item_data.priority} URL {watch['url']}")
 
@@ -725,6 +727,26 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                 if product_observation_error and check_succeeded:
                     check_succeeded = False
                     check_category = 'product_rule'
+
+                # A completed logical check contributes one sample, independently of
+                # whether its price/stock values changed or triggered a notification.
+                if watch.get('processor') == 'restock_diff' and datastore.data['watching'].get(uuid) is watch:
+                    try:
+                        from changedetectionio.product_extraction.price_history import append as append_price_history
+                        observation = update_obj.get('restock') if process_changedetection_results else None
+                        if observation is not None:
+                            append_price_history(
+                                watch.data_dir, timestamp=fetch_start_time,
+                                price=observation.get('price'), in_stock=observation.get('in_stock'),
+                                currency=observation.get('currency'),
+                                status='error' if product_observation_error or not check_succeeded else 'success',
+                                expected_generation=price_history_generation)
+                        elif not check_succeeded:
+                            append_price_history(watch.data_dir, timestamp=fetch_start_time,
+                                price=None, in_stock=None, status='error',
+                                expected_generation=price_history_generation)
+                    except Exception as history_error:
+                        logger.warning('Price history append failed for {}: {}', uuid, history_error)
 
                 # Always record attempt count
                 count = watch.get('check_count', 0) + 1

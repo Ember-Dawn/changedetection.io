@@ -11,6 +11,8 @@ provides an optional get_data() hook served as JSON by /diff/<uuid>/processor-da
 (potentially long) timeline stays out of the rendered HTML - same rationale as the preview
 asset endpoint.
 """
+import csv
+import io
 import re
 import statistics
 import time
@@ -47,10 +49,16 @@ def _currency(watch):
         return ''
 
 
-def _build_series(watch):
-    """Read the full history into a [{timestamp, price, in_stock}] timeline (oldest -> newest)."""
+def _build_series(watch, since=None):
+    """Read per-check history, falling back to pre-upgrade snapshot observations."""
+    from changedetectionio.product_extraction.price_history import read
+    series = read(watch.data_dir, since=since)
+    if series is not None:
+        return series
     series = []
     for ts in list(watch.history.keys()):
+        if since is not None and int(ts) < since:
+            continue
         try:
             snapshot = watch.get_history_snapshot(timestamp=ts)
         except Exception as e:
@@ -59,6 +67,21 @@ def _build_series(watch):
         price, in_stock = _parse_restock_snapshot(snapshot)
         series.append({'timestamp': int(ts), 'price': price, 'in_stock': in_stock})
     return series
+
+
+def export_csv(watch, datastore):
+    """Download all raw observations, without graph downsampling."""
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(['Timestamp (UTC)', 'Price', 'In stock', 'Currency', 'Status'])
+    import datetime
+    for point in _build_series(watch):
+        writer.writerow([
+            datetime.datetime.fromtimestamp(point['timestamp'], datetime.timezone.utc).isoformat(),
+            '' if point['price'] is None else point['price'],
+            '' if point['in_stock'] is None else str(point['in_stock']).lower(),
+            point.get('currency') or _currency(watch), point.get('status', 'success')])
+    return out.getvalue().encode('utf-8-sig'), f"price-history-{watch.get('uuid')}.csv"
 
 
 def compute_price_summary(series):
@@ -145,7 +168,7 @@ def export_xlsx(watch, datastore):
         ws.cell(row=ws.max_row, column=2, value=stock)
         # Real numeric price (None -> blank cell) so spreadsheet number formats apply.
         ws.cell(row=ws.max_row, column=3, value=p['price'])
-        ws.cell(row=ws.max_row, column=4, value=currency)
+        ws.cell(row=ws.max_row, column=4, value=p.get('currency') or currency)
 
     # Sensible column widths.
     for col, width in {'A': 20, 'B': 14, 'C': 12, 'D': 10}.items():
@@ -159,7 +182,9 @@ def export_xlsx(watch, datastore):
 def get_data(watch, datastore, request):
     """JSON payload for the price/stock graph, fetched via /diff/<uuid>/processor-data.
     Keeps the full timeline out of the HTML page."""
-    series = _build_series(watch)
+    period = request.args.get('range', 'all') if request else 'all'
+    since = int(time.time()) - int(period[:-1]) * 86400 if period in ('7d', '30d', '90d') else None
+    series = _build_series(watch, since=since)
     priced = sum(1 for p in series if p['price'] is not None)
     logger.info(f"Restock diff get_data for {watch.get('uuid')}: {len(series)} snapshots, {priced} with a price")
     return {
@@ -174,10 +199,15 @@ def render(watch, datastore, request, url_for, render_template, flash, redirect,
     asynchronously from get_data() so this stays light regardless of history length."""
     uuid = watch.get('uuid')
     dates = list(watch.history.keys())
+    from changedetectionio.product_extraction.price_history import latest, has_records
+    latest_record = latest(watch.data_dir)
+    has_new_history = has_records(watch.data_dir)
 
     # Light render: read only the most recent snapshot for the summary badge/price.
     latest = None
-    if dates:
+    if latest_record:
+        latest = latest_record
+    elif dates:
         try:
             price, in_stock = _parse_restock_snapshot(watch.get_history_snapshot(timestamp=dates[-1]))
             latest = {'timestamp': int(dates[-1]), 'price': price, 'in_stock': in_stock}
@@ -203,6 +233,6 @@ def render(watch, datastore, request, url_for, render_template, flash, redirect,
         to_version=str(dates[-1]) if dates else '',
         restock_latest=latest,
         restock_currency=_currency(watch),
-        has_enough_history=len(dates) >= 2,
+        has_enough_history=(has_new_history or bool(dates)),
         processor_data_url=url_for('ui.ui_diff.diff_history_page_processor_data', uuid=uuid),
     )
