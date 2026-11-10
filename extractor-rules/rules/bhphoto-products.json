@@ -8,7 +8,8 @@
       "bhphotovideo.com"
     ],
     "path_patterns": [
-      "/c/product/*"
+      "/c/product/*",
+      "/c/replacement_for/*"
     ]
   },
   "fields": {
@@ -22,19 +23,18 @@
       ]
     },
     "currency": {
-      "selectors": [
-        {
-          "type": "jsonpath",
-          "value": "$..offers.priceCurrency",
-          "extract": "text"
-        }
-      ]
+      "literal": "USD"
     },
     "title": {
       "selectors": [
         {
           "type": "css",
           "value": "h1[data-selenium='productTitle']",
+          "extract": "text"
+        },
+        {
+          "type": "css",
+          "value": "[data-selenium='discontinuedItem'] [data-selenium='discontinuedItemName']",
           "extract": "text"
         }
       ]
@@ -49,40 +49,56 @@
     },
     "shipping": {
       "condition": {
-        "op": "all",
+        "op": "coalesce",
         "items": [
           {
             "op": "exists",
             "selector": {
               "type": "xpath",
-              "value": "//span[@data-selenium='stockStatus' and normalize-space()='In Stock']"
+              "value": "//*[@data-selenium='discontinuedItem']//*[@data-selenium='stockStatus' and normalize-space()='In Stock']"
             },
             "guard": {
               "type": "css",
-              "value": "[data-selenium='stockStatus']"
+              "value": "[data-selenium='discontinuedItem'] [data-selenium='stockStatus']"
             }
           },
           {
-            "op": "exists",
-            "selector": {
-              "type": "css",
-              "value": "[data-selenium='addToCartSection'] button[data-selenium='addToCartButton']"
-            },
-            "guard": {
-              "type": "css",
-              "value": "[data-selenium='addToCartSection']"
-            }
-          },
-          {
-            "op": "exists",
-            "selector": {
-              "type": "css",
-              "value": "[data-selenium='deliveryCommentsShipStoreInfo'] [data-selenium='deliverByMessage']"
-            },
-            "guard": {
-              "type": "css",
-              "value": "[data-selenium='deliveryCommentsShipStoreInfo']"
-            }
+            "op": "all",
+            "items": [
+              {
+                "op": "exists",
+                "selector": {
+                  "type": "xpath",
+                  "value": "//span[@data-selenium='stockStatus' and normalize-space()='In Stock']"
+                },
+                "guard": {
+                  "type": "css",
+                  "value": "[data-selenium='stockStatus']"
+                }
+              },
+              {
+                "op": "exists",
+                "selector": {
+                  "type": "css",
+                  "value": "[data-selenium='addToCartSection'] button[data-selenium='addToCartButton']"
+                },
+                "guard": {
+                  "type": "css",
+                  "value": "[data-selenium='addToCartSection']"
+                }
+              },
+              {
+                "op": "exists",
+                "selector": {
+                  "type": "css",
+                  "value": "[data-selenium='deliveryCommentsShipStoreInfo'] [data-selenium='deliverByMessage']"
+                },
+                "guard": {
+                  "type": "css",
+                  "value": "[data-selenium='deliveryCommentsShipStoreInfo']"
+                }
+              }
+            ]
           }
         ]
       }
