@@ -19,7 +19,7 @@ The current-stock options (`in_stock`, `out_of_stock`) are filters for price rul
 ## Reliable baselines and events
 
 - The **first reliable measurement establishes the baseline, without alerting**. Changing the configured policy or semantically significant extraction fields also rebaselines; page wait and descriptive metadata changes do not.
-- A missing/invalid price must not be treated as zero; unknown stock (`null`) must not be interpreted as in stock or out of stock. Missing inputs never fabricate a change or transition.
+- A missing/invalid price must not be treated as zero; unknown stock (`null`) must not be interpreted as in stock or out of stock. Missing inputs never fabricate a change or transition. For selected JSON rules, explicit out-of-stock (`false`) is valid even without a price, regardless of price-monitoring settings. In-stock with missing price and unknown stock are processing-health failures, but an independently valid field still advances its alert baseline and can trigger an eligible event.
 - Known currency changes prevent unsafe cross-currency price comparisons. A reliable stock event may still qualify under OR.
 - The Watch saves event-specific comparison details in `purchase_alert_state` separately from the current display data in `restock`.
 - Stock quantity changes alone do not count as availability transitions unless the derived `in_stock` boolean changes.
@@ -66,9 +66,7 @@ The first selected-rule extraction/configuration failure is queued as an operati
 
 Product checks using `html_cloakbrowser_shared` and a selected extraction rule can
 wait briefly for required DOM data on the *same* tab and retry on a fresh tab if
-eligible. Both attempts are a single logical check: neither changes a purchase
-trigger, a price/stock baseline, nor the monitor history until successful
-parsing. Transient failures cannot be treated as $0 or out of stock.
+eligible. Both attempts are a single logical check; a valid stock result of `false` with no price ends the readiness wait immediately. In-stock/no-price and unknown-stock results wait for additional data. After the attempts, a partially valid result may advance the valid alert baseline and dispatch a qualified product event while Watch Health records one failed logical check. The Watch persists that baseline so later retries do not replay the same event. Transient failures cannot be treated as $0 or out of stock.
 
 A failed completed check enters persisted Watch Health state. By default, two
 failed checks confirm the fault; the next check can run after five minutes even

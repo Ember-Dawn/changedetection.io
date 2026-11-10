@@ -283,8 +283,6 @@ class difference_detection_processor():
                         self.fetcher.product_readiness = {
                             'rule': rule,
                             'wait_seconds': options['reliability_wait_seconds'],
-                            'require_price': config.get('price_mode', 'none') != 'none',
-                            'require_stock': config.get('stock_mode', 'restock') != 'none',
                         }
             if rule_wait is not None:
                 self.fetcher.render_extract_delay = rule_wait
@@ -320,8 +318,6 @@ class difference_detection_processor():
                 self.fetcher.product_readiness = {
                     'rule': active_rule,
                     'wait_seconds': policy(self.datastore, self.watch)['reliability_wait_seconds'],
-                    'require_price': config.get('price_mode', 'none') != 'none',
-                    'require_stock': config.get('stock_mode', 'restock') != 'none',
                 }
 
         # And here we go! call the right browser with browser-specific settings

@@ -22,10 +22,8 @@ async def wait_until_ready(page, readiness):
         try:
             html = await page.content()
             data = await asyncio.to_thread(evaluate, readiness['rule'], html)
-            ok_price = not readiness.get('require_price') or data.price is not None
-            ok_stock = not readiness.get('require_stock') or any(
-                getattr(data, name) is not None for name in ('in_stock', 'pickup', 'shipping'))
-            if ok_price and ok_stock:
+            from changedetectionio.product_extraction.observation import observation_ready
+            if observation_ready(data.in_stock, data.price):
                 return
         except RuleError:
             pass

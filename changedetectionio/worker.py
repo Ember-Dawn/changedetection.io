@@ -519,14 +519,19 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                     update_obj['last_error'] = False
                     # Do not mark verification resolved yet; filtering/processor
                     # work below must also succeed before sending recovery.
-                    cleanup_error_artifacts(uuid, datastore)
+                    if not update_obj.get('_product_observation_error'):
+                        cleanup_error_artifacts(uuid, datastore)
 
                 if not datastore.data['watching'].get(uuid):
                     continue
 
                 logger.debug(f"Processing watch UUID: {uuid} - xpath_data length returned {len(update_handler.xpath_data) if update_handler and update_handler.xpath_data else 'empty.'}")
+                product_observation_error = None
                 if update_handler and process_changedetection_results:
                     try:
+                        # The handler returns a partial observation rather than raising,
+                        # allowing valid price/stock transitions to be committed once.
+                        product_observation_error = update_obj.pop('_product_observation_error', None)
                         # Reset the edited flag BEFORE update_watch (which calls watch.update() and would set it again)
                         watch.reset_watch_edited_flag()
 
@@ -632,6 +637,8 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                             except Exception as e:
                                 logger.warning(f"LLM evaluation error for {uuid}: {e}")
 
+                        if product_observation_error:
+                            update_obj['last_error'] = product_observation_error
                         datastore.update_watch(uuid=uuid, update_obj=update_obj)
                         # Recovery is committed below, after history and final
                         # watch metadata have been persisted successfully.
@@ -712,6 +719,12 @@ async def async_update_worker(worker_id, q, notification_q, app, datastore, exec
                         check_succeeded = False
                         datastore.update_watch(uuid=uuid, update_obj={'last_error': str(e)})
 
+
+                # A partial observation may have emitted a legitimate product
+                # event; nevertheless the logical check counts as a health failure.
+                if product_observation_error and check_succeeded:
+                    check_succeeded = False
+                    check_category = 'product_rule'
 
                 # Always record attempt count
                 count = watch.get('check_count', 0) + 1

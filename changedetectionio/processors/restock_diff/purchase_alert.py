@@ -173,8 +173,8 @@ def evaluate_purchase_alert(settings, product, previous_state=None, reset_baseli
     result = dict(prior)
     result.update(signature=signature, price_mode=pm, stock_mode=sm,
                   combine_mode=combine, price_threshold=str(threshold) if threshold is not None else None,
-                  status='unknown' if (conflict or (pm != 'none' and price is None) or
-                                       (sm != 'none' and stock is None)) else 'ready')
+                  status='unknown' if (conflict or (stock is None) or
+                                       (stock is True and price is None)) else 'ready')
     if stock is not None:
         result['last_stock'] = stock
     if current_filter and pm in ('below', 'above') and not conflict:

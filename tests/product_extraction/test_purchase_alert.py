@@ -27,6 +27,39 @@ class PurchaseRules(unittest.TestCase):
         self.assertEqual(actual, expected)
         return state
 
+    def test_out_of_stock_no_price_preserves_previous_price(self):
+        cfg = config('any_change', 'restock', combine='or')
+        _, state, _ = purchase.evaluate_purchase_alert(cfg, item(False, 1000))
+        notify, state, _ = purchase.evaluate_purchase_alert(cfg, item(False, None), state)
+        self.assertFalse(notify)
+        self.assertEqual(state['last_price'], '1000')
+        self.assertEqual(state['status'], 'ready')
+        notify, state, _ = purchase.evaluate_purchase_alert(cfg, item(True, 900), state)
+        self.assertTrue(notify)
+        self.assertEqual(state['last_price'], '900')
+        self.assertEqual(state['last_stock'], True)
+
+    def test_partial_stock_event_is_not_repeated(self):
+        cfg = config('any_change', 'restock', combine='or')
+        _, state, _ = purchase.evaluate_purchase_alert(cfg, item(False, 1000))
+        notify, state, _ = purchase.evaluate_purchase_alert(cfg, item(True, None), state)
+        self.assertTrue(notify)
+        self.assertEqual(state['status'], 'unknown')
+        self.assertEqual(state['last_stock'], True)
+        self.assertEqual(state['last_price'], '1000')
+        notify, state, _ = purchase.evaluate_purchase_alert(cfg, item(True, None), state)
+        self.assertFalse(notify)
+
+    def test_partial_price_event_is_not_repeated(self):
+        cfg = config('any_change', 'restock', combine='or')
+        _, state, _ = purchase.evaluate_purchase_alert(cfg, item(False, 1000))
+        notify, state, _ = purchase.evaluate_purchase_alert(cfg, item(None, 900), state)
+        self.assertTrue(notify)
+        self.assertEqual(state['last_stock'], False)
+        self.assertEqual(state['last_price'], '900')
+        notify, state, _ = purchase.evaluate_purchase_alert(cfg, item(None, 900), state)
+        self.assertFalse(notify)
+
     def test_below_follow_on(self):
         self.assert_alerts(config('below', 'none', 1300),
             [item(True,1400),item(True,1250),item(True,1200),item(True,1280),item(True,1350),item(True,1350),item(True,1290)],

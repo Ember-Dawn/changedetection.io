@@ -28,12 +28,11 @@ class ProductReadyTests(unittest.IsolatedAsyncioTestCase):
 
         def parse_rule(_rule, html):
             return SimpleNamespace(price=20 if '$20' in html else None,
-                                   in_stock=None, pickup=None, shipping=None)
+                                   in_stock=True if '$20' in html else None, pickup=None, shipping=None)
 
         with patch('changedetection_cloak_shared.page_readiness.page_challenge', no_challenge), \
              patch('changedetectionio.product_extraction.evaluate', parse_rule):
-            await wait_until_ready(page, {'rule': {}, 'wait_seconds': 2,
-                                          'require_price': True, 'require_stock': False})
+            await wait_until_ready(page, {'rule': {}, 'wait_seconds': 2})
         self.assertEqual(page.calls, 2)
 
     async def test_no_wait_when_complete(self):
@@ -44,7 +43,18 @@ class ProductReadyTests(unittest.IsolatedAsyncioTestCase):
 
         with patch('changedetection_cloak_shared.page_readiness.page_challenge', no_challenge), \
              patch('changedetectionio.product_extraction.evaluate',
-                   return_value=SimpleNamespace(price=12, in_stock=None, pickup=None, shipping=None)):
-            await wait_until_ready(page, {'rule': {}, 'wait_seconds': 10,
-                                          'require_price': True, 'require_stock': False})
+                   return_value=SimpleNamespace(price=12, in_stock=True, pickup=None, shipping=None)):
+            await wait_until_ready(page, {'rule': {}, 'wait_seconds': 10})
+        self.assertEqual(page.calls, 1)
+
+    async def test_out_of_stock_without_price_is_ready(self):
+        page = FakePage(['sold out'])
+
+        async def no_challenge(_page):
+            return None
+
+        with patch('changedetection_cloak_shared.page_readiness.page_challenge', no_challenge), \
+             patch('changedetectionio.product_extraction.evaluate',
+                   return_value=SimpleNamespace(price=None, in_stock=False)):
+            await wait_until_ready(page, {'rule': {}, 'wait_seconds': 10})
         self.assertEqual(page.calls, 1)

@@ -470,6 +470,7 @@ class perform_site_check(difference_detection_processor):
             not watch.was_edited and
             not rule_changed and
             not policy_changed and
+            not watch.get('last_error') and
             (watch.get('purchase_alert_state') or {}).get('status') != 'unknown' and
             self.last_raw_content_checksum and
             not raw_changed):
@@ -534,14 +535,15 @@ class perform_site_check(difference_detection_processor):
                     url=watch.get('url'), status_code=self.fetcher.get_last_status_code(),
                     screenshot=self.fetcher.screenshot, xpath_data=self.fetcher.xpath_data) from exc
 
+        # A partially usable rule observation must not discard the other valid
+        # field: purchase_alert_state still needs to advance to avoid replaying
+        # a real stock/price event on the next retry. Worker records health
+        # failure separately after committing the observation and notifications.
+        product_observation_error = None
         if active_rule is not None:
-            if restock_settings.get('price_mode', 'none') != 'none' and itemprop_availability.get('price') is None:
-                raise ProductRuleException(message='Product extraction rule failed: price is unavailable',
-                    url=watch.get('url'), screenshot=self.fetcher.screenshot, xpath_data=self.fetcher.xpath_data)
-            if (restock_settings.get('stock_mode', 'restock') != 'none' and
-                    all(itemprop_availability.get(k) is None for k in ('in_stock', 'pickup', 'shipping'))):
-                raise ProductRuleException(message='Product extraction rule failed: stock status is unavailable',
-                    url=watch.get('url'), screenshot=self.fetcher.screenshot, xpath_data=self.fetcher.xpath_data)
+            from changedetectionio.product_extraction.observation import observation_error
+            product_observation_error = observation_error(
+                itemprop_availability.get('in_stock'), itemprop_availability.get('price'))
 
         # Try built-in extraction first, this will scan metadata in the HTML
         # On Linux, this runs in a subprocess to prevent lxml/extruct memory leaks
@@ -711,6 +713,9 @@ class perform_site_check(difference_detection_processor):
                 screenshot=self.fetcher.screenshot, xpath_data=self.fetcher.xpath_data,
             ) from exc
         update_obj['purchase_alert_state'] = purchase_state
+        if product_observation_error:
+            # Internal result metadata: never persist this helper key to the Watch.
+            update_obj['_product_observation_error'] = product_observation_error
         logger.debug(f"Watch {watch.get('uuid')} purchase alert: {alert_reason}; notified={changed_detected}")
         # Always record the new checksum
         update_obj["previous_md5"] = fetched_md5
