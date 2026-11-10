@@ -113,12 +113,18 @@ $(function () {
         var $r = $(
             '<tr class="restock-inline-row" id="' + rowId + '">' +
             '<td colspan="' + cols + '">' +
-            '<div class="restock-range-toolbar"><label>Range <select class="restock-range-select">' +
+            '<div class="restock-inline-panel">' +
+            '<div class="restock-inline-toolbar"><div class="restock-inline-heading">' +
+            '<strong>Price history</strong><span class="restock-inline-caption">' +
+            $('<span>').text($row.find('.watch-title, .watch-title-text').first().text().trim()).html() +
+            '</span></div>' +
+            '<div class="restock-range-toolbar"><label for="restock-range-' + uuid + '">Range</label>' +
+            '<select id="restock-range-' + uuid + '" class="restock-range-select">' +
             '<option value="7d">7D</option><option value="30d" selected>30D</option>' +
-            '<option value="90d">90D</option><option value="all">All</option></select></label></div>' +
+            '<option value="90d">90D</option><option value="all">All</option></select></div></div>' +
             '<div class="restock-inline-graph"></div>' +
-            '<a class="restock-inline-history-link"></a>' +
-            '</td></tr>'
+            '<div class="restock-inline-actions"><a class="restock-inline-history-link"></a></div>' +
+            '</div></td></tr>'
         );
         $r.find('.restock-inline-graph').text(i18n.loadingPriceHistory || 'Loading price history…');
         $r.find('.restock-inline-history-link').attr('href', historyUrl).text(i18n.gotoHistory || 'Goto full history');
@@ -137,9 +143,12 @@ $(function () {
 
         if (!dataUrl) { showError(); return; }
 
+        var requestId = 0;
         function loadRange() {
         var selectedRange = $r.find('.restock-range-select').val();
+        var currentRequest = ++requestId;
         $.getJSON(dataUrl, {range: selectedRange}).done(function (data) {
+            if (currentRequest !== requestId || !document.getElementById(rowId)) return;
             var series = (data && data.series) || [];
             var graphI18n = {
                 in_stock: i18n.inStock, out_of_stock: i18n.outOfStock,
@@ -151,9 +160,9 @@ $(function () {
             };
             if (window.renderRestockGraph) {
                 // Shorter graph inline in the watchlist roll-down than on the full /diff page.
-                window.renderRestockGraph($r.find('.restock-inline-graph')[0], series, (data && data.currency) || '', graphI18n, (data && data.summary) || null, 230);
+                window.renderRestockGraph($r.find('.restock-inline-graph')[0], series, (data && data.currency) || '', graphI18n, (data && data.summary) || null, 210);
             }
-        }).fail(showError);
+        }).fail(function () { if (currentRequest === requestId && document.getElementById(rowId)) showError(); });
         }
         $r.on('change', '.restock-range-select', loadRange);
         loadRange();

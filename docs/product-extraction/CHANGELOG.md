@@ -102,3 +102,11 @@ This file records **historical** changes. Current behavior: [Stock & Price rules
 
 - The independent `product_rule_alerts.py` failure/recovery notifier was removed after operational product-rule errors moved to Watch Health. Its obsolete alert tests and `product_rule_alert_state` model defaults/checksum guard were removed too. This does not change commodity price/stock alerts or extraction rule configuration. No datastore migration is included.
 - Historical first-failure/one-recovery notes above describe previous versions, **not** the current alert pipeline. See `docs/watch-health/ARCHITECTURE.md`.
+
+
+### 2026-11-10 — Compact price-history display
+
+- Reworked the existing inline and full-history price chart presentation without changing JSONL sampling, API response, watch cleanup or notification processing.
+- Zero/one valid price reading now shows a compact empty/single-record state instead of a mostly empty axis.
+- Multi-reading price chart uses compact summary tiles, real-time-aware date labels, currency formatting, a bounded axis domain for small movements and a shorter stepped plot. Missing prices continue to break the line.
+- Watchlist roll-down now matches the surrounding theme instead of using a large green gradient; the time range and full-history link remain available.

@@ -92,3 +92,8 @@ observations in the selected range; CSV/XLSX downloads preserve every record. Pr
 remain viewable only if no new-format history file exists; they are not
 misrepresented as per-check records. Check failures are marked as errors and
 missing prices appear as gaps, not zero.
+
+
+## Price-history presentation (2026-11-10)
+
+The Watch list price/stock badges continue opening the inline history panel, backed by per-check JSONL records. The panel and full-history page now display compact latest-valid/lowest/highest summary cards. When fewer than two valid price readings exist in the selected range, a small informative state replaces the graph; two or more readings use the stepped time-axis chart. Null price readings break the plot rather than being treated as zero. Range selection (7D / 30D / 90D / All), the full-history link and exports are unchanged. This is UI-only and does not reset monitoring baselines or the stored history.

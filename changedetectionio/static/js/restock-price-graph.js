@@ -1,5 +1,5 @@
 // Restock price/stock timeline - time-scaled stepped SVG history.
-// Line segments are green where the item was in stock and red where it was out of stock.
+// Neutral stepped price line; coloured dots indicate stock state.
 //
 // Two consumers:
 //   * the restock diff page (#restock-graph), which fetches window.restock_data_url and also
@@ -15,9 +15,9 @@
     const COLOR_IN = '#1fa463';   // in stock = green
     const COLOR_OUT = '#e74c3c';  // out of stock = red
     const COLOR_UNKNOWN = '#999'; // stock state not known
-    const HEIGHT = 320;          // default (diff page); the inline watchlist graph passes a shorter one
-    const PAD = { top: 20, right: 16, bottom: 30, left: 52 };
-    const MAX_X_LABELS = 6;       // keep the date axis uncluttered
+    const HEIGHT = 250;          // default (diff page); the inline watchlist graph passes a shorter one
+    const PAD = { top: 20, right: 24, bottom: 36, left: 70 };
+    const MAX_X_LABELS = 4;       // keep the date axis uncluttered
 
     const DEFAULT_I18N = { in_stock: 'In stock', out_of_stock: 'Out of stock',
         no_data: 'No price data available to graph yet.', load_error: 'Could not load price history.',
@@ -44,22 +44,32 @@
     }
 
     // X-axis label: day + short month + short year, e.g. "21 Jun '25".
-    function fmtAxisDate(epoch) {
+    function fmtAxisDate(epoch, span) {
         const d = new Date(epoch * 1000);
-        const dm = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-        return `${dm} '${String(d.getFullYear()).slice(-2)}`;
+        if (span < 86400) return d.toLocaleTimeString(undefined, {hour: 'numeric', minute: '2-digit'});
+        if (span < 7 * 86400) return d.toLocaleDateString(undefined, {month: 'short', day: 'numeric', hour: 'numeric'});
+        return d.toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: '2-digit'});
     }
 
     function fmtDateTime(epoch) {
-        // undefined locale => the browser's locale; explicit options for a clean, complete format.
         return new Date(epoch * 1000).toLocaleString(undefined, {
             year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
     }
 
     function fmtPrice(v, currency) {
-        const n = Math.round(v * 100) / 100;
-        return (currency || '') + (Number.isInteger(n) ? n : n.toFixed(2));
+        if (v === null || v === undefined || !Number.isFinite(Number(v))) return '—';
+        const amount = Number(v);
+        const iso = (currency || '').toUpperCase();
+        try {
+            if (/^[A-Z]{3}$/.test(iso)) return new Intl.NumberFormat(undefined, {
+                style: 'currency', currency: iso, minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        } catch (e) { /* Unknown currencies fall back to plain numbers. */ }
+        return (currency ? currency + ' ' : '') + amount.toLocaleString(undefined, {
+            minimumFractionDigits: 2, maximumFractionDigits: 2
+        });
     }
 
     function downsampleObservations(series, target) {
@@ -89,179 +99,144 @@
     }
 
     function draw($container, series, currency, i18n, summary, height) {
-        height = height || HEIGHT;
-        // Only points that actually have a price can sit on the line.
-        const data = (series || []).filter(p => p.price !== null && p.price !== undefined);
-        if (data.length < 1) {
-            $container.html($('<p class="pure-form-message-inline"></p>').text(i18n.no_data));
-            return;
-        }
-
-        const width = Math.max($container.width() || 0, 320);
-        const innerH = height - PAD.top - PAD.bottom;
-
-        const prices = data.map(p => p.price);
-        let dataMin = Math.min.apply(null, prices), dataMax = Math.max.apply(null, prices);
-        if (dataMin === dataMax) { dataMin -= 1; dataMax += 1; }
-        // Pad the value domain ~10% top & bottom so the (smoothed, possibly overshooting) line
-        // and the min/max labels sit inside the plot area instead of being clipped at the edges.
-        const vpad = (dataMax - dataMin) * 0.1;
-        const domMin = dataMin - vpad, domMax = dataMax + vpad, range = domMax - domMin;
-
-        const ticks = [dataMax, (dataMin + dataMax) / 2, dataMin];
-
-        // Widen the left gutter to fit the price labels (e.g. "CZK12.34") so a long currency
-        // prefix isn't clipped at the SVG's left edge. ~7px/char + padding.
-        const maxLabelChars = Math.max.apply(null, ticks.map(v => fmtPrice(v, currency).length));
-        const padLeft = Math.max(PAD.left, maxLabelChars * 7 + 14);
-
-        const innerW = width - padLeft - PAD.right;
-        // Downsample the full observation series, retaining nulls so missing prices
-        // break the line; use timestamps rather than equally-spaced point indices.
-        const drawData = downsampleObservations(series || [], Math.max(60, Math.min(300, Math.floor(innerW / 3))));
-        const firstTime = (series || [])[0].timestamp;
-        const lastTime = (series || [])[series.length - 1].timestamp;
-        const x = p => padLeft + (p.timestamp - firstTime) / (lastTime - firstTime || 1) * innerW;
-        const y = price => PAD.top + (1 - (price - domMin) / range) * innerH;
-        const pts = drawData.filter(p => p.price !== null && p.price !== undefined)
-            .map(p => ({ x: x(p), y: y(p.price), d: p }));
-
-        // Size the SVG in real pixels at the measured width (no viewBox => no CSS rescaling).
-        const svg = el("svg", { width: width, height: height, role: "img" });
-
-        // Y axis: max / mid / min gridlines + price labels.
-        ticks.forEach(price => {
-            const yy = y(price);
-            svg.appendChild(el('line', { class: 'rg-axis', x1: padLeft, y1: yy, x2: width - PAD.right, y2: yy, opacity: price === dataMin ? 0.6 : 0.15 }));
-            const t = el('text', { class: 'rg-label', x: padLeft - 8, y: yy + 4, 'text-anchor': 'end' });
-            t.textContent = fmtPrice(price, currency);
-            svg.appendChild(t);
+        const observations = (series || []).filter(p => p && Number.isFinite(Number(p.timestamp)))
+            .slice().sort((a, b) => a.timestamp - b.timestamp);
+        const valid = observations.filter(p => p.price !== null && p.price !== undefined && Number.isFinite(Number(p.price)));
+        const prices = valid.map(p => Number(p.price));
+        const count = observations.length;
+        const latest = valid.length ? valid[valid.length - 1] : null;
+        const lowest = valid.length ? prices.reduce((a, b) => Math.min(a, b), Infinity) : null;
+        const highest = valid.length ? prices.reduce((a, b) => Math.max(a, b), -Infinity) : null;
+        const average = valid.length ? prices.reduce((a, b) => a + b, 0) / prices.length : null;
+        const $panel = $('<div class="rg-panel"></div>');
+        const $header = $('<div class="rg-summary"></div>');
+        [
+            [i18n.latest_price || 'Latest valid', latest ? fmtPrice(latest.price, latest.currency || currency) : '—'],
+            [i18n.lowest_price || 'Lowest', fmtPrice(lowest, currency)],
+            [i18n.highest_price || 'Highest', fmtPrice(highest, currency)]
+        ].forEach(([label, value]) => {
+            const $item = $('<div class="rg-summary-item"></div>');
+            $item.append($('<span class="rg-summary-label"></span>').text(label));
+            $item.append($('<strong class="rg-summary-value"></strong>').text(value));
+            $header.append($item);
         });
+        $panel.append($header);
 
-        // Analyser overlays (Google-Flights style): a "typical range" band (p25-p75) behind the
-        // line + a dashed average line. Drawn before the data line so they sit behind it.
-        const showOverlays = summary && summary.count >= OVERLAY_MIN_POINTS;
-        if (showOverlays) {
-            const yTop = y(summary.p75), yBot = y(summary.p25);
-            svg.appendChild(el('rect', {
-                class: 'rg-band', x: padLeft, y: Math.min(yTop, yBot),
-                width: Math.max(0, width - PAD.right - padLeft), height: Math.abs(yBot - yTop)
-            }));
-            const yAvg = y(summary.avg);
-            svg.appendChild(el('line', {
-                class: 'rg-avg-line', x1: padLeft, y1: yAvg, x2: width - PAD.right, y2: yAvg,
-                'stroke-dasharray': '4 4'
-            }));
-            const at = el('text', { class: 'rg-label rg-avg-text', x: width - PAD.right, y: yAvg - 4, 'text-anchor': 'end' });
-            at.textContent = i18n.avg_label || 'avg';
-            svg.appendChild(at);
-        }
-
-        // A step line respects discrete retail prices. Null observations terminate
-        // the previous segment and start a new one after data becomes available.
-        let path = '';
-        let previous = null;
-        drawData.forEach(point => {
-            if (point.price === null || point.price === undefined) {
-                previous = null;
-                return;
-            }
-            if (previous && point.currency && previous.currency && point.currency !== previous.currency) {
-                previous = null; // never join prices expressed in different currencies
-            }
-            const xx = x(point), yy = y(point.price);
-            if (!previous) path += ` M ${xx.toFixed(1)} ${yy.toFixed(1)}`;
-            else path += ` H ${xx.toFixed(1)} V ${yy.toFixed(1)}`;
-            previous = point;
-        });
-        svg.appendChild(el('path', {
-            class: 'rg-line', d: path.trim(), fill: 'none',
-            'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
-        }));
-
-        // Dots, coloured by each point's own stock state (green = in stock, red = out of stock).
-        // Sized to match the legend swatch (~9px) with a thin surface-coloured ring so they stand
-        // out from the line instead of blending into it.
-        pts.forEach(p => {
-            svg.appendChild(el('circle', {
-                class: 'rg-dot', cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 4.5, fill: stockColor(p.d.in_stock)
-            }));
-        });
-
-        // Calendar/time axis is based on real timestamps, including null-price
-        // observations and single-price histories (no divide-by-zero).
-        const fitLabels = Math.max(2, Math.min(MAX_X_LABELS, Math.floor(innerW / 64)));
-        for (let i = 0; i < fitLabels; i++) {
-            const frac = i / (fitLabels - 1);
-            const when = firstTime + (lastTime - firstTime) * frac;
-            const anchor = i === 0 ? 'start' : (i === fitLabels - 1 ? 'end' : 'middle');
-            const t = el('text', {
-                class: 'rg-label', x: (padLeft + innerW * frac).toFixed(1),
-                y: height - 10, 'text-anchor': anchor
+        if (valid.length < 2) {
+            const $empty = $('<div class="rg-empty"></div>');
+            $empty.append($('<span class="rg-empty-icon" aria-hidden="true">▥</span>'));
+            $empty.append($('<strong></strong>').text(valid.length === 1 ?
+                (i18n.one_record || 'Only one price record available') :
+                (i18n.no_data || 'No price data available yet')));
+            $empty.append($('<span></span>').text(valid.length === 1 ?
+                (i18n.more_checks || 'A price trend will appear after another valid price check.') :
+                (i18n.waiting_price || 'Price history will appear once valid prices are recorded.')));
+            if (latest) $empty.append($('<div class="rg-empty-record"></div>')
+                .append($('<span></span>').text(fmtDateTime(latest.timestamp)))
+                .append($('<strong></strong>').text(fmtPrice(latest.price, latest.currency || currency))));
+            $panel.append($empty);
+        } else {
+            const plotHeight = height || HEIGHT;
+            const width = Math.max($container.width() || 0, 320);
+            const span = Math.max(0, observations[observations.length - 1].timestamp - observations[0].timestamp);
+            const minPrice = lowest, maxPrice = highest;
+            // Keep tiny price movements from looking like dramatic crashes.
+            const minDomainSpan = Math.max(1, Math.abs((minPrice + maxPrice) / 2) * 0.02);
+            const domainSpan = Math.max(maxPrice - minPrice, minDomainSpan);
+            const center = (maxPrice + minPrice) / 2;
+            const domainMin = center - domainSpan * 0.6;
+            const domainMax = center + domainSpan * 0.6;
+            const tickValues = [domainMax, center, domainMin];
+            const left = Math.max(PAD.left, ...tickValues.map(v => fmtPrice(v, currency).length * 7 + 16));
+            const innerW = Math.max(1, width - left - PAD.right);
+            const innerH = plotHeight - PAD.top - PAD.bottom;
+            const firstTime = observations[0].timestamp;
+            const x = p => left + (span ? (p.timestamp - firstTime) / span : 0.5) * innerW;
+            const y = p => PAD.top + (domainMax - p) / (domainMax - domainMin) * innerH;
+            const chart = el('svg', {width: width, height: plotHeight, role: 'img',
+                'aria-label': 'Price history over time'});
+            const points = downsampleObservations(observations, Math.max(70, Math.min(250, Math.floor(innerW / 3))));
+            tickValues.forEach(tick => {
+                const yy = y(tick);
+                chart.appendChild(el('line', {class: 'rg-axis', x1: left, y1: yy, x2: width - PAD.right, y2: yy}));
+                const label = el('text', {class: 'rg-label', x: left - 9, y: yy + 4, 'text-anchor': 'end'});
+                label.textContent = fmtPrice(tick, currency);
+                chart.appendChild(label);
             });
-            t.textContent = fmtAxisDate(when);
-            svg.appendChild(t);
-        }
-
-        $container.empty().append(svg);
-
-        // --- Hover tooltip: a generous transparent hit-circle per point shows price + date ---
-        const $tip = $('<div class="rg-tooltip"></div>').appendTo($container);
-        pts.forEach(p => {
-            const state = p.d.in_stock === null ? '' :
-                (p.d.in_stock ? ' &middot; ' + i18n.in_stock : ' &middot; ' + i18n.out_of_stock);
-            const hit = el('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 14, fill: 'transparent', style: 'cursor: pointer;' });
-            svg.appendChild(hit);
-            $(hit).on('mouseenter mousemove', function (e) {
-                const r = $container[0].getBoundingClientRect();
-                const cx = e.clientX - r.left, cy = e.clientY - r.top;
-                $tip.html('<strong>' + fmtPrice(p.d.price, p.d.currency || currency) + '</strong>' + state + '<br>' + fmtDateTime(p.d.timestamp)).show();
-                const tipW = $tip.outerWidth(), GAP = 14;
-                // Default to the right of the cursor; flip left if it would overflow the right edge.
-                let left = cx + GAP;
-                if (left + tipW > $container.width()) left = cx - GAP - tipW;
-                if (left < 0) left = 0;
-                $tip.css({ left: left + 'px', top: cy + 'px' });
-            }).on('mouseleave', function () {
-                $tip.hide();
-            });
-        });
-
-        // Legend explaining the dot colours (the line is neutral; only dots indicate stock).
-        const $legend = $('<div class="rg-legend"></div>');
-        $legend.append($('<span class="rg-legend-item"></span>')
-            .append('<span class="rg-legend-dot in"></span>').append(document.createTextNode(' ' + (i18n.in_stock || 'In stock'))));
-        $legend.append($('<span class="rg-legend-item"></span>')
-            .append('<span class="rg-legend-dot out"></span>').append(document.createTextNode(' ' + (i18n.out_of_stock || 'Out of stock'))));
-        $container.append($legend);
-
-        // Header row above the graph: status pill (LOW / TYPICAL / HIGH, left) and the summary
-        // stats (right), on one line. The pill sub-text is phrased per status so it never reads
-        // awkwardly (e.g. "cheaper than 0%" when high).
-        const $header = $('<div class="rg-header"></div>');
-
-        let $pill = $('<span></span>');  // placeholder keeps the stats pushed to the right
-        if (showOverlays) {
-            $pill = $('<div class="rg-status rg-status-' + summary.status + '"></div>');
-            $pill.append($('<span class="rg-status-label"></span>').text(i18n['price_' + summary.status] || ''));
-            let sub;
-            if (summary.status === 'low') {
-                sub = (i18n.cheaper_than || '').replace('{pct}', summary.cheaper_than_pct + '%');
-            } else if (summary.status === 'high') {
-                sub = (i18n.pricier_than || '').replace('{pct}', summary.pricier_than_pct + '%');
-            } else {
-                sub = i18n.typical_note || '';
+            if (summary && summary.count >= OVERLAY_MIN_POINTS &&
+                    Number.isFinite(Number(summary.p25)) && Number.isFinite(Number(summary.p75))) {
+                const top = y(Math.max(summary.p25, summary.p75));
+                const bottom = y(Math.min(summary.p25, summary.p75));
+                chart.appendChild(el('rect', {class: 'rg-band', x: left, y: top,
+                    width: innerW, height: Math.max(0, bottom - top)}));
             }
-            if (sub) $pill.append($('<span class="rg-status-sub"></span>').text(sub));
+            let path = '';
+            let previous = null;
+            const visibleDots = [];
+            points.forEach(p => {
+                if (p.price === null || p.price === undefined || !Number.isFinite(Number(p.price))) {
+                    previous = null;
+                    return;
+                }
+                if (previous && p.currency && previous.currency && p.currency !== previous.currency) previous = null;
+                const xx = x(p), yy = y(Number(p.price));
+                path += previous ? ` H ${xx.toFixed(1)} V ${yy.toFixed(1)}` : ` M ${xx.toFixed(1)} ${yy.toFixed(1)}`;
+                previous = p;
+                visibleDots.push({x: xx, y: yy, point: p});
+            });
+            chart.appendChild(el('path', {class: 'rg-line', d: path.trim(), fill: 'none',
+                'stroke-width': 2.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'}));
+            visibleDots.forEach(({x: xx, y: yy, point}) => {
+                chart.appendChild(el('circle', {class: 'rg-dot', cx: xx, cy: yy, r: 3.5,
+                    fill: stockColor(point.in_stock)}));
+            });
+            // Use observed times and suppress repeated labels when checks occur on one day.
+            const labelCount = span === 0 ? 1 : Math.min(MAX_X_LABELS, Math.max(2, Math.floor(innerW / 135)));
+            let previousLabel = '';
+            for (let i = 0; i < labelCount; i++) {
+                const time = firstTime + span * (labelCount === 1 ? 0.5 : i / (labelCount - 1));
+                const labelText = fmtAxisDate(time, span);
+                if (labelText === previousLabel) continue;
+                previousLabel = labelText;
+                const t = el('text', {class: 'rg-label', x: left + innerW *
+                    (labelCount === 1 ? 0.5 : i / (labelCount - 1)), y: plotHeight - 9,
+                    'text-anchor': i === 0 ? 'start' : i === labelCount - 1 ? 'end' : 'middle'});
+                t.textContent = labelText;
+                chart.appendChild(t);
+            }
+            const $plot = $('<div class="rg-plot"></div>').append(chart);
+            const $tip = $('<div class="rg-tooltip" role="tooltip"></div>').appendTo($plot);
+            visibleDots.forEach(({x: xx, y: yy, point}) => {
+                const hit = el('circle', {cx: xx, cy: yy, r: 13, fill: 'transparent',
+                    style: 'cursor: crosshair;'});
+                chart.appendChild(hit);
+                $(hit).on('mouseenter mousemove', function (event) {
+                    $tip.empty().append($('<strong></strong>').text(fmtPrice(point.price, point.currency || currency)))
+                        .append($('<span></span>').text(fmtDateTime(point.timestamp) +
+                            (point.in_stock === null || point.in_stock === undefined ? '' :
+                            ' · ' + (point.in_stock ? i18n.in_stock : i18n.out_of_stock))));
+                    $tip.show();
+                    const bounds = $plot[0].getBoundingClientRect();
+                    let atX = event.clientX - bounds.left + 12;
+                    if (atX + $tip.outerWidth() > $plot.width()) atX = Math.max(0, atX - $tip.outerWidth() - 24);
+                    $tip.css({left: atX + 'px', top: Math.max(0, event.clientY - bounds.top - 45) + 'px'});
+                }).on('mouseleave', () => $tip.hide());
+            });
+            $panel.append($plot);
+            const $foot = $('<div class="rg-footer"></div>');
+            $foot.append($('<span></span>').text((i18n.avg_price || 'Average price') + ': ' + fmtPrice(average, currency)));
+            const $meta = $('<span class="rg-footer-meta"></span>');
+            $meta.append($('<span></span>').text(count + ' ' + (i18n.checks || 'checks')));
+            const $legend = $('<span class="rg-footer-legend"></span>');
+            $legend.append($('<span class="rg-mini-dot rg-mini-in"></span>'));
+            $legend.append($('<span></span>').text(i18n.in_stock || 'In stock'));
+            $legend.append($('<span class="rg-mini-dot rg-mini-out"></span>'));
+            $legend.append($('<span></span>').text(i18n.out_of_stock || 'Out of stock'));
+            $meta.append($legend);
+            $foot.append($meta);
+            $panel.append($foot);
         }
-
-        const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-        const $stats = $('<div class="rg-stats"></div>')
-            .text((i18n.avg_price || 'Average price') + ' ' + fmtPrice(avgPrice, currency) +
-                  ', ' + (series ? series.length : data.length) + ' ' + (i18n.checks || 'Checks'));
-
-        $header.append($pill).append($stats);
-        $container.prepend($header);
+        $container.empty().append($panel);
     }
 
     function buildTable($table, series, currency, i18n) {
@@ -323,7 +298,8 @@
     window.renderRestockGraph = function (container, series, currency, i18n, summary, height) {
         const $c = $(container);
         if (!$c.length) return;
-        const merged = $.extend({}, DEFAULT_I18N, i18n || {});
+        const merged = $.extend({}, DEFAULT_I18N);
+        Object.entries(i18n || {}).forEach(([key, value]) => { if (value !== undefined && value !== null) merged[key] = value; });
         // Seed lastWidth to the current width so the immediate ResizeObserver callback (which
         // fires once on observe()) doesn't trigger a redundant redraw.
         $c.addClass('js-restock-graph').data('rg', {
@@ -342,13 +318,17 @@
         const $container = $('#restock-graph');
         if (!$container.length || !window.restock_data_url) return;
         const i18n = $.extend({}, DEFAULT_I18N, window.restock_i18n || {});
+        let requestId = 0;
         function loadRange() {
         const range = $('#restock-history-range').val() || '30d';
+        const current = ++requestId;
         $.getJSON(window.restock_data_url, {range: range}).done(function (data) {
+            if (current !== requestId) return;
             const series = (data && data.series) || [];
             window.renderRestockGraph($container, series, (data && data.currency) || '', i18n, (data && data.summary) || null);
             buildTable($('#restock-history-table'), series, (data && data.currency) || '', i18n);
         }).fail(function () {
+            if (current !== requestId) return;
             $container.html($('<p class="pure-form-message-inline"></p>').text(i18n.load_error));
         });
         }

@@ -213,3 +213,53 @@ html[data-ai-mode="true"] body.llm-configured tr.processor-restock_diff {
 .restock-range-select { background: var(--color-background); color: var(--color-text); border: 1px solid #777; border-radius: 4px; padding: .2rem .45rem; }
 .restock-price-open-history, .restock-stock-open-history { cursor: pointer; }
 .restock-price-open-history:hover, .restock-price-open-history:focus-visible, .restock-stock-open-history:hover, .restock-stock-open-history:focus-visible { outline: 1px solid currentColor; }
+
+/* Compact price history panel: shared by the watchlist and full history page. */
+.restock-inline-row > td {
+  background: var(--color-background, #282d32) !important;
+  color: var(--color-text, #e6e8eb) !important;
+  border-top: 1px solid var(--color-border-table-cell, #555) !important;
+  border-left: 3px solid var(--color-border-table-cell, #555) !important;
+  padding: 12px 16px !important;
+}
+.restock-inline-panel { max-width: 1120px; margin: 0 auto; }
+.restock-inline-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.restock-inline-heading { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.restock-inline-heading strong { font-size: .96rem; font-weight: 700; }
+.restock-inline-caption { color: var(--color-text, inherit); opacity: .62; font-size: .77rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 400px; }
+.restock-inline-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+.restock-inline-history-link { margin: 0 !important; color: var(--color-link, #63ade1); opacity: 1 !important; }
+.restock-range-toolbar { display: flex; align-items: center; gap: 8px; margin: 0; font-size: .78rem; }
+.restock-range-toolbar label { font-size: .78rem; }
+.restock-range-select { border: 1px solid var(--color-border-table-cell, #676767); border-radius: 6px; padding: 5px 9px; font-size: .8rem; background: var(--color-background, #292929); color: var(--color-text, #eee); }
+#restock-graph { max-width: 1120px; margin: 12px auto 0; }
+.js-restock-graph .rg-panel { width: 100%; color: var(--color-text, inherit); }
+.js-restock-graph .rg-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.js-restock-graph .rg-summary-item { min-width: 0; padding: 10px 13px; border-radius: 8px; border: 1px solid var(--color-border-table-cell, rgba(128,128,128,.22)); background: var(--color-background, rgba(128,128,128,.06)); }
+.js-restock-graph .rg-summary-label { display: block; opacity: .66; font-size: .74rem; margin-bottom: 4px; }
+.js-restock-graph .rg-summary-value { display: block; font-size: clamp(.92rem, 1.5vw, 1.13rem); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.js-restock-graph .rg-empty { min-height: 100px; border: 1px dashed var(--color-border-table-cell, rgba(128,128,128,.3)); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 16px; text-align: center; background: var(--color-background, rgba(128,128,128,.035)); }
+.js-restock-graph .rg-empty-icon { opacity: .55; font-size: 1.5rem; line-height: 1; }
+.js-restock-graph .rg-empty > span:not(.rg-empty-icon) { opacity: .65; font-size: .79rem; }
+.js-restock-graph .rg-empty-record { display: flex; justify-content: space-between; gap: 18px; width: 100%; max-width: 430px; margin-top: 5px; padding: 9px 12px; border: 1px solid var(--color-border-table-cell, rgba(128,128,128,.3)); border-radius: 6px; font-size: .83rem; }
+.js-restock-graph .rg-plot { position: relative; border: 1px solid var(--color-border-table-cell, rgba(128,128,128,.2)); border-radius: 8px; padding: 4px 2px; overflow: hidden; }
+.js-restock-graph .rg-plot svg { display: block; max-width: 100%; }
+.js-restock-graph .rg-axis { stroke: var(--color-border-table-cell, rgba(128,128,128,.26)); stroke-width: 1; stroke-dasharray: 3 5; }
+.js-restock-graph .rg-label { fill: currentColor; font-size: 11px; opacity: .61; }
+.js-restock-graph .rg-line { stroke: #28a46d; opacity: 1; }
+.js-restock-graph .rg-dot { stroke: var(--color-background, #222); stroke-width: 1; }
+.js-restock-graph .rg-footer { display: flex; gap: 12px; justify-content: space-between; margin-top: 10px; font-size: .78rem; opacity: .72; }
+.js-restock-graph .rg-tooltip { background: var(--color-background, #272727); color: var(--color-text, #eee); border: 1px solid var(--color-border-table-cell, #777); border-radius: 6px; padding: 7px 10px; transform: none; white-space: nowrap; line-height: 1.4; box-shadow: 0 4px 12px #0003; }
+.js-restock-graph .rg-tooltip span { display: block; font-size: .73rem; opacity: .8; }
+@media (max-width: 650px) {
+  .js-restock-graph .rg-summary { gap: 5px; }
+  .js-restock-graph .rg-summary-item { padding: 8px 7px; }
+  .js-restock-graph .rg-summary-value { font-size: .82rem; }
+  .restock-inline-caption { max-width: 150px; }
+  .restock-inline-row > td { padding: 10px !important; }
+}
+
+.js-restock-graph .rg-footer-meta, .js-restock-graph .rg-footer-legend { display: inline-flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.js-restock-graph .rg-mini-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.js-restock-graph .rg-mini-in { background: #1fa463; }
+.js-restock-graph .rg-mini-out { background: #e74c3c; }
