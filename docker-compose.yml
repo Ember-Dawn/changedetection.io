@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile.cloakbrowser
     image: changedetection-cloakbrowser:local
-    container_name: changedetection-cloakbrowser
+    container_name: changedetection
     restart: unless-stopped
     init: true
     shm_size: "1gb"
