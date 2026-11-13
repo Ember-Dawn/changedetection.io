@@ -20,12 +20,12 @@
       "selectors": [
         {
           "type": "css",
-          "value": "#corePriceDisplay_desktop_feature_div .a-price.apex-pricetopay-value:not(.priceToPay) > .a-offscreen",
+          "value": "#newAccordionRow_0 .a-price.apex-pricetopay-value:not(.priceToPay) > .a-offscreen",
           "extract": "text"
         },
         {
           "type": "css",
-          "value": "#buybox .a-price.apex-pricetopay-value:not(.priceToPay) > .a-offscreen",
+          "value": "#gsod_singleOfferDisplay_Desktop .a-price.apex-pricetopay-value:not(.priceToPay) > .a-offscreen",
           "extract": "text"
         }
       ]
@@ -52,40 +52,83 @@
     },
     "shipping": {
       "condition": {
-        "op": "all",
+        "op": "coalesce",
         "items": [
           {
-            "op": "exists",
-            "selector": {
-              "type": "css",
-              "value": "#availability .primary-availability-message"
-            },
-            "guard": {
-              "type": "css",
-              "value": "#outOfStock, #availability .primary-availability-message"
-            }
+            "op": "all",
+            "items": [
+              {
+                "op": "exists",
+                "selector": {
+                  "type": "css",
+                  "value": "#newAccordionRow_0 #availability .primary-availability-message"
+                },
+                "guard": {
+                  "type": "css",
+                  "value": "#newAccordionRow_0 #outOfStock, #newAccordionRow_0 #availability .primary-availability-message"
+                }
+              },
+              {
+                "op": "exists",
+                "selector": {
+                  "type": "css",
+                  "value": "#newAccordionRow_0 #add-to-cart-button"
+                },
+                "guard": {
+                  "type": "css",
+                  "value": "#newAccordionRow_0 #outOfStock, #newAccordionRow_0 #availability .primary-availability-message"
+                }
+              },
+              {
+                "op": "exists",
+                "selector": {
+                  "type": "css",
+                  "value": "#newAccordionRow_0 #deliveryBlockMessage"
+                },
+                "guard": {
+                  "type": "css",
+                  "value": "#newAccordionRow_0 #outOfStock, #newAccordionRow_0 #availability .primary-availability-message"
+                }
+              }
+            ]
           },
           {
-            "op": "exists",
-            "selector": {
-              "type": "css",
-              "value": "#buybox #add-to-cart-button"
-            },
-            "guard": {
-              "type": "css",
-              "value": "#outOfStock, #buybox #add-to-cart-button"
-            }
-          },
-          {
-            "op": "exists",
-            "selector": {
-              "type": "css",
-              "value": "#deliveryBlockMessage"
-            },
-            "guard": {
-              "type": "css",
-              "value": "#outOfStock, #deliveryBlockMessage"
-            }
+            "op": "all",
+            "items": [
+              {
+                "op": "exists",
+                "selector": {
+                  "type": "css",
+                  "value": "#gsod_singleOfferDisplay_Desktop #availability .primary-availability-message"
+                },
+                "guard": {
+                  "type": "css",
+                  "value": "#outOfStock, #gsod_singleOfferDisplay_Desktop #availability .primary-availability-message"
+                }
+              },
+              {
+                "op": "exists",
+                "selector": {
+                  "type": "css",
+                  "value": "#gsod_singleOfferDisplay_Desktop #add-to-cart-button"
+                },
+                "guard": {
+                  "type": "css",
+                  "value": "#outOfStock, #gsod_singleOfferDisplay_Desktop #availability .primary-availability-message"
+                }
+              },
+              {
+                "op": "exists",
+                "selector": {
+                  "type": "css",
+                  "value": "#gsod_singleOfferDisplay_Desktop #deliveryBlockMessage"
+                },
+                "guard": {
+                  "type": "css",
+                  "value": "#outOfStock, #gsod_singleOfferDisplay_Desktop #availability .primary-availability-message"
+                }
+              }
+            ]
           }
         ]
       }
